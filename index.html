@@ -1308,8 +1308,9 @@ function loadAll(){
       tPortVals.forEach(function(r){
         var pid=String(r[0]||'').trim();
         if(pid&amp;&amp;!result.portfolios[pid]){
+          // fallback: Log ไม่มีข้อมูลพอร์ตนี้ → ตั้งชื่อ auto ไว้ก่อน (user เปลี่ยนเองได้)
           var shortName=pid.replace(/^port_/,'').substring(0,7);
-          result.portfolios[pid]={name:'Port-'+shortName,balance:0,fund:''};
+          result.portfolios[pid]={name:'Port-'+shortName,balance:0,fund:'',_autoName:true};
         }
       });
     }
@@ -1321,9 +1322,9 @@ function loadAll(){
       tVals.forEach(function(r){
         var pid=String(r[0]||'').trim();
         if(pid&amp;&amp;!result.portfolios[pid]){
-          // สร้างชื่อจาก ID: port_1775435155523 → Port 1775435
+          // fallback: Log ไม่มีบันทึก → ตั้งชื่อ auto ไว้ก่อน (user เปลี่ยนชื่อเองได้จาก UI)
           var shortName=pid.replace(/^port_/,'').substring(0,7);
-          result.portfolios[pid]={name:'Port '+shortName,balance:0,fund:''};
+          result.portfolios[pid]={name:'Port '+shortName,balance:0,fund:'',_autoName:true};
         }
       });
     }
@@ -2212,16 +2213,19 @@ function syncFromSheet(onDone){
         var merged = {};
         Object.keys(d.portfolios).forEach(function(id){
           var p = d.portfolios[id];
-          // ถ้าชื่อยังเป็น ID ยาว (port_177...) ให้ตั้งชื่อสั้น
-          if(!p.name || p.name === id || p.name.match(/^Port-?\d{4,}/)){
-            if(id === 'default') p.name = 'Default';
-            else p.name = 'Port ' + id.replace(/^port_/,'').substring(0,6);
-          }
-          // คงชื่อที่ตั้งเองไว้ถ้ามี
           var localP = S.portfolios[id];
-          if(localP && localP.name && !localP.name.match(/^Port[-\s]?\d{4,}/) && localP.name !== 'Default'){
-            p.name = localP.name;
+          // ตรวจว่าชื่อจาก Sheet เป็น auto-generated หรือเปล่า
+          var sheetNameIsAuto = p._autoName || !p.name || p.name === id || /^Port[-\s]?\d{4,}/.test(p.name);
+          if(sheetNameIsAuto){
+            // Sheet ไม่มีชื่อที่ตั้งเอง → ลอง local ก่อน
+            if(localP && localP.name && !/^Port[-\s]?\d{4,}/.test(localP.name) && localP.name !== id){
+              p.name = localP.name; // ใช้ชื่อที่เคยตั้งใน browser
+            } else {
+              p.name = (id === 'default') ? 'Default' : ('Port ' + id.replace(/^port_/,'').substring(0,6));
+            }
           }
+          // ถ้า Sheet Log มีชื่อจริง → ชนะ local เสมอ (sync กลับมาถูกต้อง)
+          delete p._autoName;
           merged[id] = p;
         });
         if(!merged['default']) merged['default'] = {name:'Default',balance:0,fund:''};
@@ -2527,10 +2531,10 @@ function renderPortfolioBar(){
     try{portTrades=JSON.parse(localStorage.getItem('port_'+id+'_t')||'{}');}catch(e){}
     var bal=Object.values(portTrades).reduce(function(sum,arr){return sum+arr.reduce(function(s,t){return s+(parseFloat(t.pnl)||0);},0);},0);
     var balStr=(bal>=0?'+':'')+'$'+Math.abs(bal).toFixed(2);
-    html+='<div class="port-tab'+(isActive?' active':'')+'" data-port-id="'+id+'" onclick="switchPortfolio(\''+id+'\')" title="คลิกเพื่อเปลี่ยนพอร์ต" style="position:relative;padding-right:22px;">'
-      +'<span>📁 '+escHtml(p.name)+(p.fund?' <span style="font-size:9px;color:var(--text-muted);">['+escHtml(p.fund)+']</span>':'')+'</span>'
+    html+='<div class="port-tab'+(isActive?' active':'')+'" data-port-id="'+id+'" onclick="switchPortfolio(\''+id+'\')" ondblclick="event.stopPropagation();inlineRenamePort(\''+id+'\')" title="คลิก=เปลี่ยนพอร์ต | ดับเบิลคลิก=เปลี่ยนชื่อ" style="position:relative;padding-right:22px;">'
+      +'<span id="port-name-span-'+id+'">📁 '+escHtml(p.name)+(p.fund?' <span style="font-size:9px;color:var(--text-muted);">['+escHtml(p.fund)+']</span>':'')+'</span>'
       +'<span class="port-bal" id="port-bal-'+id+'">'+balStr+'</span>'
-      +'<button onclick="event.stopPropagation();editPortfolio(\''+id+'\')" title="แก้ไขพอร์ต" style="position:absolute;right:3px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);font-size:10px;cursor:pointer;padding:1px 3px;border-radius:3px;line-height:1;transition:color .15s;" onmouseover="this.style.color=\'var(--accent)\'" onmouseout="this.style.color=\'var(--text-muted)\'">✎</button>'
+      +'<button onclick="event.stopPropagation();editPortfolio(\''+id+'\')" title="แก้ไขพอร์ต (ชื่อ/Balance/กองทุน)" style="position:absolute;right:3px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);font-size:10px;cursor:pointer;padding:1px 3px;border-radius:3px;line-height:1;transition:color .15s;" onmouseover="this.style.color=\'var(--accent)\'" onmouseout="this.style.color=\'var(--text-muted)\'">✎</button>'
       +'</div>';
   });
   html+='<button class="port-add-btn" onclick="addPortfolio()">+ พอร์ต</button>';
@@ -2630,8 +2634,12 @@ function confirmEditPortfolio(id,btn){
   btn.closest('div[style*=fixed]').remove();
   renderPortfolioBar();
   localStorage.setItem('tj_ports',JSON.stringify(S.portfolios));
-  showToast('✅ อัปเดตพอร์ตแล้ว','success');
-  if(S.scriptUrl) sendSheet('saveSettings',{key:'portfolio_edit',value:'id='+id+' name='+name+' balance='+(S.portfolios[id].balance||0)+' fund='+(S.portfolios[id].fund||'-')});
+  var saveMsg='✅ อัปเดตพอร์ตแล้ว';
+  if(S.scriptUrl){
+    sendSheet('saveSettings',{key:'portfolio_edit',value:'id='+id+' name='+name+' balance='+(S.portfolios[id].balance||0)+' fund:'+(S.portfolios[id].fund||'-')});
+    saveMsg='✅ อัปเดต + บันทึกลง Sheet แล้ว';
+  }
+  showToast(saveMsg,'success');
 }
 function deletePortfolio(id,btn){
   if(!confirm('ลบพอร์ตนี้? ข้อมูลออเดอร์ในพอร์ตนี้จะหายไปด้วย')) return;
@@ -2652,6 +2660,38 @@ function deletePortfolio(id,btn){
   localStorage.setItem('tj_ports',JSON.stringify(S.portfolios));
   if(S.scriptUrl) sendSheet('deletePortfolio',{portfolio:id});
   showToast('🗑 ลบพอร์ตแล้ว','success');
+}
+
+// ── INLINE RENAME PORT (double-click on tab) ───────────────────
+function inlineRenamePort(id){
+  var p=S.portfolios[id];if(!p) return;
+  var span=document.getElementById('port-name-span-'+id);if(!span) return;
+  var oldName=p.name;
+  // สร้าง input ที่ตำแหน่งเดิม
+  var inp=document.createElement('input');
+  inp.value=oldName;
+  inp.style.cssText='width:100px;background:var(--bg-input);border:1px solid var(--accent);color:var(--text-primary);border-radius:4px;padding:1px 5px;font-size:11px;font-family:var(--font-main);outline:none;';
+  span.innerHTML='📁 ';
+  span.appendChild(inp);
+  inp.focus();inp.select();
+  function doSave(){
+    var newName=(inp.value||'').trim();
+    if(!newName||newName===oldName){renderPortfolioBar();return;}
+    S.portfolios[id].name=newName;
+    localStorage.setItem('tj_ports',JSON.stringify(S.portfolios));
+    renderPortfolioBar();
+    showToast('✅ เปลี่ยนชื่อพอร์ตเป็น "'+newName+'" แล้ว','success');
+    if(S.scriptUrl){
+      sendSheet('saveSettings',{key:'portfolio_edit',value:'id='+id+' name='+newName+' balance='+(p.balance||0)+' fund='+(p.fund||'-')});
+      showToast('📤 บันทึกชื่อลง Sheet แล้ว','success');
+    }
+  }
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){e.preventDefault();doSave();}
+    if(e.key==='Escape'){renderPortfolioBar();}
+  });
+  inp.addEventListener('blur',function(){doSave();});
+  inp.addEventListener('click',function(e){e.stopPropagation();});
 }
 
 // ── FEES & COMMISSION CONFIG ───────────────────────────────────
