@@ -1201,7 +1201,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
     <input class="settings-input" id="sheetUrl" placeholder="https://script.google.com/macros/s/.../exec">
     <div style="margin-top:10px;"><div class="field-label" style="margin-bottom:5px;">📋 Code:</div>
     <div class="code-block">/* =========================================
-   TradeLog Pro — Google Apps Script v5.0
+   TradeLog Pro+ — Google Apps Script v5.0
    รองรับ: Portfolio | Data Mode Trades
            Candle | Mode | TF | Trend
            Zone | Confirm | Sessions
@@ -1250,7 +1250,75 @@ function doGet(e){
   var p=e&amp;&amp;e.parameter;
   if(p&amp;&amp;p.action==='loadAssets')     return _json(loadAssets());
   if(p&amp;&amp;p.action==='loadPortfolios') return _json(loadPortfolios());
+  if(p&amp;&amp;p.action==='loadAll')         return _json(loadAll());
   return _json({status:'ready',version:'5.0',time:new Date().toISOString()});
+}
+function loadAll(){
+  try{
+    var ss=SpreadsheetApp.getActiveSpreadsheet();
+    var result={status:'ok',portfolios:{},trades:[],sessions:[],dataTrades:[]};
+
+    // ── Portfolios from Log ──
+    var logSh=ss.getSheetByName(SHEET.LOG);
+    if(logSh&amp;&amp;logSh.getLastRow()&gt;1){
+      var logRows=logSh.getRange(2,1,logSh.getLastRow()-1,6).getValues();
+      var ports={};
+      logRows.forEach(function(r){
+        var action=String(r[1]||'');
+        var detail=String(r[2]||'');
+        if(action==='saveSettings'){
+          var addM=detail.match(/^portfolio_add\s+id=(\S+)\s+name=([^\s]+(?:\s+[^\s]+)*?)\s+fund=(\S*)/);
+          var editM=detail.match(/^portfolio_edit\s+id=(\S+)\s+name=([^\s]+(?:\s+[^\s]+)*?)\s+balance=([\d.]+)\s+fund=(\S*)/);
+          if(addM){ var id=addM[1]; if(!ports[id]) ports[id]={name:addM[2],balance:0,fund:addM[3]==='-'?'':addM[3]}; }
+          if(editM){ var id=editM[1]; ports[id]={name:editM[2],balance:parseFloat(editM[3])||0,fund:editM[4]==='-'?'':editM[4]}; }
+        }
+      });
+      if(!ports['default']) ports['default']={name:'Default',balance:0,fund:''};
+      result.portfolios=ports;
+    }
+
+    // ── Trades ──
+    var tSh=ss.getSheetByName(SHEET.TRADES);
+    if(tSh&amp;&amp;tSh.getLastRow()&gt;1){
+      var tHdr=tSh.getRange(1,1,1,tSh.getLastColumn()).getValues()[0];
+      var tRows=tSh.getRange(2,1,tSh.getLastRow()-1,tSh.getLastColumn()).getValues();
+      tRows.forEach(function(r){
+        var obj={};
+        tHdr.forEach(function(h,i){ obj[h]=r[i]; });
+        result.trades.push(obj);
+      });
+    }
+
+    // ── Sessions ──
+    var sesSh=ss.getSheetByName(SHEET.SESSIONS);
+    if(sesSh&amp;&amp;sesSh.getLastRow()&gt;1){
+      var sHdr=sesSh.getRange(1,1,1,sesSh.getLastColumn()).getValues()[0];
+      var sRows=sesSh.getRange(2,1,sesSh.getLastRow()-1,sesSh.getLastColumn()).getValues();
+      sRows.forEach(function(r){
+        var obj={};
+        sHdr.forEach(function(h,i){ obj[h]=r[i]; });
+        result.sessions.push(obj);
+      });
+    }
+
+    // ── DataTrades ──
+    var dtSh=ss.getSheetByName(SHEET.DATA_TRADES);
+    if(dtSh&amp;&amp;dtSh.getLastRow()&gt;1){
+      var dHdr=dtSh.getRange(1,1,1,dtSh.getLastColumn()).getValues()[0];
+      var dRows=dtSh.getRange(2,1,dtSh.getLastRow()-1,dtSh.getLastColumn()).getValues();
+      dRows.forEach(function(r){
+        var obj={};
+        dHdr.forEach(function(h,i){ obj[h]=r[i]; });
+        result.dataTrades.push(obj);
+      });
+    }
+
+    _log('loadAll','trades='+result.trades.length+' sessions='+result.sessions.length+' dataTrades='+result.dataTrades.length+' portfolios='+Object.keys(result.portfolios).length,'','system','ok');
+    return result;
+  }catch(e){
+    _log('loadAll','error='+e.toString(),'','system','error');
+    return {status:'error',msg:e.toString()};
+  }
 }
 
 function loadPortfolios(){
@@ -1667,7 +1735,7 @@ function clearLog(){
   if(sh&amp;&amp;sh.getLastRow()&gt;1) sh.deleteRows(2,sh.getLastRow()-1);
 }</div>
     <button class="btn-sm" style="margin-top:5px;" onclick="copyCode()">📋 Copy</button></div>
-    <div style="margin-top:12px;display:flex;gap:7px;"><button class="btn-primary" onclick="saveSheet()">💾 Save & Test</button><button class="btn-sm" onclick="testSheet()">🔗 Test</button></div>
+    <div style="margin-top:12px;display:flex;gap:7px;flex-wrap:wrap;"><button class="btn-primary" onclick="saveSheet()">💾 Save & Test</button><button class="btn-sm" onclick="testSheet()">🔗 Test</button><button class="btn-sm" onclick="syncFromSheet()" style="border-color:var(--teal);color:var(--teal);">🔄 Sync ดึงข้อมูลจาก Sheet</button></div>
     <div id="sheetRes" style="margin-top:6px;font-size:11px;"></div>
   </div>
 </div>
@@ -1910,31 +1978,163 @@ var MONTHS=['January','February','March','April','May','June','July','August','S
 var MABBR=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 var S={sessions:{},trades:{},scriptUrl:'',keys:{mGem:'gemini-2.5-flash-preview-05-20',mGroq:'llama-4-scout-17b-16e-instruct'},prov:'gemini',provBackup:'groq',viewMonth:new Date(),viewYear:new Date().getFullYear(),emo:'😡',side:'Long',mKey:'',mTrades:[],upB64:null,eqChart:null,eqChartW:null,currentPortfolio:'default',portfolios:{}};
 
-// ── โหลดพอร์ตโฟลิโอจาก Sheet (Log) ──
-function loadPortfoliosFromSheet(){
+// ── ดึงข้อมูลทั้งหมดจาก Sheet มาอัพเดต Browser ──
+function syncFromSheet(onDone){
   if(!S.scriptUrl) return;
-  fetch(S.scriptUrl+'?action=loadPortfolios')
+  showToast('🔄 กำลังดึงข้อมูลจาก Sheet...','success');
+  fetch(S.scriptUrl+'?action=loadAll')
     .then(function(r){return r.json();})
     .then(function(d){
-      if(d.status==='ok' && d.portfolios && Object.keys(d.portfolios).length){
-        // Merge: Sheet เป็น source of truth สำหรับชื่อ/balance/fund
-        // แต่คง portfolio ที่มีอยู่ใน localStorage ด้วย (ถ้า Sheet ไม่มี)
-        var merged={};
-        // ใส่จาก Sheet ก่อน
-        Object.keys(d.portfolios).forEach(function(id){
-          merged[id]=d.portfolios[id];
-        });
-        // คงพอร์ตที่มีใน local แต่ Sheet ไม่รู้จัก (ยังไม่ sync)
-        Object.keys(S.portfolios).forEach(function(id){
-          if(!merged[id]) merged[id]=S.portfolios[id];
-        });
-        S.portfolios=merged;
-        localStorage.setItem('tj_ports',JSON.stringify(S.portfolios));
-        renderPortfolioBar();
-        showToast('📁 โหลดพอร์ตจาก Sheet แล้ว ('+Object.keys(merged).length+' พอร์ต)','success');
+      if(d.status!=='ok') throw new Error(d.msg||'error');
+
+      // ── 1. Portfolios ──
+      if(d.portfolios && Object.keys(d.portfolios).length){
+        // Merge: Sheet wins, คง local ที่ Sheet ไม่รู้จัก
+        var merged = Object.assign({}, S.portfolios, d.portfolios);
+        S.portfolios = merged;
+        localStorage.setItem('tj_ports', JSON.stringify(S.portfolios));
       }
+
+      // ── 2. Trades (Portfolio Mode) ──
+      if(d.trades && d.trades.length){
+        // Group trades by portfolio + date
+        var byPort = {};
+        d.trades.forEach(function(t){
+          var port = t.portfolio || 'default';
+          var date = t.date || '';
+          if(!byPort[port]) byPort[port] = {};
+          if(!byPort[port][date]) byPort[port][date] = [];
+          // Convert sheet row to trade object
+          byPort[port][date].push({
+            id: String(t.id||t.ID||''),
+            date: date,
+            portfolio: port,
+            asset: t.asset||t.Asset||'',
+            side: t.side||t.Side||'Long',
+            lots: parseFloat(t.lots||t.Lots)||0,
+            entry: parseFloat(t.entry||t.Entry)||0,
+            close: parseFloat(t.close||t.Close)||0,
+            tp: parseFloat(t.tp||t.TP)||0,
+            sl: parseFloat(t.sl||t.SL)||0,
+            pnl: parseFloat(t['pnl($)']||t['PnL($)']||t.pnl)||0,
+            fees: parseFloat(t['fees($)']||t['Fees($)']||t.fees)||0,
+            commission: parseFloat(t['commission($)']||t['Commission($)']||t.commission)||0,
+            result: t.result||t.Result||'',
+            risk: t.risk||t.Risk||'',
+            maxRR: t.maxrr||t.MaxRR||t.maxRR||'',
+            timeInPos: t.timeinpos||t.TimeInPos||t.timeInPos||'',
+            entryDate: t.entrydatetime||t.EntryDateTime||t.entryDate||'',
+            closeDate: t.closedatetime||t.CloseDateTime||t.closeDate||'',
+            setupClass: t.setupclass||t.SetupClass||t.setupClass||'',
+            candle: t.candle||t.Candle||'',
+            code: t.code||t.Code||'',
+            mode: t.mode||t.Mode||'',
+            tf: t.timeframe||t.Timeframe||t.tf||'',
+            trend: t.trend||t.Trend||'',
+            zone: t.zone||t.Zone||'',
+            confirm: t.confirm||t.Confirm||'',
+            sessions: t.sessions||t.Sessions||'',
+            emotion: t.emotion||t.Emotion||'',
+            discipline: t.discipline||t.Discipline||'',
+            note: t.note||t.Note||'',
+            imgLink: t.imagelink||t.ImageLink||t.imgLink||''
+          });
+        });
+        // Save each portfolio's trades to localStorage
+        Object.keys(byPort).forEach(function(port){
+          var dateMap = byPort[port];
+          // Load existing
+          var existing = {};
+          try{ existing = JSON.parse(localStorage.getItem('port_'+port+'_t')||'{}'); }catch(e){}
+          // Merge by date
+          Object.keys(dateMap).forEach(function(date){
+            existing[date] = dateMap[date];
+          });
+          localStorage.setItem('port_'+port+'_t', JSON.stringify(existing));
+        });
+      }
+
+      // ── 3. Sessions ──
+      if(d.sessions && d.sessions.length){
+        var bySess = {};
+        d.sessions.forEach(function(s){
+          var port = s.portfolio||s.Portfolio||'default';
+          var date = s.date||s.Date||'';
+          if(!bySess[port]) bySess[port] = {};
+          bySess[port][date] = {
+            emotion: s.emotion||s.Emotion||'',
+            trend: s.trend||s.Trend||'',
+            confirm: s.confirm||s.Confirm||'',
+            sessions: s.sessions||s.Sessions||'',
+            strategies: s.strategies||s.Strategies||'',
+            notes: s.notes||s.Notes||''
+          };
+        });
+        Object.keys(bySess).forEach(function(port){
+          var existing = {};
+          try{ existing = JSON.parse(localStorage.getItem('port_'+port+'_s')||'{}'); }catch(e){}
+          Object.assign(existing, bySess[port]);
+          localStorage.setItem('port_'+port+'_s', JSON.stringify(existing));
+        });
+      }
+
+      // ── 4. Data Trades ──
+      if(d.dataTrades && d.dataTrades.length){
+        var existDT = [];
+        try{ existDT = JSON.parse(localStorage.getItem('dt_trades')||'[]'); }catch(e){}
+        var existIds = {};
+        existDT.forEach(function(t){ existIds[t._id||t.id] = true; });
+        d.dataTrades.forEach(function(t){
+          var id = t.id||t.ID||'';
+          if(!existIds[id]){
+            existDT.push({
+              _id: String(id),
+              date: t.date||t.Date||'',
+              day: t.day||t.Day||'',
+              portfolio: t.portfolio||t.Portfolio||'data',
+              session: t.session||t.Session||'',
+              asset: t.asset||t.Asset||'',
+              side: t.side||t.Side||'Long',
+              entryTime: t.entrytime||t.EntryTime||t.entryTime||'',
+              duration: t.duration||t.Duration||'',
+              mode: t.mode||t.Mode||'',
+              code: t.code||t.Code||'',
+              tf: t.tf||t.TF||'',
+              setupClass: t.setupclass||t.SetupClass||t.setupClass||'',
+              candle: t.candle||t.Candle||'',
+              zoneMit: t.zonemet||t.ZoneMit||t.zoneMit||'',
+              zone: t.zone||t.Zone||'',
+              confirm: t.confirm||t.Confirm||'',
+              entry: t.entry||t.Entry||'',
+              tp: t.tp||t.TP||'',
+              sl: t.sl||t.SL||'',
+              risk: t.risk||t.Risk||'',
+              lots: t.lots||t.Lots||'',
+              pnl: parseFloat(t['pnl($)']||t['PnL($)']||t.pnl)||0,
+              result: t.result||t.Result||'',
+              maxRR: t.maxrr||t.MaxRR||t.maxRR||'',
+              emo: parseInt(t.emotion||t.Emotion)||5,
+              disc: parseInt(t.discipline||t.Discipline)||5,
+              note: t.note||t.Note||'',
+              imgLink: t.imagelink||t.ImageLink||t.imgLink||''
+            });
+          }
+        });
+        localStorage.setItem('dt_trades', JSON.stringify(existDT));
+      }
+
+      // ── Reload current portfolio data ──
+      S.sessions = getPortSessions();
+      S.trades   = getPortTrades();
+      renderPortfolioBar();
+      updateStats(); renderCal(); updateRecent(); renderTodayOrders();
+      var cnt = (d.trades||[]).length + (d.dataTrades||[]).length;
+      showToast('✅ Sync สำเร็จ! ดึง '+cnt+' trades + '+Object.keys(d.portfolios||{}).length+' พอร์ต','success');
+      if(onDone) onDone();
     })
-    .catch(function(){/* ไม่มีการแจ้งเตือน — Sheet อาจไม่รองรับ action นี้ */});
+    .catch(function(err){
+      showToast('❌ Sync ล้มเหลว: '+err.message,'error');
+    });
 }
 
 function init(){
@@ -1948,12 +2148,11 @@ function init(){
     S.portfolios=JSON.parse(localStorage.getItem('tj_ports')||'{}');
     S.currentPortfolio=localStorage.getItem('tj_curport')||'default';
     if(!S.portfolios['default']) S.portfolios['default']={name:'Default',balance:0,fund:''};
-    // ── ดึงค่าพอร์ตจาก Sheet ถ้ามี scriptUrl ──
-    if(S.scriptUrl) loadPortfoliosFromSheet();
     // Load current portfolio data
     S.sessions=getPortSessions();
     S.trades=getPortTrades();
-    if(S.scriptUrl)setConn(true);updateBadge();
+    if(S.scriptUrl){setConn(true); syncFromSheet();}
+    updateBadge();
   }catch(e){}
   var tdEl=document.getElementById('todayDate');if(tdEl)tdEl.textContent=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'});
   var dv=document.getElementById('dailyView');
