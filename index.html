@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TradeLog Pro</title>
+<title>TradeLog Pro+</title>
 <link rel="shortcut icon" type="image/png" href="Icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="Icon.png">
 <link rel="icon" type="image/png" sizes="16x16" href="Icon.png">
@@ -437,7 +437,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
 <body data-theme="dark">
 
 <div class="topbar">
-  <div class="logo"><img src="Icon.png" style="width:44px;height:44px;border-radius:8px;object-fit:cover;">TradeLog Pro</div>
+  <div class="logo"><img src="Icon.png" style="width:44px;height:44px;border-radius:8px;object-fit:cover;">TradeLog Pro+</div>
   <div class="topbar-center">
     <button class="view-btn active" id="btnDaily" onclick="switchView('daily')">📅 Daily</button>
     <button class="view-btn" id="btnWeekly" onclick="switchView('weekly')">📊 Weekly</button>
@@ -1224,7 +1224,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
     <input class="settings-input" id="sheetUrl" placeholder="https://script.google.com/macros/s/.../exec" oninput="openSheet_onUrlChange()">
     <div style="margin-top:10px;"><div class="field-label" style="margin-bottom:5px;">📋 Code:</div>
     <div class="code-block">/* =========================================
-   TradeLog Pro — Google Apps Script v5.0
+   TradeLog Pro+ — Google Apps Script v5.0
    รองรับ: Portfolio | Data Mode Trades
            Candle | Mode | TF | Trend
            Zone | Confirm | Sessions
@@ -1858,10 +1858,10 @@ function setupSheets(){
   var ss=SpreadsheetApp.getActiveSpreadsheet();
   var def=ss.getSheetByName('Sheet1');
   if(def&amp;&amp;ss.getSheets().length&gt;1) ss.deleteSheet(def);
-  SpreadsheetApp.getUi().alert('✅ TradeLog Pro v5.0 พร้อม!\n\nSheets: Trades | DataTrades | Sessions | Summary | Assets | Log\nรองรับ: Multi-Portfolio + Data Mode + Custom Assets + Fees + Commission\nLog: ครบทุก action + Source (port/data/system) + 2000 rows');
+  SpreadsheetApp.getUi().alert('✅ TradeLog Pro+ v5.0 พร้อม!\n\nSheets: Trades | DataTrades | Sessions | Summary | Assets | Log\nรองรับ: Multi-Portfolio + Data Mode + Custom Assets + Fees + Commission\nLog: ครบทุก action + Source (port/data/system) + 2000 rows');
 }
 function onOpen(){
-  SpreadsheetApp.getUi().createMenu('🔧 TradeLog Pro')
+  SpreadsheetApp.getUi().createMenu('🔧 TradeLog Pro+')
     .addItem('⚙️ Setup Sheets','setupSheets')
     .addItem('📊 Refresh All Summaries','refreshAll')
     .addItem('🧹 Clean Duplicate Rows','cleanDuplicates')
