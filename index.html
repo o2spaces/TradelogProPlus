@@ -97,6 +97,9 @@ body{font-family:var(--font-main);background:var(--bg-primary);color:var(--text-
   width:3px; height:3px; border-radius:50%; background:rgba(255,255,255,0.6);
 }
 /* Data mode: hide sidebar toggle arrows and portfolio bar */
+body.data-mode-open .btn-save-entry {
+  display:none !important;
+}
 body.data-mode-open #sidebarBtnLeft,
 body.data-mode-open #sidebarBtnRight {
   opacity:0 !important; pointer-events:none !important;
@@ -324,6 +327,9 @@ body.data-mode-open .portfolio-bar {
 /* MODALS */
 .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
 .modal-backdrop.open{opacity:1;pointer-events:all;}
+/* ── Data Mode: ยก modal ให้อยู่เหนือ dataView stacking context ── */
+body.data-mode-open .modal-backdrop{z-index:9000;}
+body.data-mode-open .modal-backdrop.open{z-index:9000;}
 .modal{background:var(--bg-card);border:1px solid var(--border);border-radius:13px;width:min(600px,94vw);max-width:96vw;max-height:91vh;overflow-y:auto;transform:translateY(14px);transition:transform .2s,width .2s,height .2s,max-width .2s,max-height .2s,border-radius .2s;}
 /* When sidebars collapse, allow modal to breathe wider */
 .layout.left-collapsed ~ .modal-backdrop .modal,
@@ -468,7 +474,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
         </div>
       </div>
     </div>
-    <button class="btn-primary" onclick="saveEntry()">💾 Save Entry</button>
+    <button class="btn-primary btn-save-entry" onclick="saveEntry()">💾 Save Entry</button>
   </div>
 </div>
 
@@ -612,9 +618,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
           <span id="dtFilterActiveBadge" style="display:none;background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:600;"></span>
         </div>
         <div style="display:flex;gap:6px;align-items:center;">
-          <label onclick="event.stopPropagation()" style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px;cursor:pointer;position:relative;">
-            <span style="white-space:nowrap;cursor:pointer;" onclick="event.stopPropagation();togglePortSelector(event)" id="portSelectorLabel">📁 เลือกพอร์ต ▾</span>
-          </label>
+          <button type="button" id="portSelectorLabel" onclick="event.stopPropagation();openPortSelectorModal()" style="white-space:nowrap;cursor:pointer;padding:3px 10px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:5px;color:var(--accent);font-size:11px;font-family:var(--font-main);font-weight:500;">📁 เลือกพอร์ต ▾</button>
           <button class="btn-sm" onclick="event.stopPropagation();dtResetFilters()" style="padding:2px 7px;">↺ Reset</button>
           <span id="dtFilterArrow" style="font-size:10px;color:var(--text-muted);transition:transform .2s;display:inline-block;transform:rotate(0deg);">▼</span>
         </div>
@@ -1204,12 +1208,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
            Emotion | Discipline | MaxRR | SetupClass
            Custom Assets (saveAssets/loadAssets)
            Fees + Commission แยกกัน
-   Log: ครบทุก action:
-        saveTrade | saveSession | deleteTrade |
-        deleteDay | deletePortfolio | saveAssets |
-        batchSaveTrades | saveSettings |
-        saveDataTrade | batchSaveDataTrades | deleteDataTrade
-        พร้อม Portfolio + Result + DataMode flag ทุก row
+   Log: ครบทุก action
    Sheet: Trades | DataTrades | Sessions | Summary | Assets | Log
    ========================================= */
 
@@ -1248,26 +1247,58 @@ var HDR={
 };
 
 function doGet(e){
-  var p=e&&e.parameter;
-  if(p&&p.action==='loadAssets') return _json(loadAssets());
+  var p=e&amp;&amp;e.parameter;
+  if(p&amp;&amp;p.action==='loadAssets')     return _json(loadAssets());
+  if(p&amp;&amp;p.action==='loadPortfolios') return _json(loadPortfolios());
   return _json({status:'ready',version:'5.0',time:new Date().toISOString()});
+}
+
+function loadPortfolios(){
+  try{
+    var sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.LOG);
+    if(!sh||sh.getLastRow()&lt;2) return {status:'ok',portfolios:{}};
+    var rows=sh.getRange(2,1,sh.getLastRow()-1,6).getValues();
+    var ports={};
+    rows.forEach(function(r){
+      var action=String(r[1]||'');
+      var detail=String(r[2]||'');
+      if(action==='saveSettings'){
+        var addM=detail.match(/^portfolio_add\s+id=(\S+)\s+name=([^\s]+(?:\s+[^\s]+)*?)\s+fund=(\S*)/);
+        var editM=detail.match(/^portfolio_edit\s+id=(\S+)\s+name=([^\s]+(?:\s+[^\s]+)*?)\s+balance=([\d.]+)\s+fund=(\S*)/);
+        if(addM){
+          var id=addM[1],name=addM[2],fund=addM[3]==='-'?'':addM[3];
+          if(!ports[id]) ports[id]={name:name,balance:0,fund:fund};
+        }
+        if(editM){
+          var id=editM[1],name=editM[2],bal=parseFloat(editM[3])||0,fund=editM[4]==='-'?'':editM[4];
+          ports[id]={name:name,balance:bal,fund:fund};
+        }
+      }
+    });
+    if(!ports['default']) ports['default']={name:'Default',balance:0,fund:''};
+    _log('loadPortfolios','count='+Object.keys(ports).length,'','system','ok');
+    return {status:'ok',portfolios:ports};
+  }catch(e){
+    _log('loadPortfolios','error='+e.toString(),'','system','error');
+    return {status:'error',msg:e.toString()};
+  }
 }
 
 function doPost(e){
   try{
     var d=JSON.parse(e.postData.contents);
     var res;
-    if(d.action==='saveTrade')            res=saveTrade(d);
-    else if(d.action==='deleteTrade')     res=deleteTrade(d);
-    else if(d.action==='saveSession')     res=saveSession(d);
-    else if(d.action==='deleteDay')       res=deleteDay(d);
-    else if(d.action==='saveAssets')      res=saveAssets(d);
-    else if(d.action==='deletePortfolio') res=deletePortfolio(d);
-    else if(d.action==='batchSaveTrades') res=batchSaveTrades(d);
-    else if(d.action==='saveSettings')    res=saveSettings(d);
-    else if(d.action==='saveDataTrade')        res=saveDataTrade(d);
-    else if(d.action==='deleteDataTrade')      res=deleteDataTrade(d);
-    else if(d.action==='batchSaveDataTrades')  res=batchSaveDataTrades(d);
+    if(d.action==='saveTrade')               res=saveTrade(d);
+    else if(d.action==='deleteTrade')        res=deleteTrade(d);
+    else if(d.action==='saveSession')        res=saveSession(d);
+    else if(d.action==='deleteDay')          res=deleteDay(d);
+    else if(d.action==='saveAssets')         res=saveAssets(d);
+    else if(d.action==='deletePortfolio')    res=deletePortfolio(d);
+    else if(d.action==='batchSaveTrades')    res=batchSaveTrades(d);
+    else if(d.action==='saveSettings')       res=saveSettings(d);
+    else if(d.action==='saveDataTrade')      res=saveDataTrade(d);
+    else if(d.action==='deleteDataTrade')    res=deleteDataTrade(d);
+    else if(d.action==='batchSaveDataTrades')res=batchSaveDataTrades(d);
     else res={status:'error',msg:'unknown action: '+d.action};
     return _json(res);
   }catch(err){
@@ -1276,11 +1307,10 @@ function doPost(e){
   }
 }
 
-/* ── SAVE / LOAD ASSETS ── */
 function saveAssets(d){
   var sh=_sheet(SHEET.ASSETS,HDR.ASSETS);
   var assets=d.assets||[];
-  if(sh.getLastRow()>1) sh.deleteRows(2,sh.getLastRow()-1);
+  if(sh.getLastRow()&gt;1) sh.deleteRows(2,sh.getLastRow()-1);
   var now=_now();
   assets.forEach(function(a){sh.appendRow([a,now]);});
   _log('saveAssets','count='+assets.length,d.portfolio||'default','port','ok');
@@ -1288,12 +1318,11 @@ function saveAssets(d){
 }
 function loadAssets(){
   var sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.ASSETS);
-  if(!sh||sh.getLastRow()<2) return {status:'ok',assets:[]};
+  if(!sh||sh.getLastRow()&lt;2) return {status:'ok',assets:[]};
   var assets=sh.getRange(2,1,sh.getLastRow()-1,1).getValues().map(function(r){return r[0];}).filter(Boolean);
   return {status:'ok',assets:assets};
 }
 
-/* ── SAVE SETTINGS ── */
 function saveSettings(d){
   var key=d.key||'';
   var value=String(d.value||'').substring(0,250);
@@ -1301,7 +1330,6 @@ function saveSettings(d){
   return {status:'ok',key:key};
 }
 
-/* ── SAVE DATA TRADE (Data Mode) ── */
 function saveDataTrade(d){
   var sh=_sheet(SHEET.DATA_TRADES,HDR.DATA_TRADES);
   var id=String(d._id||d.id||Date.now());
@@ -1316,15 +1344,14 @@ function saveDataTrade(d){
     d.note||'', d.imgLink||'', _now()
   ];
   var existing=_findRow(sh,1,id);
-  if(existing>0) sh.getRange(existing,1,1,row.length).setValues([row]);
+  if(existing&gt;0) sh.getRange(existing,1,1,row.length).setValues([row]);
   else{ sh.appendRow(row); existing=sh.getLastRow(); }
   var pnl=parseFloat(d.pnl)||0;
   _styleDataRow(sh,existing,d.result,pnl);
-  _log('saveDataTrade','id='+id+' | date='+d.date+' | day='+d.day+' | session='+d.session+' | asset='+d.asset+' | side='+d.side+' | pnl='+pnl+' | result='+d.result+' | code='+d.code+' | mode='+d.mode+' | class='+d.setupClass,d.portfolio||'data','data','ok');
+  _log('saveDataTrade','id='+id+' date='+d.date+' asset='+d.asset+' pnl='+pnl+' result='+d.result,d.portfolio||'data','data','ok');
   return {status:'ok',id:id};
 }
 
-/* ── BATCH SAVE DATA TRADES ── */
 function batchSaveDataTrades(d){
   var trades=d.trades||[];
   if(!trades.length) return {status:'ok',count:0};
@@ -1344,41 +1371,34 @@ function batchSaveDataTrades(d){
       t.note||'', t.imgLink||'', now
     ];
     var existing=_findRow(sh,1,id);
-    if(existing>0) sh.getRange(existing,1,1,row.length).setValues([row]);
+    if(existing&gt;0) sh.getRange(existing,1,1,row.length).setValues([row]);
     else{ sh.appendRow(row); existing=sh.getLastRow(); }
     _styleDataRow(sh,existing,t.result,pnl);
   });
-  var _batchSum=trades.map(function(t){return (t.date||'?')+' '+( t.asset||'?')+' '+(t.result||'?');}).join(' | ');
-  _log('batchSaveDataTrades','count='+trades.length+' | '+_batchSum.substring(0,240),d.portfolio||'data','data','ok');
+  _log('batchSaveDataTrades','count='+trades.length,d.portfolio||'data','data','ok');
   return {status:'ok',count:trades.length};
 }
 
-/* ── DELETE DATA TRADE ── */
 function deleteDataTrade(d){
   var sh=_sheet(SHEET.DATA_TRADES,HDR.DATA_TRADES);
   var row=_findRow(sh,1,String(d._id||d.id));
-  if(row>0) sh.deleteRow(row);
-  _log('deleteDataTrade','id='+(d._id||d.id)+' deleted='+(row>0),d.portfolio||'data','data',row>0?'ok':'not_found');
-  return {status:'ok',deleted:row>0};
+  if(row&gt;0) sh.deleteRow(row);
+  _log('deleteDataTrade','id='+(d._id||d.id)+' deleted='+(row&gt;0),d.portfolio||'data','data',row&gt;0?'ok':'not_found');
+  return {status:'ok',deleted:row&gt;0};
 }
 
-/* ── SAVE / UPDATE TRADE (Portfolio) ── */
 function saveTrade(d){
   var sh=_sheet(SHEET.TRADES,HDR.TRADES);
   var id=String(d.id||Date.now());
-  var lots=parseFloat(d.lots)||0;
-  var entry=parseFloat(d.entry)||0;
-  var close=parseFloat(d.close)||0;
-  var tp=parseFloat(d.tp)||0;
-  var sl=parseFloat(d.sl)||0;
   var pnl=parseFloat(d.pnl)||0;
   var comm=parseFloat(d.commission)||0;
   var fees=parseFloat(d.fees)||0;
-  var maxRR=d.maxRR||'';
   var row=[
     id, d.date||'', d.portfolio||'default',
-    d.asset||'', d.side||'', lots, entry, close, tp, sl,
-    pnl, fees, comm, d.result||'', d.risk||'', maxRR, d.timeInPos||'',
+    d.asset||'', d.side||'', parseFloat(d.lots)||0,
+    parseFloat(d.entry)||0, parseFloat(d.close)||0,
+    parseFloat(d.tp)||0, parseFloat(d.sl)||0,
+    pnl, fees, comm, d.result||'', d.risk||'', d.maxRR||'', d.timeInPos||'',
     d.entryDate||'', d.closeDate||'',
     d.setupClass||'', d.candle||'', d.code||'', d.mode||'', d.tf||'',
     d.trend||'', d.zone||'', d.confirm||'', d.sessions||'',
@@ -1386,7 +1406,7 @@ function saveTrade(d){
     d.note||'', d.imgLink||'', _now()
   ];
   var existing=_findRow(sh,1,id);
-  if(existing>0) sh.getRange(existing,1,1,row.length).setValues([row]);
+  if(existing&gt;0) sh.getRange(existing,1,1,row.length).setValues([row]);
   else{ sh.appendRow(row); existing=sh.getLastRow(); }
   _styleTradeRow(sh,existing,d.result,pnl);
   _recalc(d.date, d.portfolio||'default');
@@ -1394,7 +1414,6 @@ function saveTrade(d){
   return {status:'ok',id:id};
 }
 
-/* ── BATCH SAVE TRADES (Portfolio import) ── */
 function batchSaveTrades(d){
   var trades=d.trades||[];
   if(!trades.length) return {status:'ok',count:0};
@@ -1403,16 +1422,14 @@ function batchSaveTrades(d){
   var affected={};
   trades.forEach(function(t){
     var id=String(t.id||Date.now()+Math.random());
-    var lots=parseFloat(t.lots)||0;
     var pnl=parseFloat(t.pnl)||0;
-    var comm=parseFloat(t.commission)||0;
-    var fees_val=parseFloat(t.fees)||0;
     var row=[
       id, t.date||'', t.portfolio||'default',
-      t.asset||'', t.side||'', lots,
+      t.asset||'', t.side||'', parseFloat(t.lots)||0,
       parseFloat(t.entry)||0, parseFloat(t.close)||0,
       parseFloat(t.tp)||0, parseFloat(t.sl)||0,
-      pnl, fees_val, comm, t.result||'', t.risk||'', t.maxRR||'', t.timeInPos||'',
+      pnl, parseFloat(t.fees)||0, parseFloat(t.commission)||0,
+      t.result||'', t.risk||'', t.maxRR||'', t.timeInPos||'',
       t.entryDate||'', t.closeDate||'',
       t.setupClass||'', t.candle||'', t.code||'', t.mode||'', t.tf||'',
       t.trend||'', t.zone||'', t.confirm||'', t.sessions||'',
@@ -1420,7 +1437,7 @@ function batchSaveTrades(d){
       t.note||'', t.imgLink||'', now
     ];
     var existing=_findRow(sh,1,id);
-    if(existing>0) sh.getRange(existing,1,1,row.length).setValues([row]);
+    if(existing&gt;0) sh.getRange(existing,1,1,row.length).setValues([row]);
     else{ sh.appendRow(row); existing=sh.getLastRow(); }
     _styleTradeRow(sh,existing,t.result,pnl);
     var dk=(t.date||'')+'|'+(t.portfolio||'default');
@@ -1431,28 +1448,26 @@ function batchSaveTrades(d){
   return {status:'ok',count:trades.length};
 }
 
-/* ── DELETE TRADE ── */
 function deleteTrade(d){
   var sh=_sheet(SHEET.TRADES,HDR.TRADES);
   var row=_findRow(sh,1,String(d.id));
-  if(row>0){sh.deleteRow(row); _recalc(d.date, d.portfolio||'default');}
-  _log('deleteTrade','id='+d.id+' date='+d.date+' deleted='+(row>0),d.portfolio||'default','port',row>0?'ok':'not_found');
-  return {status:'ok',deleted:row>0};
+  if(row&gt;0){sh.deleteRow(row); _recalc(d.date, d.portfolio||'default');}
+  _log('deleteTrade','id='+d.id+' date='+d.date+' deleted='+(row&gt;0),d.portfolio||'default','port',row&gt;0?'ok':'not_found');
+  return {status:'ok',deleted:row&gt;0};
 }
 
-/* ── SAVE / UPDATE SESSION ── */
 function saveSession(d){
   var sh=_sheet(SHEET.SESSIONS,HDR.SESSIONS);
   var portfolio=d.portfolio||'default';
   var ts=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.TRADES);
   var pnl=0,wins=0,losses=0,gp=0,gl=0,pnls=[];
-  if(ts&&ts.getLastRow()>1){
+  if(ts&amp;&amp;ts.getLastRow()&gt;1){
     var rows=ts.getDataRange().getValues().slice(1).filter(function(r){
-      return r[1]===d.date && (r[2]||'default')===portfolio;
+      return r[1]===d.date &amp;&amp; (r[2]||'default')===portfolio;
     });
     rows.forEach(function(r){
       var p=parseFloat(r[10])||0; pnls.push(p); pnl+=p;
-      if(p>0){wins++;gp+=p;} else if(p<0){losses++;gl+=Math.abs(p);}
+      if(p&gt;0){wins++;gp+=p;} else if(p&lt;0){losses++;gl+=Math.abs(p);}
     });
   }
   var total=wins+losses;
@@ -1461,7 +1476,7 @@ function saveSession(d){
   var avgL=losses?+(gl/losses).toFixed(2):0;
   var pf=gl?+(gp/gl).toFixed(2):0;
   var cum=0,peak=0,dd=0;
-  pnls.forEach(function(p){cum+=p;if(cum>peak)peak=cum;if(peak-cum>dd)dd=peak-cum;});
+  pnls.forEach(function(p){cum+=p;if(cum&gt;peak)peak=cum;if(peak-cum&gt;dd)dd=peak-cum;});
   var row=[
     d.date||'', portfolio,
     d.emotion||'', d.trend||'', d.confirm||'',
@@ -1471,26 +1486,25 @@ function saveSession(d){
     avgW, avgL, pf, +dd.toFixed(2), _now()
   ];
   var existing=_findRow2(sh,1,d.date,2,portfolio);
-  if(existing>0) sh.getRange(existing,1,1,row.length).setValues([row]);
+  if(existing&gt;0) sh.getRange(existing,1,1,row.length).setValues([row]);
   else{ sh.appendRow(row); existing=sh.getLastRow(); }
-  _colorRow(sh,existing,pnl>0?'#1a2e22':pnl<0?'#2e1a1f':'#1a1c26');
+  _colorRow(sh,existing,pnl&gt;0?'#1a2e22':pnl&lt;0?'#2e1a1f':'#1a1c26');
   _stylePnlCell(sh,existing,9,pnl);
   _recalc(d.date, portfolio);
-  _log('saveSession','date='+d.date+' emotion='+d.emotion+' trend='+d.trend+' pnl='+pnl.toFixed(2)+' trades='+total+' wr='+wr+'%',portfolio,'port','ok');
+  _log('saveSession','date='+d.date+' pnl='+pnl.toFixed(2)+' trades='+total+' wr='+wr+'%',portfolio,'port','ok');
   return {status:'ok',date:d.date,portfolio:portfolio,netPnl:pnl,winRate:wr};
 }
 
-/* ── DELETE DAY ── */
 function deleteDay(d){
   var ss=SpreadsheetApp.getActiveSpreadsheet();
   var portfolio=d.portfolio||'default';
   [SHEET.TRADES,SHEET.SESSIONS,SHEET.SUMMARY].forEach(function(name){
-    var sh=ss.getSheetByName(name); if(!sh||sh.getLastRow()<2) return;
+    var sh=ss.getSheetByName(name); if(!sh||sh.getLastRow()&lt;2) return;
     var dateCol=name===SHEET.TRADES?2:1;
     var portCol=name===SHEET.TRADES?3:2;
     var vals=sh.getDataRange().getValues();
-    for(var i=vals.length-1;i>=1;i--){
-      if(vals[i][dateCol-1]===d.date && (vals[i][portCol-1]||'default')===portfolio)
+    for(var i=vals.length-1;i&gt;=1;i--){
+      if(vals[i][dateCol-1]===d.date &amp;&amp; (vals[i][portCol-1]||'default')===portfolio)
         sh.deleteRow(i+1);
     }
   });
@@ -1498,16 +1512,15 @@ function deleteDay(d){
   return {status:'ok',date:d.date,portfolio:portfolio};
 }
 
-/* ── DELETE PORTFOLIO ── */
 function deletePortfolio(d){
   var ss=SpreadsheetApp.getActiveSpreadsheet();
   var portfolio=String(d.portfolio||'');
   if(!portfolio) return {status:'error',msg:'no portfolio id'};
   [SHEET.TRADES,SHEET.SESSIONS,SHEET.SUMMARY].forEach(function(name){
-    var sh=ss.getSheetByName(name); if(!sh||sh.getLastRow()<2) return;
+    var sh=ss.getSheetByName(name); if(!sh||sh.getLastRow()&lt;2) return;
     var portCol=name===SHEET.TRADES?3:2;
     var vals=sh.getDataRange().getValues();
-    for(var i=vals.length-1;i>=1;i--){
+    for(var i=vals.length-1;i&gt;=1;i--){
       if(String(vals[i][portCol-1])===portfolio) sh.deleteRow(i+1);
     }
   });
@@ -1515,7 +1528,6 @@ function deletePortfolio(d){
   return {status:'ok',portfolio:portfolio};
 }
 
-/* ── RECALC SUMMARY ── */
 function _recalc(date,portfolio){
   if(!date) return;
   portfolio=portfolio||'default';
@@ -1524,17 +1536,17 @@ function _recalc(date,portfolio){
   var ses=ss.getSheetByName(SHEET.SESSIONS);
   var sum=_sheet(SHEET.SUMMARY,HDR.SUMMARY);
   var trades=[];
-  if(ts&&ts.getLastRow()>1){
+  if(ts&amp;&amp;ts.getLastRow()&gt;1){
     trades=ts.getDataRange().getValues().slice(1).filter(function(r){
-      return r[1]===date && (r[2]||'default')===portfolio;
+      return r[1]===date &amp;&amp; (r[2]||'default')===portfolio;
     });
   }
   var pnls=trades.map(function(r){return parseFloat(r[10])||0;});
   var net=pnls.reduce(function(s,v){return s+v;},0);
-  var gp=pnls.filter(function(v){return v>0;}).reduce(function(s,v){return s+v;},0);
-  var gl=Math.abs(pnls.filter(function(v){return v<0;}).reduce(function(s,v){return s+v;},0));
-  var wins=pnls.filter(function(v){return v>0;}).length;
-  var losses=pnls.filter(function(v){return v<0;}).length;
+  var gp=pnls.filter(function(v){return v&gt;0;}).reduce(function(s,v){return s+v;},0);
+  var gl=Math.abs(pnls.filter(function(v){return v&lt;0;}).reduce(function(s,v){return s+v;},0));
+  var wins=pnls.filter(function(v){return v&gt;0;}).length;
+  var losses=pnls.filter(function(v){return v&lt;0;}).length;
   var total=trades.length;
   var wr=total?Math.round(wins/total*100):0;
   var avgW=wins?+(gp/wins).toFixed(2):0;
@@ -1543,11 +1555,11 @@ function _recalc(date,portfolio){
   var best=pnls.length?Math.max.apply(null,pnls):0;
   var worst=pnls.length?Math.min.apply(null,pnls):0;
   var cum=0,peak=0,dd=0;
-  pnls.forEach(function(p){cum+=p;if(cum>peak)peak=cum;if(peak-cum>dd)dd=peak-cum;});
+  pnls.forEach(function(p){cum+=p;if(cum&gt;peak)peak=cum;if(peak-cum&gt;dd)dd=peak-cum;});
   var emo='',sessStr='';
-  if(ses&&ses.getLastRow()>1){
+  if(ses&amp;&amp;ses.getLastRow()&gt;1){
     var sr=ses.getDataRange().getValues().slice(1).find(function(r){
-      return r[0]===date && (r[1]||'default')===portfolio;
+      return r[0]===date &amp;&amp; (r[1]||'default')===portfolio;
     });
     if(sr){emo=sr[2]||''; sessStr=sr[5]||'';}
   }
@@ -1558,13 +1570,12 @@ function _recalc(date,portfolio){
     emo, sessStr, _now()
   ];
   var ex=_findRow2(sum,1,date,2,portfolio);
-  if(ex>0) sum.getRange(ex,1,1,row.length).setValues([row]);
+  if(ex&gt;0) sum.getRange(ex,1,1,row.length).setValues([row]);
   else{ sum.appendRow(row); ex=sum.getLastRow(); }
-  _colorRow(sum,ex,net>0?'#1a2e22':net<0?'#2e1a1f':'#1a1c26');
+  _colorRow(sum,ex,net&gt;0?'#1a2e22':net&lt;0?'#2e1a1f':'#1a1c26');
   _stylePnlCell(sum,ex,3,net);
 }
 
-/* ── HELPERS ── */
 function _sheet(name,headers){
   var ss=SpreadsheetApp.getActiveSpreadsheet();
   var sh=ss.getSheetByName(name);
@@ -1590,20 +1601,22 @@ function _colorRow(sh,row,bg){
 }
 function _stylePnlCell(sh,row,col,pnl){
   var c=sh.getRange(row,col);
-  c.setFontColor(pnl>0?'#2ecc8a':pnl<0?'#ff4d6a':'#8b90a0');
+  c.setFontColor(pnl&gt;0?'#2ecc8a':pnl&lt;0?'#ff4d6a':'#8b90a0');
   c.setFontWeight('bold');
 }
 function _findRow(sh,col,val){
-  if(sh.getLastRow()<2) return -1;
+  if(sh.getLastRow()&lt;2) return -1;
   var data=sh.getDataRange().getValues();
-  for(var i=1;i<data.length;i++) if(String(data[i][col-1])===String(val)) return i+1;
+  for(var i=1;i&lt;data.length;i++){
+    if(String(data[i][col-1])===String(val)) return i+1;
+  }
   return -1;
 }
 function _findRow2(sh,col1,val1,col2,val2){
-  if(sh.getLastRow()<2) return -1;
+  if(sh.getLastRow()&lt;2) return -1;
   var data=sh.getDataRange().getValues();
-  for(var i=1;i<data.length;i++){
-    if(String(data[i][col1-1])===String(val1) && String(data[i][col2-1])===String(val2)) return i+1;
+  for(var i=1;i&lt;data.length;i++){
+    if(String(data[i][col1-1])===String(val1) &amp;&amp; String(data[i][col2-1])===String(val2)) return i+1;
   }
   return -1;
 }
@@ -1611,8 +1624,7 @@ function _log(action,detail,portfolio,source,result){
   try{
     var sh=_sheet(SHEET.LOG,HDR.LOG);
     sh.appendRow([_now(),action,(detail||'').toString().substring(0,300),portfolio||'',source||'',result||'ok']);
-    if(sh.getLastRow()>2001) sh.deleteRow(2); // เก็บ Log ล่าสุด 2000 rows
-    // สี Log ตาม result
+    if(sh.getLastRow()&gt;2001) sh.deleteRow(2);
     var row=sh.getLastRow();
     var bg=result==='ok'?'#0d2211':result==='error'||result==='not_found'?'#2e1a1f':'#1a1c26';
     sh.getRange(row,1,1,6).setBackground(bg).setFontColor('#e8eaf0').setFontSize(9);
@@ -1621,7 +1633,6 @@ function _log(action,detail,portfolio,source,result){
 function _now(){return Utilities.formatDate(new Date(),'Asia/Bangkok','yyyy-MM-dd HH:mm:ss');}
 function _json(obj){return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);}
 
-/* ── SETUP (รันครั้งแรก) ── */
 function setupSheets(){
   _sheet(SHEET.TRADES,HDR.TRADES);
   _sheet(SHEET.DATA_TRADES,HDR.DATA_TRADES);
@@ -1631,7 +1642,7 @@ function setupSheets(){
   _sheet(SHEET.LOG,HDR.LOG);
   var ss=SpreadsheetApp.getActiveSpreadsheet();
   var def=ss.getSheetByName('Sheet1');
-  if(def&&ss.getSheets().length>1) ss.deleteSheet(def);
+  if(def&amp;&amp;ss.getSheets().length&gt;1) ss.deleteSheet(def);
   SpreadsheetApp.getUi().alert('✅ TradeLog Pro v5.0 พร้อม!\n\nSheets: Trades | DataTrades | Sessions | Summary | Assets | Log\nรองรับ: Multi-Portfolio + Data Mode + Custom Assets + Fees + Commission\nLog: ครบทุก action + Source (port/data/system) + 2000 rows');
 }
 function onOpen(){
@@ -1653,342 +1664,7 @@ function refreshAll(){
 }
 function clearLog(){
   var sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.LOG);
-  if(sh&&sh.getLastRow()>1) sh.deleteRows(2,sh.getLastRow()-1);
-  SpreadsheetApp.getUi().alert('✅ ล้าง Log เสร็จแล้ว');
-}
-
-function doGet(e){
-  var p=e&&e.parameter;
-  if(p&&p.action==='loadAssets') return _json(loadAssets());
-  return _json({status:'ready',version:'4.5',time:new Date().toISOString()});
-}
-
-function doPost(e){
-  try{
-    var d=JSON.parse(e.postData.contents);
-    var res;
-    if(d.action==='saveTrade')        res=saveTrade(d);
-    else if(d.action==='deleteTrade')     res=deleteTrade(d);
-    else if(d.action==='saveSession')     res=saveSession(d);
-    else if(d.action==='deleteDay')       res=deleteDay(d);
-    else if(d.action==='saveAssets')      res=saveAssets(d);
-    else if(d.action==='deletePortfolio') res=deletePortfolio(d);
-    else if(d.action==='batchSaveTrades') res=batchSaveTrades(d);
-    else if(d.action==='saveSettings')    res=saveSettings(d);
-    else res={status:'error',msg:'unknown action: '+d.action};
-    return _json(res);
-  }catch(err){_log('ERROR',err.toString(),'','error');return _json({status:'error',msg:err.toString()});}
-}
-
-/* ── SAVE / LOAD ASSETS ── */
-function saveAssets(d){
-  var sh=_sheet(SHEET.ASSETS,HDR.ASSETS);
-  var assets=d.assets||[];
-  // Clear existing data rows
-  if(sh.getLastRow()>1) sh.deleteRows(2,sh.getLastRow()-1);
-  var now=_now();
-  assets.forEach(function(a){sh.appendRow([a,now]);});
-  _log('saveAssets','count='+assets.length,d.portfolio||'default','ok');
-  return {status:'ok',count:assets.length};
-}
-function loadAssets(){
-  var sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.ASSETS);
-  if(!sh||sh.getLastRow()<2) return {status:'ok',assets:[]};
-  var assets=sh.getRange(2,1,sh.getLastRow()-1,1).getValues().map(function(r){return r[0];}).filter(Boolean);
-  return {status:'ok',assets:assets};
-}
-
-/* ── SAVE SETTINGS (log dropdown/session/provider changes) ── */
-function saveSettings(d){
-  var key=d.key||'';
-  var value=String(d.value||'').substring(0,250);
-  _log('saveSettings',key+'='+value,d.portfolio||'',  'ok');
-  return {status:'ok',key:key};
-}
-
-/* ── SAVE / UPDATE TRADE ── */
-function saveTrade(d){
-  var sh=_sheet(SHEET.TRADES,HDR.TRADES);
-  var id=String(d.id||Date.now());
-  var lots=parseFloat(d.lots)||0;
-  var entry=parseFloat(d.entry)||0;
-  var close=parseFloat(d.close)||0;
-  var tp=parseFloat(d.tp)||0;
-  var sl=parseFloat(d.sl)||0;
-  var pnl=parseFloat(d.pnl)||0;
-  var comm=parseFloat(d.commission)||0;
-  var fees=parseFloat(d.fees)||0;
-  var maxRR=d.maxRR||'';
-  var row=[
-    id, d.date||'', d.portfolio||'default',
-    d.asset||'', d.side||'', lots, entry, close, tp, sl,
-    pnl, fees, comm, d.result||'', d.risk||'', maxRR, d.timeInPos||'',
-    d.entryDate||'', d.closeDate||'',
-    d.setupClass||'', d.candle||'', d.code||'', d.mode||'', d.tf||'',
-    d.trend||'', d.zone||'', d.confirm||'', d.sessions||'',
-    d.emotion||'', d.discipline||'',
-    d.note||'', d.imgLink||'', _now()
-  ];
-  var existing=_findRow(sh,1,id);
-  if(existing>0) sh.getRange(existing,1,1,row.length).setValues([row]);
-  else{ sh.appendRow(row); existing=sh.getLastRow(); }
-  _styleTradeRow(sh,existing,d.result,pnl);
-  _recalc(d.date, d.portfolio||'default');
-  _log('saveTrade','id='+id+' date='+d.date+' asset='+d.asset+' pnl='+pnl+' fees='+fees+' comm='+comm+' result='+d.result,d.portfolio||'default','ok');
-  return {status:'ok',id:id};
-}
-
-/* ── BATCH SAVE TRADES (import หลาย trade ครั้งเดียว — ป้องกัน rate limit) ── */
-function batchSaveTrades(d){
-  var trades=d.trades||[];
-  if(!trades.length) return {status:'ok',count:0};
-  var sh=_sheet(SHEET.TRADES,HDR.TRADES);
-  var now=_now();
-  var affected={};
-  trades.forEach(function(t){
-    var id=String(t.id||Date.now()+Math.random());
-    var lots=parseFloat(t.lots)||0;
-    var entry=parseFloat(t.entry)||0;
-    var close=parseFloat(t.close)||0;
-    var tp=parseFloat(t.tp)||0;
-    var sl=parseFloat(t.sl)||0;
-    var pnl=parseFloat(t.pnl)||0;
-    var comm=parseFloat(t.commission)||0;
-    var fees_val=parseFloat(t.fees)||0;
-    var row=[
-      id, t.date||'', t.portfolio||'default',
-      t.asset||'', t.side||'', lots, entry, close, tp, sl,
-      pnl, fees_val, comm, t.result||'', t.risk||'', t.maxRR||'', t.timeInPos||'',
-      t.entryDate||'', t.closeDate||'',
-      t.setupClass||'', t.candle||'', t.code||'', t.mode||'', t.tf||'',
-      t.trend||'', t.zone||'', t.confirm||'', t.sessions||'',
-      t.emotion||'', t.discipline||'',
-      t.note||'', t.imgLink||'', now
-    ];
-    var existing=_findRow(sh,1,id);
-    if(existing>0) sh.getRange(existing,1,1,row.length).setValues([row]);
-    else{ sh.appendRow(row); existing=sh.getLastRow(); }
-    _styleTradeRow(sh,existing,t.result,pnl);
-    var dk=(t.date||'')+'|'+(t.portfolio||'default');
-    affected[dk]={date:t.date,portfolio:t.portfolio||'default'};
-  });
-  // recalc แค่ครั้งเดียวต่อวัน ไม่ซ้ำ
-  Object.values(affected).forEach(function(a){ _recalc(a.date,a.portfolio); });
-  _log('batchSaveTrades','count='+trades.length,d.portfolio||'default','ok');
-  return {status:'ok',count:trades.length};
-}
-
-/* ── DELETE TRADE ── */
-function deleteTrade(d){
-  var sh=_sheet(SHEET.TRADES,HDR.TRADES);
-  var row=_findRow(sh,1,String(d.id));
-  if(row>0){sh.deleteRow(row); _recalc(d.date, d.portfolio||'default');}
-  _log('deleteTrade','id='+d.id+' date='+d.date+' deleted='+(row>0),d.portfolio||'default',row>0?'ok':'not_found');
-  return {status:'ok',deleted:row>0};
-}
-
-/* ── SAVE / UPDATE SESSION ── */
-function saveSession(d){
-  var sh=_sheet(SHEET.SESSIONS,HDR.SESSIONS);
-  var portfolio=d.portfolio||'default';
-  var ts=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.TRADES);
-  var pnl=0,wins=0,losses=0,gp=0,gl=0,pnls=[];
-  if(ts&amp;&amp;ts.getLastRow()>1){
-    var rows=ts.getDataRange().getValues().slice(1).filter(function(r){
-      return r[1]===d.date &amp;&amp; (r[2]||'default')===portfolio;
-    });
-    rows.forEach(function(r){
-      var p=parseFloat(r[10])||0; pnls.push(p); pnl+=p;
-      if(p>0){wins++;gp+=p;} else if(p&lt;0){losses++;gl+=Math.abs(p);}
-    });
-  }
-  var total=wins+losses;
-  var wr=total?Math.round(wins/total*100):0;
-  var avgW=wins?+(gp/wins).toFixed(2):0;
-  var avgL=losses?+(gl/losses).toFixed(2):0;
-  var pf=gl?+(gp/gl).toFixed(2):0;
-  var cum=0,peak=0,dd=0;
-  pnls.forEach(function(p){cum+=p;if(cum>peak)peak=cum;if(peak-cum>dd)dd=peak-cum;});
-  var row=[
-    d.date||'', portfolio, d.emotion||'', d.trend||'', d.confirm||'',
-    d.sessions||'', d.strategies||'', d.notes||'',
-    +pnl.toFixed(2), total, wr, +gp.toFixed(2), +gl.toFixed(2),
-    avgW, avgL, pf, +dd.toFixed(2), _now()
-  ];
-  // find row matching both date AND portfolio
-  var existing=_findRow2(sh,1,d.date,3,portfolio);
-  if(existing>0) sh.getRange(existing,1,1,row.length).setValues([row]);
-  else{ sh.appendRow(row); existing=sh.getLastRow(); }
-  _colorRow(sh,existing,pnl>0?'#1a2e22':pnl&lt;0?'#2e1a1f':'#1a1c26');
-  _stylePnlCell(sh,existing,9,pnl);
-  _recalc(d.date, portfolio);
-  _log('saveSession','date='+d.date+' emotion='+d.emotion+' trend='+d.trend+' pnl='+pnl.toFixed(2)+' trades='+total+' wr='+wr+'%',portfolio,'ok');
-  return {status:'ok',date:d.date,portfolio:portfolio,netPnl:pnl,winRate:wr};
-}
-
-/* ── DELETE DAY ── */
-function deleteDay(d){
-  var ss=SpreadsheetApp.getActiveSpreadsheet();
-  var portfolio=d.portfolio||'default';
-  [SHEET.TRADES,SHEET.SESSIONS,SHEET.SUMMARY].forEach(function(name){
-    var sh=ss.getSheetByName(name); if(!sh||sh.getLastRow()&lt;2) return;
-    // Trades: col2=Date col3=Portfolio; Sessions/Summary: col1=Date col2=Portfolio
-    var dateCol=name===SHEET.TRADES?2:1;
-    var portCol=name===SHEET.TRADES?3:2;
-    var vals=sh.getDataRange().getValues();
-    for(var i=vals.length-1;i>=1;i--){
-      if(vals[i][dateCol-1]===d.date &amp;&amp; (vals[i][portCol-1]||'default')===portfolio)
-        sh.deleteRow(i+1);
-    }
-  });
-  _log('deleteDay','date='+d.date,portfolio,'ok');
-  return {status:'ok',date:d.date,portfolio:portfolio};
-}
-
-/* ── DELETE PORTFOLIO ── */
-function deletePortfolio(d){
-  var ss=SpreadsheetApp.getActiveSpreadsheet();
-  var portfolio=String(d.portfolio||'');
-  if(!portfolio) return {status:'error',msg:'no portfolio id'};
-  [SHEET.TRADES,SHEET.SESSIONS,SHEET.SUMMARY].forEach(function(name){
-    var sh=ss.getSheetByName(name); if(!sh||sh.getLastRow()&lt;2) return;
-    var portCol=name===SHEET.TRADES?3:2;
-    var vals=sh.getDataRange().getValues();
-    for(var i=vals.length-1;i>=1;i--){
-      if(String(vals[i][portCol-1])===portfolio) sh.deleteRow(i+1);
-    }
-  });
-  _log('deletePortfolio','portfolio='+portfolio,portfolio,'ok');
-  return {status:'ok',portfolio:portfolio};
-}
-
-/* ── RECALC SUMMARY ── */
-function _recalc(date,portfolio){
-  if(!date) return;
-  portfolio=portfolio||'default';
-  var ss=SpreadsheetApp.getActiveSpreadsheet();
-  var ts=ss.getSheetByName(SHEET.TRADES);
-  var ses=ss.getSheetByName(SHEET.SESSIONS);
-  var sum=_sheet(SHEET.SUMMARY,HDR.SUMMARY);
-  var trades=[];
-  if(ts&amp;&amp;ts.getLastRow()>1){
-    trades=ts.getDataRange().getValues().slice(1).filter(function(r){
-      return r[1]===date &amp;&amp; (r[2]||'default')===portfolio;
-    });
-  }
-  var pnls=trades.map(function(r){return parseFloat(r[10])||0;});
-  var net=pnls.reduce(function(s,v){return s+v;},0);
-  var gp=pnls.filter(function(v){return v>0;}).reduce(function(s,v){return s+v;},0);
-  var gl=Math.abs(pnls.filter(function(v){return v&lt;0;}).reduce(function(s,v){return s+v;},0));
-  var wins=pnls.filter(function(v){return v>0;}).length;
-  var losses=pnls.filter(function(v){return v&lt;0;}).length;
-  var total=trades.length;
-  var wr=total?Math.round(wins/total*100):0;
-  var avgW=wins?+(gp/wins).toFixed(2):0;
-  var avgL=losses?+(gl/losses).toFixed(2):0;
-  var pf=gl?+(gp/gl).toFixed(2):0;
-  var best=pnls.length?Math.max.apply(null,pnls):0;
-  var worst=pnls.length?Math.min.apply(null,pnls):0;
-  var cum=0,peak=0,dd=0;
-  pnls.forEach(function(p){cum+=p;if(cum>peak)peak=cum;if(peak-cum>dd)dd=peak-cum;});
-  var emo='',sessStr='';
-  if(ses&amp;&amp;ses.getLastRow()>1){
-    var sr=ses.getDataRange().getValues().slice(1).find(function(r){
-      return r[0]===date &amp;&amp; (r[1]||'default')===portfolio;
-    });
-    if(sr){emo=sr[2]||''; sessStr=sr[5]||'';}
-  }
-  var row=[
-    date, portfolio, +net.toFixed(2), +gp.toFixed(2), +gl.toFixed(2),
-    total, wins, losses, wr, avgW, avgL, pf,
-    +dd.toFixed(2), +best.toFixed(2), +worst.toFixed(2),
-    emo, sessStr, _now()
-  ];
-  var ex=_findRow2(sum,1,date,2,portfolio);
-  if(ex>0) sum.getRange(ex,1,1,row.length).setValues([row]);
-  else{ sum.appendRow(row); ex=sum.getLastRow(); }
-  _colorRow(sum,ex,net>0?'#1a2e22':net&lt;0?'#2e1a1f':'#1a1c26');
-  _stylePnlCell(sum,ex,3,net);
-}
-
-/* ── HELPERS ── */
-function _sheet(name,headers){
-  var ss=SpreadsheetApp.getActiveSpreadsheet();
-  var sh=ss.getSheetByName(name);
-  if(!sh){sh=ss.insertSheet(name);sh.appendRow(headers);_styleHeader(sh,headers.length);}
-  else if(sh.getLastRow()===0){sh.appendRow(headers);_styleHeader(sh,headers.length);}
-  return sh;
-}
-function _styleHeader(sh,n){
-  var r=sh.getRange(1,1,1,n);
-  r.setBackground('#0d1117').setFontColor('#4f7aff').setFontWeight('bold').setFontSize(10).setHorizontalAlignment('center');
-  sh.setFrozenRows(1);try{sh.autoResizeColumns(1,n);}catch(e){}
-}
-function _styleTradeRow(sh,row,result,pnl){
-  var bg=result==='Win'?'#1a2e22':result==='Loss'?'#2e1a1f':'#1a1c26';
-  _colorRow(sh,row,bg);_stylePnlCell(sh,row,11,pnl);
-}
-function _colorRow(sh,row,bg){
-  sh.getRange(row,1,1,sh.getLastColumn()).setBackground(bg).setFontColor('#e8eaf0').setFontSize(10);
-}
-function _stylePnlCell(sh,row,col,pnl){
-  var c=sh.getRange(row,col);
-  c.setFontColor(pnl>0?'#2ecc8a':pnl&lt;0?'#ff4d6a':'#8b90a0');
-  c.setFontWeight('bold');
-}
-function _findRow(sh,col,val){
-  var data=sh.getDataRange().getValues();
-  for(var i=1;i&lt;data.length;i++) if(String(data[i][col-1])===String(val)) return i+1;
-  return -1;
-}
-function _findRow2(sh,col1,val1,col2,val2){
-  var data=sh.getDataRange().getValues();
-  for(var i=1;i&lt;data.length;i++){
-    if(String(data[i][col1-1])===String(val1) &amp;&amp; String(data[i][col2-1])===String(val2)) return i+1;
-  }
-  return -1;
-}
-function _log(action,detail,portfolio,result){
-  try{
-    var sh=_sheet(SHEET.LOG,HDR.LOG);
-    sh.appendRow([_now(),action,(detail||'').toString().substring(0,300),portfolio||'',result||'ok']);
-    if(sh.getLastRow()>1001) sh.deleteRow(2);
-  }catch(e){}
-}
-function _now(){return Utilities.formatDate(new Date(),'Asia/Bangkok','yyyy-MM-dd HH:mm:ss');}
-function _json(obj){return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);}
-
-/* ── SETUP (รันครั้งแรก) ── */
-function setupSheets(){
-  _sheet(SHEET.TRADES,HDR.TRADES);
-  _sheet(SHEET.SESSIONS,HDR.SESSIONS);
-  _sheet(SHEET.SUMMARY,HDR.SUMMARY);
-  _sheet(SHEET.ASSETS,HDR.ASSETS);
-  _sheet(SHEET.LOG,HDR.LOG);
-  var ss=SpreadsheetApp.getActiveSpreadsheet();
-  var def=ss.getSheetByName('Sheet1');
-  if(def&amp;&amp;ss.getSheets().length>1) ss.deleteSheet(def);
-  SpreadsheetApp.getUi().alert('✅ TradeLog Pro v4.5 พร้อม!\n\nSheets: Trades | Sessions | Summary | Assets | Log\nรองรับ Multi-Portfolio + Custom Assets + Fees + Commission\nLog: ครบทุก action + saveSettings (dropdown/session/provider)');
-}
-function onOpen(){
-  SpreadsheetApp.getUi().createMenu('🔧 TradeLog Pro')
-    .addItem('⚙️ Setup Sheets','setupSheets')
-    .addItem('📊 Refresh All Summaries','refreshAll')
-    .addItem('🗑 Clear Log','clearLog')
-    .addToUi();
-}function refreshAll(){
-  var ts=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.TRADES);
-  if(!ts){SpreadsheetApp.getUi().alert('ไม่พบ Sheet Trades');return;}
-  var done={};
-  ts.getDataRange().getValues().slice(1).forEach(function(r){
-    if(r[1]){var key=r[1]+'|'+(r[2]||'default');done[key]={date:r[1],port:r[2]||'default'};}
-  });
-  Object.values(done).forEach(function(o){_recalc(o.date,o.port);});
-  SpreadsheetApp.getUi().alert('✅ Refresh เสร็จ '+Object.keys(done).length+' รายการ');
-}
-function clearLog(){
-  var sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.LOG);
-  if(sh&amp;&amp;sh.getLastRow()>1) sh.deleteRows(2,sh.getLastRow()-1);
+  if(sh&amp;&amp;sh.getLastRow()&gt;1) sh.deleteRows(2,sh.getLastRow()-1);
 }</div>
     <button class="btn-sm" style="margin-top:5px;" onclick="copyCode()">📋 Copy</button></div>
     <div style="margin-top:12px;display:flex;gap:7px;"><button class="btn-primary" onclick="saveSheet()">💾 Save & Test</button><button class="btn-sm" onclick="testSheet()">🔗 Test</button></div>
@@ -2234,6 +1910,33 @@ var MONTHS=['January','February','March','April','May','June','July','August','S
 var MABBR=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 var S={sessions:{},trades:{},scriptUrl:'',keys:{mGem:'gemini-2.5-flash-preview-05-20',mGroq:'llama-4-scout-17b-16e-instruct'},prov:'gemini',provBackup:'groq',viewMonth:new Date(),viewYear:new Date().getFullYear(),emo:'😡',side:'Long',mKey:'',mTrades:[],upB64:null,eqChart:null,eqChartW:null,currentPortfolio:'default',portfolios:{}};
 
+// ── โหลดพอร์ตโฟลิโอจาก Sheet (Log) ──
+function loadPortfoliosFromSheet(){
+  if(!S.scriptUrl) return;
+  fetch(S.scriptUrl+'?action=loadPortfolios')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.status==='ok' && d.portfolios && Object.keys(d.portfolios).length){
+        // Merge: Sheet เป็น source of truth สำหรับชื่อ/balance/fund
+        // แต่คง portfolio ที่มีอยู่ใน localStorage ด้วย (ถ้า Sheet ไม่มี)
+        var merged={};
+        // ใส่จาก Sheet ก่อน
+        Object.keys(d.portfolios).forEach(function(id){
+          merged[id]=d.portfolios[id];
+        });
+        // คงพอร์ตที่มีใน local แต่ Sheet ไม่รู้จัก (ยังไม่ sync)
+        Object.keys(S.portfolios).forEach(function(id){
+          if(!merged[id]) merged[id]=S.portfolios[id];
+        });
+        S.portfolios=merged;
+        localStorage.setItem('tj_ports',JSON.stringify(S.portfolios));
+        renderPortfolioBar();
+        showToast('📁 โหลดพอร์ตจาก Sheet แล้ว ('+Object.keys(merged).length+' พอร์ต)','success');
+      }
+    })
+    .catch(function(){/* ไม่มีการแจ้งเตือน — Sheet อาจไม่รองรับ action นี้ */});
+}
+
 function init(){
   try{
     S.sessions=JSON.parse(localStorage.getItem('tj_s')||'{}');
@@ -2245,6 +1948,8 @@ function init(){
     S.portfolios=JSON.parse(localStorage.getItem('tj_ports')||'{}');
     S.currentPortfolio=localStorage.getItem('tj_curport')||'default';
     if(!S.portfolios['default']) S.portfolios['default']={name:'Default',balance:0,fund:''};
+    // ── ดึงค่าพอร์ตจาก Sheet ถ้ามี scriptUrl ──
+    if(S.scriptUrl) loadPortfoliosFromSheet();
     // Load current portfolio data
     S.sessions=getPortSessions();
     S.trades=getPortTrades();
@@ -2698,20 +2403,21 @@ var DROP_DEFAULTS = {
   oConfirm: ['M1','M5','M15','M30','H1','H4','SMC','Price Action','FIBO'],
   oTF:      ['M1','M5','M15','M30','H1','H4','D1','W'],
   oMode:    ['BE','CHe','BE>CHe','BE>BE','CHe>BE','CHe>CHe'],
+  dtAsset:  ['MNQ1','NQ1','MGC1','GC1','XAU/USD','EURUSD','GBPUSD','USDJPY','BTCUSD'],
   dtSession:['Sydney','Tokyo','London','New York'],
-  dtCandle: ['RBR','DBD','RBD','DBR'],
+  dtCandle: ['RBD','RBR','DBR','DBD'],
   dtCode:   ['Code1','Code2','Code3'],
   dtMode:   ['BE','CHe','BE>CHe','BE>BE','CHe>BE','CHe>CHe'],
   dtTF:     ['M1','M5','M15','M30','H1','H4','D1'],
   dtMitZone:['BMS+FVG','Bos1','Bos2','FVG','OB'],
   dtZone:   ['Demand','Supply','FVG','iFVG','OB','POI'],
   dtConfirm:['M1','M5','M15','BOS','CHoCH','SMC'],
-  dtResult: ['Win','Loss','BE'],
+  dtResult: ['Win','Loss','Miss'],
   dtfSession:['Sydney','Tokyo','London','New York'],
   dtfCode:   ['Code1','Code2','Code3'],
   dtfMode:   ['BE','CHe','BE>CHe','BE>BE','CHe>BE','CHe>CHe'],
-  dtfModel:  ['RBR','DBD','RBD','DBR'],
-  dtfResult: ['Win','Loss','BE']
+  dtfModel:  ['RBD','RBR','DBR','DBD'],
+  dtfResult: ['Win','Loss','Miss']
 };
 function loadDropOptions(){
   // Migrate: reset oTrend if it still has old Trend values (Bullish/Bearish/Sideways)
@@ -2721,6 +2427,30 @@ function loadDropOptions(){
       var arr=JSON.parse(storedOTrend);
       if(arr.indexOf('Bullish')>=0||arr.indexOf('Bearish')>=0||arr.indexOf('Sideways')>=0){
         localStorage.removeItem('tj_drop_oTrend');
+      }
+    }catch(e){}
+  }
+  // Migrate: reset dtResult if it has old 'BE' but not 'Miss'
+  var storedDtResult = localStorage.getItem('tj_drop_dtResult');
+  if(storedDtResult){
+    try{
+      var arrR=JSON.parse(storedDtResult);
+      if(arrR.indexOf('Miss')<0){
+        localStorage.removeItem('tj_drop_dtResult');
+        localStorage.removeItem('tj_drop_dtfResult');
+      }
+    }catch(e){}
+  }
+  // Migrate: reset dtCandle if it doesn't have RBD (wrong order or missing)
+  var storedDtCandle = localStorage.getItem('tj_drop_dtCandle');
+  if(storedDtCandle){
+    try{
+      var arrC=JSON.parse(storedDtCandle);
+      // Reset if old default had duplicate RBR or missing RBD
+      var rbrCount=arrC.filter(function(v){return v==='RBR';}).length;
+      if(rbrCount>1 || arrC.indexOf('RBD')<0){
+        localStorage.removeItem('tj_drop_dtCandle');
+        localStorage.removeItem('tj_drop_dtfModel');
       }
     }catch(e){}
   }
@@ -2739,7 +2469,7 @@ function loadDropOptions(){
       var o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o);
     });
     // Sync POINT_VAL and COMM for custom assets
-    if(id==='oAsset'){
+    if(id==='oAsset'||id==='dtAsset'){
       opts.forEach(function(v){
         if(!POINT_VAL[v]) POINT_VAL[v]=1;
       });
@@ -2772,8 +2502,8 @@ function saveDropOptions(selectId){
     var filterSel = document.getElementById(formToFilter[selectId]);
     if(filterSel){ var cur=filterSel.value; filterSel.innerHTML='<option value="">All</option>'+opts.map(function(v){return '<option'+(v===cur?' selected':'')+'>'+v+'</option>';}).join(''); }
   }
-  // Sync asset list to Sheet when oAsset changes
-  if(selectId==='oAsset') saveAssetsToSheet();
+  // Sync asset list to Sheet when oAsset or dtAsset changes
+  if(selectId==='oAsset'||selectId==='dtAsset') saveAssetsToSheet();
   // Log dropdown change to Sheet
   else if(S.scriptUrl) sendSheet('saveSettings',{key:'dropdown_'+selectId,value:opts.join(',')});
 }
@@ -4366,17 +4096,61 @@ function loadAssetsFromSheet(){
     }).catch(function(){});
 }
 function copyCode(){
-  var raw=document.querySelector('.code-block').innerHTML;
-  var tmp=document.createElement('textarea');
-  tmp.innerHTML=raw;
-  var clean=tmp.value;
-  navigator.clipboard.writeText(clean).then(function(){showToast('📋 Copy Apps Script แล้ว!','success');});
+  var el=document.querySelector('.code-block');
+  var clean=el.innerText||el.textContent;
+  navigator.clipboard.writeText(clean).then(function(){
+    showToast('📋 Copy Apps Script แล้ว!','success');
+  }).catch(function(){
+    var tmp=document.createElement('textarea');
+    tmp.value=clean;
+    document.body.appendChild(tmp);
+    tmp.select();
+    document.execCommand('copy');
+    document.body.removeChild(tmp);
+    showToast('📋 Copy Apps Script แล้ว!','success');
+  });
 }
 
 // FILE OPS
 function saveToFile(){var b=new Blob([JSON.stringify({sessions:S.sessions,trades:S.trades,portfolio:S.currentPortfolio,portfolios:S.portfolios},null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='tradelog-'+S.currentPortfolio+'-'+dk(new Date())+'.json';a.click();showToast('💾 Save file แล้ว (พอร์ต: '+S.portfolios[S.currentPortfolio].name+')','success');}
 function loadFromFile(){var i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){try{var d=JSON.parse(ev.target.result);if(d.sessions)S.sessions=d.sessions;if(d.trades)S.trades=d.trades;if(d.portfolios)S.portfolios=d.portfolios;persistPort();updateStats();renderCal();updateRecent();renderPortfolioBar();renderTodayOrders();showToast('📂 Load สำเร็จ','success');}catch(err){showToast('❌ ไฟล์ไม่ถูกต้อง','error');}};r.readAsText(f);};i.click();}
-function exportCSV(){var rows=[['Date','Asset','Side','Lots','Entry','TP','SL','PnL','Commission','Note']];Object.keys(S.trades).sort().forEach(function(k){S.trades[k].forEach(function(t){rows.push([k,t.asset,t.side,t.lots,t.entry,t.tp,t.sl,t.pnl,t.commission,t.note]);});});var csv=rows.map(function(r){return r.map(function(c){return'"'+(c||'')+'"';}).join(',');}).join('\n');var b=new Blob([csv],{type:'text/csv'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='trades-'+dk(new Date())+'.csv';a.click();showToast('📊 Export CSV สำเร็จ','success');}
+function exportCSV(){
+  function esc(v){var s=String(v===undefined||v===null?'':v);return s.indexOf(',')>=0||s.indexOf('"')>=0||s.indexOf('\n')>=0?'"'+s.replace(/"/g,'""')+'"':s;}
+  var h=['Date','Portfolio','Asset','Side','Lots','Entry','Close','TP','SL',
+         'PnL($)','Fees($)','Commission($)','Result','Risk','MaxRR','TimeInPos',
+         'EntryDateTime','CloseDateTime','SetupClass','Candle','Code','Mode','Timeframe',
+         'Trend','Zone','Confirm','Sessions','Emotion','Discipline','Note','ImageLink'];
+  var rows=[h];
+  Object.keys(S.trades).sort().forEach(function(k){
+    (S.trades[k]||[]).forEach(function(t){
+      rows.push([
+        esc(k), esc(t.portfolio||S.currentPortfolio),
+        esc(t.asset), esc(t.side), esc(t.lots),
+        esc(t.entry), esc(t.close), esc(t.tp), esc(t.sl),
+        esc(t.pnl), esc(t.fees), esc(t.commission),
+        esc(t.result), esc(t.risk), esc(t.maxRR), esc(t.timeInPos),
+        esc(t.entryDate), esc(t.closeDate),
+        esc(t.setupClass), esc(t.candle), esc(t.code), esc(t.mode), esc(t.tf),
+        esc(t.trend), esc(t.zone), esc(t.confirm), esc(t.sessions),
+        esc(t.emotion), esc(t.discipline), esc(t.note), esc(t.imgLink)
+      ].join(','));
+    });
+  });
+  var csv=rows.map(function(r){return Array.isArray(r)?r.join(','):r;}).join('\n');
+  try{
+    var b=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+    var url=URL.createObjectURL(b);
+    var a=document.createElement('a');a.href=url;a.download='portfolio-trades-'+dk(new Date())+'.csv';
+    document.body.appendChild(a);a.click();
+    setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},300);
+  }catch(e){
+    var a2=document.createElement('a');a2.href='data:text/csv;charset=utf-8,'+encodeURIComponent('\uFEFF'+csv);
+    a2.download='portfolio-trades-'+dk(new Date())+'.csv';
+    document.body.appendChild(a2);a2.click();setTimeout(function(){document.body.removeChild(a2);},300);
+  }
+  var total=rows.length-1;
+  showToast('📊 Export '+total+' trades ('+h.length+' fields) สำเร็จ','success');
+}
 function importCSV(){var i=document.createElement('input');i.type='file';i.accept='.csv';i.onchange=function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){try{var lines=ev.target.result.split('\n').filter(Boolean);var cnt=0;lines.slice(1).forEach(function(l){var c=l.split(',').map(function(x){return x.replace(/^"|"$/g,'').trim();});var date=c[0];if(!date)return;if(!S.trades[date])S.trades[date]=[];S.trades[date].push({asset:c[1]||'',side:c[2]||'Long',lots:c[3]||'',entry:c[4]||'',tp:c[5]||'',sl:c[6]||'',pnl:c[7]||'0',commission:c[8]||'0',note:c[9]||'',id:Date.now()+cnt});cnt++;});persistPort();updateStats();renderCal();updateRecent();renderTodayOrders();showToast('📥 Import '+cnt+' trades','success');}catch(err){showToast('❌ ไฟล์ CSV ไม่ถูกต้อง','error');}};r.readAsText(f);};i.click();}
 
 // SIDEBAR COLLAPSE
@@ -5046,7 +4820,7 @@ function showToast(msg,type){var t=document.getElementById('toast');t.textConten
 (function(){
   var _mdTarget=null;
   document.addEventListener('mousedown',function(e){_mdTarget=e.target;});
-  ['mDay','mAI','mSheet','mAPI','mDataAI'].forEach(function(id){
+  ['mDay','mAI','mSheet','mAPI','mDataAI','mImportSheet'].forEach(function(id){
     var el=document.getElementById(id);
     if(!el) return;
     el.addEventListener('mouseup',function(e){
@@ -6213,6 +5987,8 @@ function dtOpenAdd(){
   var dtSessEl=document.getElementById('dtSession');if(dtSessEl)dtSessEl.value='';
   document.getElementById('mDataTradeTitle').textContent='＋ เพิ่ม Trade (Data Mode)';
   document.getElementById('dtSaveBtn').textContent='✓ บันทึก Trade';
+  // Re-load dropdown options from localStorage every time modal opens
+  loadDropOptions();
   // Reset all fields
   var ids=['dtEntry','dtTP','dtSL2','dtRisk','dtLots','dtPnl','dtMaxRR','dtNote','dtImgLink','dtTimePos'];
   ids.forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
@@ -6240,6 +6016,8 @@ function dtOpenAdd(){
 }
 function dtOpenEdit(visIdx){
   dtLoad();
+  // Re-load dropdown options from localStorage
+  loadDropOptions();
   var rows=dtFiltered();
   var t=rows[visIdx];
   if(!t||t._src!=='data'){showToast('ออเดอร์จากพอร์ตแก้ไขที่นี่ไม่ได้','error');return;}
@@ -6371,6 +6149,8 @@ function dtUpdateFilterBadge(){
 function dtOpenImport(){
   var ta=document.getElementById('importPasteArea');if(ta)ta.value='';
   var prev=document.getElementById('importPreview');if(prev){prev.style.display='none';prev.innerHTML='';}
+  // Make sure Data Mode panel is open so user can see results after import
+  if(!_dtPanelOpen) dtToggleDataPanel();
   openM('mImportSheet');
 }
 function dtCsvSplitLine(line, sep){
@@ -6391,6 +6171,7 @@ function dtParseSheetData(raw){
   var sep=lines[0].includes('\t')?'\t':',';
   var headers=dtCsvSplitLine(lines[0],sep).map(function(h){return h.trim().replace(/^"|"$/g,'').toLowerCase();});
   var colMap={
+    date:['date','วันที่','day date'],
     day:['day','วัน'],session:['session','เซสชัน'],
     entryTime:['time','entry time','เวลา','time entry'],
     duration:['duration','dur'],code:['code','โค้ด'],
@@ -6405,7 +6186,9 @@ function dtParseSheetData(raw){
     tp:['target','tp','take profit'],
     sl:['stoploss','sl','stop loss','stop'],
     result:['result','ผล'],maxRR:['max rr','maxrr','rr'],
-    note:['tip','note','หมายเหตุ']
+    note:['tip','note','หมายเหตุ'],
+    asset:['asset','สินทรัพย์','symbol'],
+    pnl:['pnl','p&l','profit','profit/loss','กำไร']
   };
   function findCol(aliases){for(var i=0;i<aliases.length;i++){var ix=headers.indexOf(aliases[i]);if(ix>=0)return ix;}return -1;}
   var cols={};Object.keys(colMap).forEach(function(k){cols[k]=findCol(colMap[k]);});
@@ -6417,10 +6200,23 @@ function dtParseSheetData(raw){
     var day=g(row,'day'),entryTime=g(row,'entryTime'),entry=g(row,'entry');
     if(!day&&!entryTime&&!entry) continue;
     var dateOnly='';
-    // Support YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY
-    var dateCands=row.filter(function(c){return /^\d{4}-\d{2}-\d{2}$/.test((c||'').trim());});
-    if(dateCands.length){ dateOnly=dateCands[0].trim(); }
-    else {
+    // 1) Try mapped date column first
+    var mappedDate=g(row,'date');
+    if(mappedDate&&/^\d{4}-\d{2}-\d{2}$/.test(mappedDate)){
+      dateOnly=mappedDate;
+    } else if(mappedDate&&/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(mappedDate)){
+      var pts2=mappedDate.split('/');
+      var yr2=pts2[2].length===2?'20'+pts2[2]:pts2[2];
+      dateOnly=yr2+'-'+pts2[1].padStart(2,'0')+'-'+pts2[0].padStart(2,'0');
+      if(isNaN(new Date(dateOnly))) dateOnly=yr2+'-'+pts2[0].padStart(2,'0')+'-'+pts2[1].padStart(2,'0');
+    }
+    // 2) Scan all cells for YYYY-MM-DD
+    if(!dateOnly){
+      var dateCands=row.filter(function(c){return /^\d{4}-\d{2}-\d{2}$/.test((c||'').trim());});
+      if(dateCands.length){ dateOnly=dateCands[0].trim(); }
+    }
+    // 3) Scan all cells for DD/MM/YYYY
+    if(!dateOnly){
       var slashCand=row.filter(function(c){return /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test((c||'').trim());});
       if(slashCand.length){
         var parts=slashCand[0].trim().split('/');
@@ -6428,15 +6224,28 @@ function dtParseSheetData(raw){
         var mo=parts[1].length===1?'0'+parts[1]:parts[1];
         var dy=parts[0].length===1?'0'+parts[0]:parts[0];
         dateOnly=yr+'-'+mo+'-'+dy;
-        var dtest=new Date(dateOnly);
-        if(isNaN(dtest)){dateOnly=yr+'-'+parts[0].padStart(2,'0')+'-'+parts[1].padStart(2,'0');}
-      } else {
-        var d=new Date();var dm={sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6};var td=dm[(day||'').substring(0,3).toLowerCase()];if(td!==undefined){var diff=td-d.getDay();d.setDate(d.getDate()+diff);}dateOnly=d.toISOString().substring(0,10);
+        if(isNaN(new Date(dateOnly))){dateOnly=yr+'-'+parts[0].padStart(2,'0')+'-'+parts[1].padStart(2,'0');}
       }
+    }
+    // 4) Fallback: derive from day-of-week name
+    if(!dateOnly){
+      var d=new Date();var dm={sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6};
+      var td=dm[(day||'').substring(0,3).toLowerCase()];
+      if(td!==undefined){var diff=td-d.getDay();d.setDate(d.getDate()+diff);}
+      dateOnly=d.toISOString().substring(0,10);
     }
     var side='Long';
     if(entry&&g(row,'sl')){var e=parseFloat(entry),s=parseFloat(g(row,'sl'));if(s>e)side='Short';}
-    trades.push({_id:Date.now()+'_'+Math.random()+'_'+i,date:dateOnly,day:day||DT_DAYS[new Date(dateOnly).getDay()],session:g(row,'session'),asset:asset,side:side,entryTime:entryTime,duration:g(row,'duration'),code:g(row,'code'),mode:g(row,'mode'),model:g(row,'model'),zoneMit:g(row,'zoneMit'),setupClass:g(row,'setupClass'),candle:g(row,'candle'),zone:g(row,'zone'),confirm:g(row,'confirm'),tf:g(row,'tf'),entry:entry,tp:g(row,'tp'),sl:g(row,'sl'),result:g(row,'result'),maxRR:g(row,'maxRR'),note:g(row,'note'),pnl:'0',risk:'',lots:'',disc:5,emo:5,_src:'data'});
+    // Try to parse pnl from result field like "+125.50" or "-50"
+    var rawPnl=g(row,'pnl')||'';
+    var parsedPnl=rawPnl?parseFloat(rawPnl)||0:0;
+    // Map result aliases Win/Loss/Miss
+    var rawResult=g(row,'result');
+    var normResult=rawResult;
+    if(rawResult==='TP'||rawResult==='W'||rawResult==='✓W') normResult='Win';
+    else if(rawResult==='SL'||rawResult==='X Loss'||rawResult==='L') normResult='Loss';
+    else if(rawResult==='BE'||rawResult==='Miss'||rawResult==='M') normResult='Miss';
+    trades.push({_id:Date.now()+'_'+Math.random()+'_'+i,date:dateOnly,day:day||DT_DAYS[new Date(dateOnly).getDay()],session:g(row,'session'),asset:asset||g(row,'asset'),side:side,entryTime:entryTime,duration:g(row,'duration'),code:g(row,'code'),mode:g(row,'mode'),model:g(row,'model'),zoneMit:g(row,'zoneMit'),setupClass:g(row,'setupClass'),candle:g(row,'candle'),zone:g(row,'zone'),confirm:g(row,'confirm'),tf:g(row,'tf'),entry:entry,tp:g(row,'tp'),sl:g(row,'sl'),result:normResult,maxRR:g(row,'maxRR'),note:g(row,'note'),pnl:parsedPnl?String(parsedPnl):'0',risk:'',lots:'',disc:5,emo:5,_src:'data'});
   }
   return trades;
 }
@@ -6452,10 +6261,14 @@ function dtConfirmImport(){
   var raw=(document.getElementById('importPasteArea')||{}).value||'';
   if(!raw.trim()){showToast('กรุณาวาง data ก่อน','error');return;}
   var trades=dtParseSheetData(raw);
-  if(!trades||!trades.length){showToast('ไม่พบข้อมูล','error');return;}
-  dtLoad();trades.forEach(function(t){DT.trades.push(t);});
+  if(!trades||!trades.length){showToast('ไม่พบข้อมูล — ตรวจสอบ Header และ Separator (Tab หรือ comma)','error');return;}
+  dtLoad();
+  trades.forEach(function(t){DT.trades.push(t);});
   DT.trades.sort(function(a,b){return (a.date+(a.entryTime||''))<(b.date+(b.entryTime||''))?-1:1;});
-  dtSave();closeM('mImportSheet');dtRender();
+  dtSave();
+  closeM('mImportSheet');
+  if(!_dtPanelOpen) dtToggleDataPanel();
+  dtRender();
   showToast('✅ Import '+trades.length+' trades สำเร็จ','success');
 }
 
@@ -6612,33 +6425,108 @@ function dtSetViewMode(mode){
   if(inc) inc.checked=(mode==='combined');
 }
 
-function togglePortSelector(evt){
-  evt = evt || window.event;
-  var dd=document.getElementById('portSelectorDropdown');
-  if(!dd) return;
-  var isOpen=dd.style.display==='block';
-  if(isOpen){ dd.style.display='none'; return; }
-  buildPortCheckList();
-  var ddW=280;
-  var clientX = evt ? (evt.clientX||evt.pageX||0) : 0;
-  var clientY = evt ? (evt.clientY||evt.pageY||0) : 0;
-  var left = Math.max(8, Math.min(clientX - ddW + 30, window.innerWidth - ddW - 12));
-  var top = clientY + 14;
-  if(top + 360 > window.innerHeight) top = Math.max(8, clientY - 370);
-  dd.style.left = left + 'px';
-  dd.style.top = top + 'px';
-  dd.style.display = 'block';
-  setTimeout(function(){
-    document.addEventListener('click',function _closePort(e){
-      var dd2=document.getElementById('portSelectorDropdown');
-      var lbl2=document.getElementById('portSelectorLabel');
-      if(dd2&&!dd2.contains(e.target)&&e.target!==lbl2&&!(lbl2&&lbl2.contains(e.target))){
-        dd2.style.display='none';
-        document.removeEventListener('click',_closePort);
-      }
+function openPortSelectorModal(){
+  var existing=document.getElementById('_portSelectModal');
+  if(existing){existing.remove();return;}
+
+  // Overlay
+  var overlay=document.createElement('div');
+  overlay.id='_portSelectModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+  // Dialog box
+  var box=document.createElement('div');
+  box.style.cssText='background:var(--bg-card);border:1px solid var(--border-hover);border-radius:14px;padding:20px;min-width:320px;max-width:420px;width:90vw;box-shadow:0 12px 48px rgba(0,0,0,.8);';
+
+  // Title
+  var title=document.createElement('div');
+  title.style.cssText='font-size:14px;font-weight:700;margin-bottom:6px;';
+  title.textContent='📁 แสดงข้อมูลจาก';
+  box.appendChild(title);
+
+  var sub=document.createElement('div');
+  sub.style.cssText='font-size:11px;color:var(--text-muted);margin-bottom:14px;';
+  sub.textContent='เลือกพอร์ตและโหมดการแสดงผล';
+  box.appendChild(sub);
+
+  // Port checkboxes
+  var ports=Object.keys(S.portfolios||{'default':{}});
+  if(ports.length){
+    var portSect=document.createElement('div');
+    portSect.style.marginBottom='14px';
+    var portHdr=document.createElement('div');
+    portHdr.style.cssText='font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;';
+    portHdr.textContent='พอร์ตที่ต้องการแสดง';
+    portSect.appendChild(portHdr);
+
+    ports.forEach(function(pid){
+      var pname=(S.portfolios&&S.portfolios[pid]&&S.portfolios[pid].name)||pid;
+      var checked=_dtSelectedPorts.indexOf(pid)>=0||_dtSelectedPorts.length===0;
+      var lbl=document.createElement('label');
+      lbl.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-radius:8px;font-size:13px;border:1px solid var(--border);background:var(--bg-input);margin-bottom:6px;transition:border-color .15s;';
+      lbl.addEventListener('mouseover',function(){this.style.borderColor='var(--accent)';});
+      lbl.addEventListener('mouseout',function(){this.style.borderColor='var(--border)';});
+      var cb=document.createElement('input');
+      cb.type='checkbox';
+      cb.checked=checked;
+      cb.style.cssText='width:16px;height:16px;cursor:pointer;accent-color:var(--accent);';
+      cb.addEventListener('change',function(){dtTogglePort(pid,this.checked);dtRender();updatePortSelectorLabel();});
+      var sp=document.createElement('span');
+      sp.textContent='📁 '+pname;
+      lbl.appendChild(cb);
+      lbl.appendChild(sp);
+      portSect.appendChild(lbl);
     });
-  },10);
+    box.appendChild(portSect);
+  }
+
+  // View mode radios
+  var modeSect=document.createElement('div');
+  modeSect.style.marginBottom='16px';
+  var modeHdr=document.createElement('div');
+  modeHdr.style.cssText='font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;';
+  modeHdr.textContent='โหมดการแสดงผล';
+  modeSect.appendChild(modeHdr);
+
+  var modes=[
+    {value:'data_only', label:'📊 Data เท่านั้น'},
+    {value:'port_only', label:'📁 พอร์ตจริง (ไม่รวม Data)'},
+    {value:'combined',  label:'🔀 รวม Data + พอร์ต'}
+  ];
+  modes.forEach(function(m){
+    var lbl=document.createElement('label');
+    lbl.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-radius:8px;font-size:13px;border:1px solid var(--border);background:var(--bg-input);margin-bottom:6px;transition:border-color .15s;';
+    lbl.addEventListener('mouseover',function(){this.style.borderColor='var(--purple)';});
+    lbl.addEventListener('mouseout',function(){this.style.borderColor='var(--border)';});
+    var rb=document.createElement('input');
+    rb.type='radio';
+    rb.name='_portViewMode';
+    rb.value=m.value;
+    rb.checked=(m.value===_dtViewMode);
+    rb.style.cssText='width:16px;height:16px;cursor:pointer;accent-color:var(--purple);';
+    rb.addEventListener('change',function(){dtSetViewMode(m.value);dtRender();updatePortSelectorLabel();});
+    var sp=document.createElement('span');
+    sp.textContent=m.label;
+    lbl.appendChild(rb);
+    lbl.appendChild(sp);
+    modeSect.appendChild(lbl);
+  });
+  box.appendChild(modeSect);
+
+  // OK button
+  var btn=document.createElement('button');
+  btn.style.cssText='width:100%;background:var(--accent);color:#fff;border:none;padding:10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-main);';
+  btn.textContent='✓ ตกลง';
+  btn.addEventListener('click',function(){overlay.remove();});
+  box.appendChild(btn);
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  // Close on backdrop click
+  overlay.addEventListener('mousedown',function(e){if(e.target===overlay)overlay.remove();});
 }
+function togglePortSelector(evt){ openPortSelectorModal(); }
 
 function buildPortCheckList(){
   var list=document.getElementById('portCheckList');if(!list)return;
@@ -6806,29 +6694,49 @@ function dtRenderCharts(rows){
 function dtExportCSV(){
   dtLoad();
   var rows=dtFiltered();
-  // ถ้า filtered ว่าง แต่มีข้อมูลใน DT.trades ให้ export ทั้งหมด
-  if(!rows.length && DT.trades && DT.trades.length){
-    rows=DT.trades;
-  }
+  if(!rows.length && DT.trades && DT.trades.length) rows=DT.trades;
   if(!rows.length){showToast('ไม่มีข้อมูล — กรุณาเพิ่ม Trade ก่อน','error');return;}
-  var h=['Date','Day','Session','Asset','Side','Entry Time','Duration','Mode','Code','TF','Class','Candle','Zone','Confirm','Entry','TP','SL','Risk','Lots','Discipline','P&L','Result','MaxRR','Note'];
-  var csv=h.join(',')+'\n'+rows.map(function(t){
-    function esc(v){var s=String(v||'');return s.indexOf(',')>=0||s.indexOf('"')>=0?'"'+s.replace(/"/g,'""')+'"':s;}
-    return [esc(t.date),esc(t.day),esc(t.session),esc(t.asset),esc(t.side),esc(t.entryTime),esc(t.duration),esc(t.mode),esc(t.code),esc(t.tf),esc(t.setupClass),esc(t.candle),esc(t.zone),esc(t.confirm),esc(t.entry),esc(t.tp),esc(t.sl),esc(t.risk),esc(t.lots),esc(t.disc),esc(t.pnl),esc(t.result),esc(t.maxRR),esc(t.note)].join(',');
-  }).join('\n');
+  function esc(v){
+    var s=String(v===undefined||v===null?'':v);
+    return s.indexOf(',')>=0||s.indexOf('"')>=0||s.indexOf('\n')>=0?'"'+s.replace(/"/g,'""')+'"':s;
+  }
+  var h=['ID','Date','Day','Portfolio','Session','Asset','Side',
+         'Entry Time','Duration','Mode','Code','TF','Class','Candle',
+         'Mitigated Zone','Zone','Confirm',
+         'Entry','TP','SL','Risk','Lots','P&L($)','Result','MaxRR',
+         'Emotion','Discipline','Note','ImageLink','UpdatedAt'];
+  var csvRows=[h.join(',')];
+  rows.forEach(function(t){
+    csvRows.push([
+      esc(t.id||t._id), esc(t.date), esc(t.day),
+      esc(t.portfolio||'data'), esc(t.session),
+      esc(t.asset), esc(t.side),
+      esc(t.entryTime), esc(t.duration),
+      esc(t.mode), esc(t.code), esc(t.tf),
+      esc(t.setupClass), esc(t.candle),
+      esc(t.zoneMit), esc(t.zone), esc(t.confirm),
+      esc(t.entry), esc(t.tp), esc(t.sl),
+      esc(t.risk), esc(t.lots), esc(t.pnl),
+      esc(t.result), esc(t.maxRR),
+      esc(t.emo||t.emotion), esc(t.disc||t.discipline),
+      esc(t.note), esc(t.imgLink), esc(t.updatedAt)
+    ].join(','));
+  });
+  var csv=csvRows.join('\n');
+  var fname='data-trades-'+dk(new Date())+'.csv';
   try{
     var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
     var url=URL.createObjectURL(blob);
-    var a=document.createElement('a');a.href=url;a.download='tradelog_data.csv';
+    var a=document.createElement('a');a.href=url;a.download=fname;
     document.body.appendChild(a);a.click();
     setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},300);
-    showToast('✅ Export '+rows.length+' trades สำเร็จ','success');
   }catch(e){
-    var uri='data:text/csv;charset=utf-8,'+encodeURIComponent('\uFEFF'+csv);
-    var a2=document.createElement('a');a2.href=uri;a2.download='tradelog_data.csv';
-    document.body.appendChild(a2);a2.click();setTimeout(function(){document.body.removeChild(a2);},300);
-    showToast('✅ Export '+rows.length+' trades สำเร็จ','success');
+    var a2=document.createElement('a');
+    a2.href='data:text/csv;charset=utf-8,'+encodeURIComponent('\uFEFF'+csv);
+    a2.download=fname;document.body.appendChild(a2);a2.click();
+    setTimeout(function(){document.body.removeChild(a2);},300);
   }
+  showToast('✅ Export '+rows.length+' trades ('+h.length+' fields) สำเร็จ','success');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -6975,7 +6883,12 @@ async function dtSendAI(){
   }
 }
 
-init();
+// ── Defer init until full DOM is ready (modals are after this script tag) ──
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
 </script>
 <!-- Fixed expand buttons when sidebars are collapsed -->
 <!-- ═══ Calendar day hover popup ═══ -->
@@ -7297,19 +7210,7 @@ init();
 <!-- ═══ DATA AI ANALYSIS MODAL ═══ -->
 <!-- Hidden compat element for dtIncludePort references -->
 <input type="checkbox" id="dtIncludePort" style="display:none;">
-<!-- Port selector floating dropdown (body-level, never clipped) -->
-<div id="portSelectorDropdown" style="display:none;position:fixed;background:var(--bg-card);border:1px solid var(--border-hover);border-radius:12px;padding:12px;min-width:250px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.8);">
-  <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;">📁 แสดงข้อมูลจาก</div>
-  <div id="portCheckList" style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border);"></div>
-  <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;border-radius:7px;font-size:12px;color:var(--text-secondary);" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
-    <input type="radio" name="dtViewMode" value="data_only" checked onchange="dtSetViewMode('data_only');dtRender();updatePortSelectorLabel()" style="cursor:pointer;accent-color:var(--purple);"> 📊 Data เท่านั้น
-  </label>
-  <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;border-radius:7px;font-size:12px;color:var(--text-secondary);" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
-    <input type="radio" name="dtViewMode" value="port_only" onchange="dtSetViewMode('port_only');dtRender();updatePortSelectorLabel()" style="cursor:pointer;accent-color:var(--purple);"> 📁 พอร์ตจริง (ไม่รวม Data)
-  </label>
-  <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;border-radius:7px;font-size:12px;color:var(--text-secondary);" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
-    <input type="radio" name="dtViewMode" value="combined" onchange="dtSetViewMode('combined');dtRender();updatePortSelectorLabel()" style="cursor:pointer;accent-color:var(--purple);"> 🔀 รวม Data + พอร์ต
-  </label>
+<div id="portCheckList" style="display:none;"></div>
 </div>
 <div id="mDataAI" class="modal-backdrop">
   <div class="modal modal-wide">
