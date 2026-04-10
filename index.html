@@ -664,6 +664,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
               <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">Day</th>
               <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">Session</th>
               <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">Asset</th>
+              <th style="padding:7px 6px;text-align:center;color:var(--text-muted);font-weight:600;">Side</th>
               <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;">Entry Time</th>
               <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;">Dur.</th>
               <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">Mode</th>
@@ -690,6 +691,22 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
         </table>
       </div>
       <div id="dtEmpty" style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px;display:none;">ยังไม่มีข้อมูล — กด <strong>＋ เพิ่ม Trade</strong> เพื่อเริ่มต้น</div>
+      <!-- Pagination -->
+      <div id="dtPagination" style="display:none;align-items:center;justify-content:space-between;padding:8px 4px;margin-top:6px;flex-wrap:wrap;gap:6px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;color:var(--text-muted);">แสดง</span>
+          <select id="dtPageSize" onchange="dtChangePageSize(this.value)" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:6px;padding:3px 7px;font-size:11px;font-family:var(--font-main);cursor:pointer;outline:none;">
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+            <option value="0">ทั้งหมด</option>
+          </select>
+          <span style="font-size:11px;color:var(--text-muted);">ออเดอร์/หน้า</span>
+          <span id="dtRowCount" style="font-size:11px;color:var(--text-muted);margin-left:4px;"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;" id="dtPageBtns"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -1136,7 +1153,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
             <div class="form-field">
               <label>🖼️ Image Link</label>
               <input class="form-input" id="oImgLink" placeholder="https://...image URL..." type="url" oninput="previewImgLink(this.value)">
-              <div id="oImgPreview" style="display:none;margin-top:2px;"><a id="oImgAnchor" href="#" target="_blank" style="font-size:10px;color:var(--accent);">🔗 ดูรูป</a></div>
+              <div id="oImgPreview" style="display:none;margin-top:2px;"><span id="oImgAnchor" onclick="var u=this.dataset.href;if(u)window.open(u,'_blank');" style="font-size:10px;color:var(--accent);cursor:pointer;">🔗 ดูรูป</span></div>
             </div>
           </div>
           <div class="calc-bar" id="calcBar">Side: <span id="cSide" style="color:var(--amber)">-</span> &nbsp;|&nbsp; Risk: <span id="cPos">-</span> &nbsp;|&nbsp; R:R <span id="cRR">-</span> &nbsp;|&nbsp; Fees: <span id="cFees">$0.00</span> &nbsp;|&nbsp; Comm: <span id="cComm">$0.00</span></div>
@@ -1197,8 +1214,14 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
   <div class="modal-header"><div><div class="modal-title">🔗 Google Sheet</div><div class="modal-subtitle">เชื่อมต่อกับ Google Sheet</div></div><button class="modal-close" onclick="closeM('mSheet')">✕</button></div>
   <div class="modal-body">
     <div class="info-box"><span class="step-n">1</span>เปิด Google Sheet → Extensions → Apps Script<br><span class="step-n">2</span>วางโค้ดด้านล่าง → กด <strong>setupSheets()</strong> รันครั้งแรก<br><span class="step-n">3</span>Deploy → Web App → Execute as: <strong>Me</strong> → Access: <strong>Anyone</strong><br><span class="step-n">4</span>Copy URL → วางด้านล่าง → Save &amp; Test<br><span style="font-size:10px;color:var(--amber);margin-top:4px;display:block;">⚡ Sheets ที่สร้าง: Trades | Sessions | Summary | Assets | Log — รองรับ Fees + Commission แยกกัน + Log ครบทุก action</span></div>
+    <!-- Live connection status -->
+    <div id="sheetLiveStatus" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border);margin-bottom:10px;font-size:11px;">
+      <div id="sheetStatusDot" style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);flex-shrink:0;"></div>
+      <span id="sheetStatusTxt" style="color:var(--text-muted);">ยังไม่ได้เชื่อมต่อ</span>
+      <button onclick="openSheet_refreshStatus()" style="margin-left:auto;background:none;border:none;color:var(--accent);cursor:pointer;font-size:10px;padding:0;">↻ ตรวจสอบ</button>
+    </div>
     <div class="field-label">Apps Script URL</div>
-    <input class="settings-input" id="sheetUrl" placeholder="https://script.google.com/macros/s/.../exec">
+    <input class="settings-input" id="sheetUrl" placeholder="https://script.google.com/macros/s/.../exec" oninput="openSheet_onUrlChange()">
     <div style="margin-top:10px;"><div class="field-label" style="margin-bottom:5px;">📋 Code:</div>
     <div class="code-block">/* =========================================
    TradeLog Pro — Google Apps Script v5.0
@@ -1859,8 +1882,20 @@ function clearLog(){
   if(sh&amp;&amp;sh.getLastRow()&gt;1) sh.deleteRows(2,sh.getLastRow()-1);
 }</div>
     <button class="btn-sm" style="margin-top:5px;" onclick="copyCode()">📋 Copy</button></div>
-    <div style="margin-top:12px;display:flex;gap:7px;flex-wrap:wrap;"><button class="btn-primary" onclick="saveSheet()">💾 Save & Test</button><button class="btn-sm" onclick="testSheet()">🔗 Test</button><button class="btn-sm" onclick="syncFromSheet()" style="border-color:var(--teal);color:var(--teal);">🔄 Sync จาก Sheet</button><button class="btn-sm" onclick="clearAndResync()" style="border-color:var(--amber);color:var(--amber);" title="ล้างข้อมูลใน Browser ทั้งหมดแล้วดึงจาก Sheet ใหม่">🧹 Clear &amp; Re-sync</button><button class="btn-sm" onclick="cleanSheetDuplicates()" style="border-color:var(--red);color:var(--red);" title="รันฟังก์ชัน Clean Duplicates ที่ Google Sheet โดยตรง — ลบ row ซ้ำออกจาก Sheet ถาวร">🔧 Clean Sheet Dupes</button></div>
-    <div id="sheetRes" style="margin-top:6px;font-size:11px;"></div>
+    <div style="margin-top:12px;">
+      <!-- Row 1: Primary actions -->
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px;">
+        <button class="btn-primary" onclick="saveSheet()" style="gap:5px;">💾 Save &amp; Test</button>
+        <button class="btn-primary" onclick="syncFromSheet(function(){document.getElementById('sheetRes').textContent='✅ Sync เสร็จแล้ว!';})" style="background:var(--teal);">🔄 Import / Sync ข้อมูล</button>
+      </div>
+      <!-- Row 2: Advanced actions -->
+      <div style="display:flex;gap:7px;flex-wrap:wrap;">
+        <button class="btn-sm" onclick="testSheet()">🔗 ทดสอบ URL</button>
+        <button class="btn-sm" onclick="clearAndResync()" style="border-color:var(--amber);color:var(--amber);" title="ล้างข้อมูล Browser แล้วดึงใหม่ทั้งหมด">🧹 Clear &amp; Re-sync</button>
+        <button class="btn-sm" onclick="cleanSheetDuplicates()" style="border-color:var(--red);color:var(--red);" title="ลบ Duplicate Rows ใน Sheet ถาวร">🔧 Clean Dupes</button>
+      </div>
+    </div>
+    <div id="sheetRes" style="margin-top:8px;font-size:11px;padding:6px 8px;border-radius:6px;background:var(--bg-input);min-height:24px;"></div>
   </div>
 </div>
 </div>
@@ -2145,10 +2180,18 @@ function clearAndResync(){
 function syncFromSheet(onDone){
   if(!S.scriptUrl) return;
   showToast('🔄 กำลังดึงข้อมูลจาก Sheet...','success');
+  var sheetRes=document.getElementById('sheetRes');
+  if(sheetRes){sheetRes.style.color='var(--text-muted)';sheetRes.textContent='🔄 กำลัง Sync...';}
   fetch(S.scriptUrl+'?action=loadAll')
-    .then(function(r){return r.json();})
+    .then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status+' — ตรวจสอบ Deploy URL');
+      return r.text().then(function(txt){
+        try{ return JSON.parse(txt); }
+        catch(e){ throw new Error('Sheet ตอบกลับไม่ใช่ JSON: '+txt.substring(0,120)); }
+      });
+    })
     .then(function(d){
-      if(d.status!=='ok') throw new Error(d.msg||'error');
+      if(d.status!=='ok') throw new Error(d.msg||'Sheet error: status='+d.status);
 
       // ── 1. Portfolios ──
       if(d.portfolios && Object.keys(d.portfolios).length){
@@ -2373,7 +2416,19 @@ function syncFromSheet(onDone){
       if(onDone) onDone();
     })
     .catch(function(err){
-      showToast('❌ Sync ล้มเหลว: '+err.message,'error');
+      var msg=err.message||'unknown';
+      showToast('❌ Sync ล้มเหลว: '+msg,'error');
+      if(sheetRes){
+        sheetRes.style.color='var(--red)';
+        if(msg.indexOf('Failed to fetch')>=0||msg.indexOf('NetworkError')>=0){
+          sheetRes.textContent='❌ เชื่อมต่อ Sheet ไม่ได้ — ลอง Re-deploy Web App แล้วกด Save & Test ใหม่';
+        } else if(msg.indexOf('JSON')>=0){
+          sheetRes.textContent='❌ Script ตอบกลับผิดรูปแบบ — Deploy ใหม่หรือตรวจสอบ GAS code';
+        } else {
+          sheetRes.textContent='❌ '+msg;
+        }
+      }
+      setConn(false);
     });
 }
 
@@ -3581,7 +3636,7 @@ function calcAll(){
 }
 function previewImgLink(v){
   var p=document.getElementById('oImgPreview'),a=document.getElementById('oImgAnchor');
-  if(v&&v.startsWith('http')){p.style.display='block';a.href=v;}
+  if(v&&v.startsWith('http')){p.style.display='block';a.dataset.href=v;}
   else{p.style.display='none';}
 }
 function addTrade(){if(_isReadOnly){showToast('🔒 โหมดดูเท่านั้น — ไม่สามารถแก้ไขได้','error');return;}
@@ -3800,7 +3855,7 @@ function renderTT(){
   document.getElementById('trBody').innerHTML=S.mTrades.map(function(t,i){
     var p=parseFloat(t.pnl)||0;
     var resBadge=t.result==='Win'?'<span style="color:var(--green);font-size:10px;font-weight:600;">✓W</span>':t.result==='Loss'?'<span style="color:var(--red);font-size:10px;font-weight:600;">✗L</span>':'<span style="color:var(--amber);font-size:10px;">BE</span>';
-    var imgCell=t.imgLink?'<a href="'+t.imgLink+'" target="_blank" style="font-size:12px;text-decoration:none;">🖼️</a>':'-';
+    var imgCell=t.imgLink?'<span onclick="window.open(\''+t.imgLink+'\',\'_blank\')" style="font-size:12px;cursor:pointer;">🖼️</span>':'-';
     var entryTimeStr=t.entryDate?(function(){var d=new Date(t.entryDate);return isNaN(d)?t.entryDate:(d.getHours()<10?'0':'')+d.getHours()+':'+(d.getMinutes()<10?'0':'')+d.getMinutes();}()):'';
     var sessStr=t.sessions?(t.sessions.split(',').map(function(s){return s.trim();}).filter(Boolean).join(', ')):'';
     return '<tr><td style="font-family:var(--font-mono);font-weight:500;white-space:nowrap;">'+t.asset+'</td><td><span class="side-badge '+t.side.toLowerCase()+'">'+t.side+'</span></td><td>'+t.lots+'</td><td style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);white-space:nowrap;">'+entryTimeStr+'</td><td style="font-size:10px;color:var(--text-secondary);white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="'+sessStr+'">'+sessStr+'</td><td style="font-family:var(--font-mono)">'+t.entry+'</td><td style="font-family:var(--font-mono)">'+(t.close||'-')+'</td><td class="'+(p>=0?'pnl-pos':'pnl-neg')+'">'+(p>=0?'+':'')+'$'+Math.abs(p).toFixed(2)+'</td><td>'+resBadge+'</td><td style="font-size:10px;color:var(--text-muted);white-space:nowrap;">'+(t.timeInPos||'-')+'</td><td style="font-size:10px;color:var(--text-secondary);max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="'+t.note+'">'+t.note+'</td><td>'+imgCell+'</td><td style="white-space:nowrap;"><button class="btn-del" onclick="editTr('+i+')" title="แก้ไข" style="color:var(--accent);margin-right:2px;">✎</button><button class="btn-del" onclick="moveTrDate('+i+')" title="ย้ายไปวันอื่น" style="color:var(--amber);margin-right:2px;">📅</button><button class="btn-del" onclick="delTr('+i+')">✕</button></td></tr>';
@@ -4499,9 +4554,100 @@ async function testAPI(){
 }
 
 // SHEET
-function openSheet(){document.getElementById('mSheet').classList.add('open');document.body.classList.add('modal-open');document.getElementById('sheetUrl').value=S.scriptUrl;}
-function saveSheet(){S.scriptUrl=document.getElementById('sheetUrl').value.trim();localStorage.setItem('tj_url',S.scriptUrl);testSheet();}
-function testSheet(){var url=document.getElementById('sheetUrl').value.trim();if(!url){document.getElementById('sheetRes').textContent='ใส่ URL ก่อน';return;}document.getElementById('sheetRes').textContent='กำลังทดสอบ...';fetch(url).then(function(r){return r.json();}).then(function(d){if(d.status==='ready'){setConn(true);document.getElementById('sheetRes').style.color='var(--green)';document.getElementById('sheetRes').textContent='✅ เชื่อมต่อสำเร็จ!';showToast('✅ Google Sheet พร้อม','success');}}).catch(function(){document.getElementById('sheetRes').style.color='var(--red)';document.getElementById('sheetRes').textContent='❌ เชื่อมต่อไม่ได้';});}
+function openSheet(){
+  document.getElementById('mSheet').classList.add('open');
+  document.body.classList.add('modal-open');
+  document.getElementById('sheetUrl').value=S.scriptUrl||'';
+  openSheet_refreshStatus();
+}
+function openSheet_refreshStatus(){
+  var dot=document.getElementById('sheetStatusDot');
+  var txt=document.getElementById('sheetStatusTxt');
+  if(!dot||!txt) return;
+  var url=document.getElementById('sheetUrl').value.trim()||S.scriptUrl;
+  if(!url){
+    dot.style.background='var(--text-muted)';
+    txt.style.color='var(--text-muted)';
+    txt.textContent='ยังไม่ได้ใส่ URL';
+    return;
+  }
+  dot.style.background='var(--amber)';
+  txt.style.color='var(--amber)';
+  txt.textContent='กำลังตรวจสอบ...';
+  fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d.status==='ready'||d.status==='ok'){
+        dot.style.background='var(--green)'; dot.style.animation='pulse 2s infinite';
+        txt.style.color='var(--green)';
+        txt.textContent='✅ เชื่อมต่อแล้ว — GAS v'+( d.version||'?')+' ('+new Date().toLocaleTimeString('th-TH')+')';
+      } else {
+        dot.style.background='var(--amber)';
+        txt.style.color='var(--amber)';
+        txt.textContent='⚠ Script ตอบกลับ: '+d.status;
+      }
+    })
+    .catch(function(){
+      dot.style.background='var(--red)'; dot.style.animation='none';
+      txt.style.color='var(--red)';
+      txt.textContent='❌ เชื่อมต่อไม่ได้ — ตรวจสอบ URL หรือ Re-deploy';
+    });
+}
+function openSheet_onUrlChange(){
+  var dot=document.getElementById('sheetStatusDot');
+  var txt=document.getElementById('sheetStatusTxt');
+  if(dot) dot.style.background='var(--text-muted)';
+  if(txt){ txt.style.color='var(--text-muted)'; txt.textContent='URL เปลี่ยน — กด Save & Test เพื่อยืนยัน'; }
+}
+function saveSheet(){
+  var url=document.getElementById('sheetUrl').value.trim();
+  if(!url){showToast('กรุณาใส่ URL ก่อน','error');return;}
+  S.scriptUrl=url;
+  localStorage.setItem('tj_url',url);
+  var res=document.getElementById('sheetRes');
+  if(res){res.style.color='var(--text-muted)';res.textContent='💾 บันทึกแล้ว — กำลังทดสอบ...';}
+  testSheet();
+}
+function testSheet(){
+  var url=document.getElementById('sheetUrl').value.trim();
+  if(!url){document.getElementById('sheetRes').textContent='ใส่ URL ก่อน';return;}
+  var res=document.getElementById('sheetRes');
+  res.style.color='var(--text-muted)';
+  res.textContent='🔄 กำลังทดสอบ...';
+  fetch(url)
+    .then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    })
+    .then(function(d){
+      if(d.status==='ready'||d.status==='ok'){
+        // บันทึก URL และ set connected
+        S.scriptUrl=url;
+        localStorage.setItem('tj_url',url);
+        setConn(true);
+        res.style.color='var(--green)';
+        res.textContent='✅ เชื่อมต่อสำเร็จ! กำลังดึงข้อมูล...';
+        showToast('✅ Google Sheet เชื่อมต่อแล้ว — กำลัง Sync...','success');
+        // Auto sync ทันทีหลัง test สำเร็จ
+        syncFromSheet(function(){
+          res.textContent='✅ เชื่อมต่อสำเร็จ! ดึงข้อมูลแล้ว';
+        });
+      } else {
+        res.style.color='var(--amber)';
+        res.textContent='⚠ Sheet ตอบกลับผิดปกติ: status='+d.status+(d.msg?' ('+d.msg+')':'');
+      }
+    })
+    .catch(function(err){
+      res.style.color='var(--red)';
+      var msg=err.message||'unknown error';
+      if(msg.indexOf('Failed to fetch')>=0||msg.indexOf('NetworkError')>=0){
+        res.textContent='❌ เชื่อมต่อไม่ได้ — ตรวจสอบ URL หรือ Deploy ใหม่';
+      } else {
+        res.textContent='❌ Error: '+msg;
+      }
+      setConn(false);
+    });
+}
 function setConn(ok){var d=document.getElementById('sDot'),t=document.getElementById('sTxt');if(ok){d.classList.add('connected');t.textContent='Connected';t.style.color='var(--green)';loadAssetsFromSheet();}else{d.classList.remove('connected');t.textContent='Offline';t.style.color='var(--text-muted)';}}
 function sendSheet(action,data){
   if(!S.scriptUrl)return;
@@ -6589,9 +6735,56 @@ function dtUpdateFilterBadge(){
 function dtOpenImport(){
   var ta=document.getElementById('importPasteArea');if(ta)ta.value='';
   var prev=document.getElementById('importPreview');if(prev){prev.style.display='none';prev.innerHTML='';}
-  // Make sure Data Mode panel is open so user can see results after import
+  var fn=document.getElementById('importFileName');if(fn){fn.style.display='none';fn.textContent='';}
+  var fi=document.getElementById('importFileInput');if(fi)fi.value='';
+  importSwitchTab('paste');
   if(!_dtPanelOpen) dtToggleDataPanel();
   openM('mImportSheet');
+}
+function importSwitchTab(tab){
+  var ps=document.getElementById('importPasteSection');
+  var fs=document.getElementById('importFileSection');
+  var tp=document.getElementById('importTabPaste');
+  var tf=document.getElementById('importTabFile');
+  if(tab==='paste'){
+    if(ps)ps.style.display='block';
+    if(fs)fs.style.display='none';
+    if(tp){tp.style.background='var(--bg-card)';tp.style.color='var(--text-primary)';}
+    if(tf){tf.style.background='none';tf.style.color='var(--text-muted)';}
+  } else {
+    if(ps)ps.style.display='none';
+    if(fs)fs.style.display='block';
+    if(tp){tp.style.background='none';tp.style.color='var(--text-muted)';}
+    if(tf){tf.style.background='var(--bg-card)';tf.style.color='var(--text-primary)';}
+  }
+}
+function importHandleFile(input){
+  var file=input.files[0];if(!file)return;
+  var fn=document.getElementById('importFileName');
+  if(fn){fn.textContent='✅ '+file.name;fn.style.display='block';}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var ta=document.getElementById('importPasteArea');
+    if(ta)ta.value=e.target.result;
+  };
+  reader.readAsText(file,'UTF-8');
+}
+function importHandleDrop(e){
+  e.preventDefault();
+  var dz=document.getElementById('importDropZone');
+  if(dz)dz.style.borderColor='var(--border)';
+  var file=e.dataTransfer.files[0];
+  if(!file||!file.name.match(/\.(csv|tsv|txt)$/i)){showToast('รองรับเฉพาะ .csv / .tsv / .txt','error');return;}
+  var fn=document.getElementById('importFileName');
+  if(fn){fn.textContent='✅ '+file.name;fn.style.display='block';}
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var ta=document.getElementById('importPasteArea');
+    if(ta){ta.value=ev.target.result;}
+    importSwitchTab('paste');
+    showToast('📂 โหลดไฟล์ '+file.name+' แล้ว','success');
+  };
+  reader.readAsText(file,'UTF-8');
 }
 function dtCsvSplitLine(line, sep){
   if(sep==='\t') return line.split('\t').map(function(c){return c.trim().replace(/^"|"$/g,'');});
@@ -6609,38 +6802,55 @@ function dtParseSheetData(raw){
   var lines=raw.trim().split('\n').filter(function(l){return l.trim();});
   if(lines.length<2) return null;
   var sep=lines[0].includes('\t')?'\t':',';
-  var headers=dtCsvSplitLine(lines[0],sep).map(function(h){return h.trim().replace(/^"|"$/g,'').toLowerCase();});
-  var colMap={
-    date:['date','วันที่','day date'],
-    day:['day','วัน'],session:['session','เซสชัน'],
-    entryTime:['time','entry time','เวลา','time entry'],
-    duration:['duration','dur'],code:['code','โค้ด'],
-    mode:['mode','โหมด'],model:['model'],
-    zoneMit:['mitigated zone','zone mit'],
-    setupClass:['class','คลาส'],
-    candle:['candle','candle pattern','pattern'],
-    zone:['zone','zone type'],
-    confirm:['confirm','confirmation'],
-    tf:['tf','timeframe','time frame'],
-    entry:['entry','entry price'],
-    tp:['target','tp','take profit'],
-    sl:['stoploss','sl','stop loss','stop'],
-    result:['result','ผล'],maxRR:['max rr','maxrr','rr'],
-    note:['tip','note','หมายเหตุ'],
-    asset:['asset','สินทรัพย์','symbol'],
-    pnl:['pnl','p&l','profit','profit/loss','กำไร']
+  var headers=dtCsvSplitLine(lines[0],sep).map(function(h){return h.trim().replace(/^"|"$/g,'').toLowerCase().replace(/[^a-z0-9$]/g,'');});
+
+  // Map header name → index (exact match after normalization)
+  function hIdx(names){
+    for(var n=0;n<names.length;n++){
+      var norm=names[n].toLowerCase().replace(/[^a-z0-9$]/g,'');
+      var ix=headers.indexOf(norm);
+      if(ix>=0) return ix;
+    }
+    return -1;
+  }
+
+  var cols={
+    date:     hIdx(['date','วันที่']),
+    day:      hIdx(['day','วัน']),
+    session:  hIdx(['session','เซสชัน']),
+    asset:    hIdx(['asset','symbol','สินทรัพย์']),
+    side:     hIdx(['side']),
+    entryTime:hIdx(['entrytime','time','เวลา']),
+    duration: hIdx(['duration','dur']),
+    mode:     hIdx(['mode','โหมด']),
+    code:     hIdx(['code','โค้ด']),
+    tf:       hIdx(['tf','timeframe']),
+    setupClass:hIdx(['setupclass','class','คลาส']),
+    candle:   hIdx(['candle','candlepattern','pattern']),
+    zone:     hIdx(['zone']),
+    mitZone:  hIdx(['mitzone','mitigatedzone','zonemitigated']),
+    confirm:  hIdx(['confirm','confirmation']),
+    entry:    hIdx(['entry','entryprice']),
+    tp:       hIdx(['tp','target','takeprofit']),
+    sl:       hIdx(['sl','stoploss','stop']),
+    risk:     hIdx(['risk']),
+    pnl:      hIdx(['pnl$','pnl','profit','pl']),
+    maxRR:    hIdx(['maxrr','rr','maxr']),
+    result:   hIdx(['result','ผล']),
+    note:     hIdx(['note','tip','หมายเหตุ']),
+    imgLink:  hIdx(['imagelink','imglink','image','img'])
   };
-  function findCol(aliases){for(var i=0;i<aliases.length;i++){var ix=headers.indexOf(aliases[i]);if(ix>=0)return ix;}return -1;}
-  var cols={};Object.keys(colMap).forEach(function(k){cols[k]=findCol(colMap[k]);});
-  var g=function(row,k){return cols[k]>=0?(row[cols[k]]||'').trim().replace(/^"|"$/g,''):'';};
-  var asset=(document.getElementById('importAsset')||{}).value||'';
+
+  function g(row,k){ return cols[k]>=0?(row[cols[k]]||'').trim().replace(/^"|"$/g,''):''; }
+
   var trades=[];
   for(var i=1;i<lines.length;i++){
     var row=dtCsvSplitLine(lines[i],sep);
-    var day=g(row,'day'),entryTime=g(row,'entryTime'),entry=g(row,'entry');
+    var entryTime=g(row,'entryTime'), entry=g(row,'entry'), day=g(row,'day');
     if(!day&&!entryTime&&!entry) continue;
+
+    // ── Resolve date ──
     var dateOnly='';
-    // 1) Try mapped date column first
     var mappedDate=g(row,'date');
     if(mappedDate&&/^\d{4}-\d{2}-\d{2}$/.test(mappedDate)){
       dateOnly=mappedDate;
@@ -6650,42 +6860,87 @@ function dtParseSheetData(raw){
       dateOnly=yr2+'-'+pts2[1].padStart(2,'0')+'-'+pts2[0].padStart(2,'0');
       if(isNaN(new Date(dateOnly))) dateOnly=yr2+'-'+pts2[0].padStart(2,'0')+'-'+pts2[1].padStart(2,'0');
     }
-    // 2) Scan all cells for YYYY-MM-DD
     if(!dateOnly){
       var dateCands=row.filter(function(c){return /^\d{4}-\d{2}-\d{2}$/.test((c||'').trim());});
-      if(dateCands.length){ dateOnly=dateCands[0].trim(); }
+      if(dateCands.length) dateOnly=dateCands[0].trim();
     }
-    // 3) Scan all cells for DD/MM/YYYY
     if(!dateOnly){
       var slashCand=row.filter(function(c){return /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test((c||'').trim());});
       if(slashCand.length){
         var parts=slashCand[0].trim().split('/');
         var yr=parts[2].length===2?'20'+parts[2]:parts[2];
-        var mo=parts[1].length===1?'0'+parts[1]:parts[1];
-        var dy=parts[0].length===1?'0'+parts[0]:parts[0];
-        dateOnly=yr+'-'+mo+'-'+dy;
-        if(isNaN(new Date(dateOnly))){dateOnly=yr+'-'+parts[0].padStart(2,'0')+'-'+parts[1].padStart(2,'0');}
+        dateOnly=yr+'-'+parts[1].padStart(2,'0')+'-'+parts[0].padStart(2,'0');
+        if(isNaN(new Date(dateOnly))) dateOnly=yr+'-'+parts[0].padStart(2,'0')+'-'+parts[1].padStart(2,'0');
       }
     }
-    // 4) Fallback: derive from day-of-week name
     if(!dateOnly){
       var d=new Date();var dm={sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6};
       var td=dm[(day||'').substring(0,3).toLowerCase()];
       if(td!==undefined){var diff=td-d.getDay();d.setDate(d.getDate()+diff);}
       dateOnly=d.toISOString().substring(0,10);
     }
-    var side='Long';
-    if(entry&&g(row,'sl')){var e=parseFloat(entry),s=parseFloat(g(row,'sl'));if(s>e)side='Short';}
-    // Try to parse pnl from result field like "+125.50" or "-50"
-    var rawPnl=g(row,'pnl')||'';
-    var parsedPnl=rawPnl?parseFloat(rawPnl)||0:0;
-    // Map result aliases Win/Loss/Miss
+
+    // ── Side ──
+    var side=g(row,'side')||'Long';
+    if(!g(row,'side')&&entry&&g(row,'sl')){
+      var ev=parseFloat(entry),sv=parseFloat(g(row,'sl'));
+      if(!isNaN(ev)&&!isNaN(sv)&&sv>ev) side='Short';
+    }
+
+    // ── Result ──
     var rawResult=g(row,'result');
     var normResult=rawResult;
-    if(rawResult==='TP'||rawResult==='W'||rawResult==='✓W') normResult='Win';
-    else if(rawResult==='SL'||rawResult==='X Loss'||rawResult==='L') normResult='Loss';
-    else if(rawResult==='BE'||rawResult==='Miss'||rawResult==='M') normResult='Miss';
-    trades.push({_id:Date.now()+'_'+Math.random()+'_'+i,date:dateOnly,day:day||DT_DAYS[new Date(dateOnly).getDay()],session:g(row,'session'),asset:asset||g(row,'asset'),side:side,entryTime:entryTime,duration:g(row,'duration'),code:g(row,'code'),mode:g(row,'mode'),model:g(row,'model'),zoneMit:g(row,'zoneMit'),setupClass:g(row,'setupClass'),candle:g(row,'candle'),zone:g(row,'zone'),confirm:g(row,'confirm'),tf:g(row,'tf'),entry:entry,tp:g(row,'tp'),sl:g(row,'sl'),result:normResult,maxRR:g(row,'maxRR'),note:g(row,'note'),pnl:parsedPnl?String(parsedPnl):'0',risk:'',lots:'',disc:5,emo:5,_src:'data'});
+    if(/^(tp|win|w|✓w)$/i.test(rawResult)) normResult='Win';
+    else if(/^(sl|loss|l|x loss)$/i.test(rawResult)) normResult='Loss';
+    else if(/^(be|miss|m|break.?even)$/i.test(rawResult)) normResult='BE';
+
+    // ── PnL logic: Win → PnL($), Loss → -Risk ──
+    var pnlVal=0;
+    var rawPnl=g(row,'pnl');
+    var rawRisk=g(row,'risk');
+    if(normResult==='Win'||normResult==='TP'){
+      pnlVal=rawPnl?parseFloat(rawPnl)||0:0;
+    } else if(normResult==='Loss'||normResult==='SL'){
+      if(rawRisk){
+        var riskNum=parseFloat(rawRisk.replace(/[^0-9.\-]/g,''))||0;
+        pnlVal=riskNum>0?-riskNum:riskNum; // ensure negative
+      } else if(rawPnl){
+        pnlVal=parseFloat(rawPnl)||0;
+      }
+    } else {
+      // BE / Miss / unknown
+      pnlVal=rawPnl?parseFloat(rawPnl)||0:0;
+    }
+
+    trades.push({
+      _id:Date.now()+'_'+Math.random()+'_'+i,
+      date:dateOnly,
+      day:day||DT_DAYS[new Date(dateOnly).getDay()],
+      session:g(row,'session'),
+      asset:g(row,'asset'),
+      side:side,
+      entryTime:entryTime,
+      duration:g(row,'duration'),
+      code:g(row,'code'),
+      mode:g(row,'mode'),
+      model:'',
+      zoneMit:g(row,'mitZone'),
+      setupClass:g(row,'setupClass'),
+      candle:g(row,'candle'),
+      zone:g(row,'zone'),
+      confirm:g(row,'confirm'),
+      tf:g(row,'tf'),
+      entry:entry,
+      tp:g(row,'tp'),
+      sl:g(row,'sl'),
+      result:normResult,
+      maxRR:g(row,'maxRR'),
+      note:g(row,'note'),
+      imgLink:g(row,'imgLink'),
+      pnl:String(pnlVal),
+      risk:rawRisk||'',
+      lots:'',disc:5,emo:5,_src:'data'
+    });
   }
   return trades;
 }
@@ -6729,14 +6984,17 @@ function dtFiltered(){
   if(_dtViewMode!=='port_only'){
     DT.trades.forEach(function(t){ src.push(Object.assign({},t,{_src:'data'})); });
   }
-  // Portfolio trades
+  // Portfolio trades — FIX: อ่านจาก localStorage ของทุก portfolio ที่ tick ไว้
   if(_dtViewMode==='port_only'||_dtViewMode==='combined'){
-    Object.keys(S.trades||{}).forEach(function(dk){
-      (S.trades[dk]||[]).forEach(function(t){
-        // Filter by selected ports if any
-        var portId=t._portfolio||S.currentPortfolio||'default';
-        if(_dtSelectedPorts.length&&_dtSelectedPorts.indexOf(portId)<0) return;
-        src.push(Object.assign({},t,{_src:'port'}));
+    // กำหนดว่าจะดึง portfolio ไหนบ้าง
+    var portsToLoad=_dtSelectedPorts.length>0?_dtSelectedPorts:Object.keys(S.portfolios||{'default':{}});
+    portsToLoad.forEach(function(pid){
+      var portTrades={};
+      try{ portTrades=JSON.parse(localStorage.getItem('port_'+pid+'_t')||'{}'); }catch(e){}
+      Object.keys(portTrades).forEach(function(dk){
+        (portTrades[dk]||[]).forEach(function(t){
+          src.push(Object.assign({},t,{_src:'port',portfolio:pid,_portfolio:pid}));
+        });
       });
     });
   }
@@ -6769,6 +7027,18 @@ function dtFiltered(){
   });
 }
 
+// ── Pagination state ──
+var _dtPage=1;
+var _dtPageSize=(function(){var v=parseInt(localStorage.getItem('dt_pageSize')||'50');return isNaN(v)?50:v;})();
+
+function dtChangePageSize(val){
+  _dtPageSize=parseInt(val)||0;
+  _dtPage=1;
+  try{localStorage.setItem('dt_pageSize',String(_dtPageSize));}catch(e){}
+  dtRender();
+}
+function dtGoPage(p){_dtPage=p;dtRender();}
+
 // ── Render table ──
 function dtRender(){
   dtLoad();
@@ -6779,33 +7049,51 @@ function dtRender(){
   if(!rows.length){
     tbody.innerHTML='';
     if(empty) empty.style.display='block';
+    document.getElementById('dtPagination').style.display='none';
     dtRenderStats([]);dtRenderCharts([]);
     return;
   }
   if(empty) empty.style.display='none';
   dtUpdateFilterBadge();
-  // Update filter dropdowns from ALL trades so options always visible
   var _allSrc=[];
   if(DT.trades) DT.trades.forEach(function(t){_allSrc.push(t);});
-  // รวม port trades ด้วย
   Object.keys(S.trades||{}).forEach(function(dk){(S.trades[dk]||[]).forEach(function(t){_allSrc.push(t);});});
   dtUpdateFilterOpts(_allSrc.length?_allSrc:rows);
   dtRestoreFilters();
-  tbody.innerHTML=rows.map(function(t,i){
+
+  // ── Pagination calc ──
+  var total=rows.length;
+  var pageSize=_dtPageSize>0?_dtPageSize:total;
+  var totalPages=Math.max(1,Math.ceil(total/pageSize));
+  if(_dtPage>totalPages) _dtPage=totalPages;
+  var startIdx=(_dtPage-1)*pageSize;
+  var pageRows=_dtPageSize>0?rows.slice(startIdx,startIdx+pageSize):rows;
+
+  tbody.innerHTML=pageRows.map(function(t,i){
+    var absIdx=startIdx+i; // index in full rows array for edit/delete
     var pnl=parseFloat(t.pnl)||0;
     var pnlColor=pnl>0?'var(--green)':pnl<0?'var(--red)':'var(--text-secondary)';
     var pnlStr=(pnl>0?'+':'')+pnl.toFixed(2);
-    var resultColor=t.result==='TP'||t.result==='✓W'?'var(--green)':t.result==='SL'||t.result==='X Loss'?'var(--red)':'var(--amber)';
+    var isWin=t.result==='Win'||t.result==='TP'||t.result==='✓W'||t.result==='√W';
+    var isLoss=t.result==='Loss'||t.result==='SL'||t.result==='XL'||t.result==='X Loss';
+    var resultColor=isWin?'var(--green)':isLoss?'var(--red)':'var(--amber)';
     var sideColor=t.side==='Long'?'var(--green)':'var(--red)';
-    var imgBtn=t.imgLink?'<a href="'+t.imgLink+'" target="_blank" style="color:var(--accent);text-decoration:none;">🖼</a>':'-';
+    var imgBtn=t.imgLink?'<span onclick="window.open(\''+t.imgLink+'\',\'_blank\')" style="color:var(--accent);cursor:pointer;font-size:13px;">🖼</span>':'-';
     var discBar=t.disc?('<div style="width:'+Math.round(t.disc*10)+'%;height:3px;background:'+(['','var(--red)','var(--red)','var(--red)','var(--amber)','var(--amber)','var(--green)','var(--green)','var(--green)','var(--teal)','var(--accent)'][Math.round(t.disc)||1]||'var(--border)')+';border-radius:2px;min-width:4px;"></div>'):'';
-    return '<tr style="border-bottom:1px solid var(--border);transition:background .1s;" onmouseenter="this.style.background=\'var(--bg-secondary)\'" onmouseleave="this.style.background=\'\'">'
+    // แปลง date เป็น DD/MM/YYYY
+    var displayDate=t.date||'';
+    if(displayDate){var dp=displayDate.split('-');if(dp.length===3) displayDate=dp[2]+'/'+dp[1]+'/'+dp[0];}
+    var isWin=t.result==='Win'||t.result==='TP'||t.result==='\u221aW'||t.result==='\u2713W';
+    var rowBg=isWin?'rgba(46,204,138,0.09)':'';
+    var rowHoverBg=isWin?'rgba(46,204,138,0.16)':'var(--bg-secondary)';
+    return '<tr style="border-bottom:1px solid var(--border);background:'+rowBg+';transition:background .1s;" onmouseenter="this.style.background=\''+rowHoverBg+'\';" onmouseleave="this.style.background=\''+rowBg+'\';">'
       +'<td style="padding:6px 10px;color:var(--text-muted);">'+(i+1)+'</td>'
-      +'<td style="padding:6px;white-space:nowrap;font-family:var(--font-mono);font-size:10px;">'+t.date+'</td>'
+      +'<td style="padding:6px;white-space:nowrap;font-family:var(--font-mono);font-size:10px;">'+displayDate+'</td>'
       +'<td style="padding:6px;font-size:10px;color:var(--text-muted);">'+( t.day||'')+'</td>'
       +'<td style="padding:6px;font-size:10px;color:var(--text-muted);">'+(t.session||'')+'</td>'
       +'<td style="padding:6px;font-weight:600;font-size:11px;">'+(t.asset||'-')+'</td>'
-      +'<td style="padding:6px;font-family:var(--font-mono);font-size:10px;color:'+sideColor+';">'+(t.entryTime||'-')+'<span style="font-size:9px;margin-left:3px;opacity:.6;">'+(t.side||'')+'</span></td>'
+      +'<td style="padding:6px;text-align:center;"><span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:'+(t.side==='Long'?'rgba(46,204,138,0.15)':'rgba(255,77,106,0.15)')+';color:'+sideColor+';">'+(t.side||'-')+'</span></td>'
+      +'<td style="padding:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);">'+(t.entryTime||'-')+'</td>'
       +'<td style="padding:6px;font-size:10px;color:var(--text-muted);">'+(t.duration||'-')+'</td>'
       +'<td style="padding:6px;font-size:10px;">'+(t.mode||'-')+'</td>'
       +'<td style="padding:6px;font-size:10px;">'+(t.code||'-')+'</td>'
@@ -6824,10 +7112,53 @@ function dtRender(){
       +'<td style="padding:6px;text-align:center;"><span style="font-size:10px;font-weight:600;color:'+resultColor+';">'+(t.result||'-')+'</span></td>'
       +'<td style="padding:6px;text-align:right;font-family:var(--font-mono);font-size:10px;">'+(t.maxRR?'1:'+t.maxRR:'-')+'</td>'
       +'<td style="padding:6px;text-align:center;">'+imgBtn+'</td>'
-      +'<td style="padding:6px;text-align:center;"><button onclick="dtOpenEdit('+i+')" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:10px;transition:all .1s;" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✎</button>'
-      +' <button onclick="dtDeleteRow('+i+')" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:10px;transition:all .1s;" onmouseover="this.style.borderColor=\'var(--red)\';this.style.color=\'var(--red)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✕</button></td>'
+      +'<td style="padding:6px;text-align:center;"><button onclick="dtOpenEdit('+absIdx+')" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:10px;transition:all .1s;" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✎</button>'
+      +' <button onclick="dtDeleteRow('+absIdx+')" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:10px;transition:all .1s;" onmouseover="this.style.borderColor=\'var(--red)\';this.style.color=\'var(--red)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✕</button></td>'
       +'</tr>';
   }).join('');
+
+  // ── Render pagination controls ──
+  var pg=document.getElementById('dtPagination');
+  var pgBtns=document.getElementById('dtPageBtns');
+  var rowCount=document.getElementById('dtRowCount');
+  if(pg){
+    pg.style.display='flex';
+    if(rowCount){
+      var from=total===0?0:startIdx+1;
+      var to=Math.min(startIdx+pageSize,total);
+      rowCount.textContent='('+from+'–'+(total===0?0:(_dtPageSize>0?to:total))+' จาก '+total+')';
+    }
+    if(pgBtns){
+      if(_dtPageSize===0||totalPages<=1){pgBtns.innerHTML='';return;}
+      var html='';
+      // Prev
+      html+='<button onclick="if('+_dtPage+'>1)dtGoPage('+(+_dtPage-1)+')" style="background:none;border:1px solid var(--border);color:'+(+_dtPage===1?'var(--text-muted)':'var(--text-primary)')+';cursor:'+(+_dtPage===1?'default':'pointer')+';padding:3px 9px;border-radius:6px;font-size:11px;">‹</button>';
+      // Page numbers — show max 7 buttons with ellipsis
+      var pages=[];
+      if(totalPages<=7){for(var p=1;p<=totalPages;p++)pages.push(p);}
+      else{
+        pages=[1];
+        if(_dtPage>3) pages.push('…');
+        for(var p=Math.max(2,_dtPage-1);p<=Math.min(totalPages-1,_dtPage+1);p++) pages.push(p);
+        if(_dtPage<totalPages-2) pages.push('…');
+        pages.push(totalPages);
+      }
+      pages.forEach(function(p){
+        if(p==='…'){html+='<span style="padding:3px 5px;color:var(--text-muted);font-size:11px;">…</span>';}
+        else{
+          var active=p===_dtPage;
+          html+='<button onclick="dtGoPage('+p+')" style="background:'+(active?'var(--accent)':'none')+';border:1px solid '+(active?'var(--accent)':'var(--border)')+';color:'+(active?'#fff':'var(--text-primary)')+';cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:'+(active?'600':'400')+';">'+p+'</button>';
+        }
+      });
+      // Next
+      html+='<button onclick="if('+_dtPage+'<'+totalPages+')dtGoPage('+(+_dtPage+1)+')" style="background:none;border:1px solid var(--border);color:'+(+_dtPage===totalPages?'var(--text-muted)':'var(--text-primary)')+';cursor:'+(+_dtPage===totalPages?'default':'pointer')+';padding:3px 9px;border-radius:6px;font-size:11px;">›</button>';
+      pgBtns.innerHTML=html;
+      // sync page size selector
+      var psSel=document.getElementById('dtPageSize');
+      if(psSel) psSel.value=String(_dtPageSize);
+    }
+  }
+
   dtRenderStats(rows);
   dtRenderCharts(rows);
 }
@@ -6866,6 +7197,7 @@ function dtUpdateFilterOpts(rows){
 
 // บันทึก filter state ลง localStorage
 function dtSaveFilters(){
+  _dtPage=1;
   var state={};
   ['dtfAsset','dtfResult','dtfDay','dtfSession','dtfCode','dtfMode','dtfClass','dtfModel','dtfDur'].forEach(function(id){
     var el=document.getElementById(id);if(el)state[id]=el.value;
@@ -6939,9 +7271,11 @@ function openPortSelectorModal(){
     portHdr.textContent='พอร์ตที่ต้องการแสดง';
     portSect.appendChild(portHdr);
 
+    // ถ้า _dtSelectedPorts ว่าง → initialize ด้วยทุก port (all checked by default)
+    if(_dtSelectedPorts.length===0) ports.forEach(function(p){ _dtSelectedPorts.push(p); });
     ports.forEach(function(pid){
       var pname=(S.portfolios&&S.portfolios[pid]&&S.portfolios[pid].name)||pid;
-      var checked=_dtSelectedPorts.indexOf(pid)>=0||_dtSelectedPorts.length===0;
+      var checked=_dtSelectedPorts.indexOf(pid)>=0;
       var lbl=document.createElement('label');
       lbl.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-radius:8px;font-size:13px;border:1px solid var(--border);background:var(--bg-input);margin-bottom:6px;transition:border-color .15s;';
       lbl.addEventListener('mouseover',function(){this.style.borderColor='var(--accent)';});
@@ -7635,42 +7969,7 @@ if(document.readyState==='loading'){
   </div>
 </div>
 </div>
-
-<!-- ═══ IMPORT SHEET MODAL ═══ -->
-<div id="mImportSheet" class="modal-backdrop">
-  <div class="modal modal-wide" style="max-width:680px;max-height:88vh;overflow-y:auto;">
-    <div class="modal-header">
-      <div class="modal-title">📥 Import จาก Google Sheet / CSV</div>
-      <button class="modal-close" onclick="closeM('mImportSheet')">✕</button>
-    </div>
-    <div style="padding:16px 18px;">
-      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:10px 13px;line-height:1.7;">
-        <b style="color:var(--teal);">วิธี Import:</b> วาง CSV หรือ Tab-separated จาก Sheet<br>
-        <b>คอลัมน์ที่รองรับ:</b> Day, Session, Time, Duration, Code, Mode, Model, Mitigated Zone, Class, Entry, Target, Stoploss, Result, Max RR, Tip (Note)<br>
-        <span style="color:var(--amber);">⚠ แถวแรกต้องเป็น Header</span>
-      </div>
-      <!-- Column mapping hint -->
-      <div style="margin-bottom:10px;">
-        <div style="font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">Asset (ใช้สำหรับทุก row ที่ import)</div>
-        <select class="form-input" id="importAsset" style="width:180px;">
-          <option value="">— Select Asset —</option>
-          <option>MNQ1</option><option>NQ1</option><option>MGC1</option><option>GC1</option>
-          <option>XAU/USD</option><option>EURUSD</option><option>GBPUSD</option><option>USDJPY</option><option>BTCUSD</option>
-        </select>
-      </div>
-      <div style="margin-bottom:10px;">
-        <div style="font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">วาง Data ที่นี่ (CSV หรือ Tab-separated)</div>
-        <textarea id="importPasteArea" placeholder="วาง data จาก Google Sheet หรือ CSV ที่นี่..." style="width:100%;height:180px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:8px;padding:9px 11px;font-family:var(--font-mono);font-size:11px;resize:vertical;outline:none;" onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border)'"></textarea>
-      </div>
-      <div id="importPreview" style="display:none;margin-bottom:10px;"></div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn-sm" onclick="dtPreviewImport()" style="border-color:var(--amber);color:var(--amber);">👁 Preview</button>
-        <button class="btn-primary" onclick="dtConfirmImport()" style="background:var(--teal);" id="importConfirmBtn">✓ Import ทั้งหมด</button>
-        <button class="btn-sm" onclick="closeM('mImportSheet')">Cancel</button>
-      </div>
-    </div>
-  </div>
-</div>
+</div><!-- /mDataTrade modal-backdrop -->
 
 <!-- ═══ TRADE SAVE CONFIRM MODAL ═══ -->
 <div id="mTradeConfirm" class="modal-backdrop">
@@ -7689,11 +7988,57 @@ if(document.readyState==='loading'){
   </div>
 </div>
 
+<!-- ═══ IMPORT SHEET MODAL ═══ -->
+<div id="mImportSheet" class="modal-backdrop" style="z-index:9999!important;">
+  <div class="modal modal-wide" style="max-width:680px;max-height:88vh;overflow-y:auto;">
+    <div class="modal-header">
+      <div class="modal-title">📥 Import จาก Google Sheet / CSV</div>
+      <button class="modal-close" onclick="closeM('mImportSheet')">✕</button>
+    </div>
+    <div style="padding:16px 18px;">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:10px 13px;line-height:1.7;">
+        <b style="color:var(--teal);">Header ที่รองรับ:</b><br>
+        <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">Day, Session, Asset, Side, EntryTime, Duration, Mode, Code, TF, SetupClass, Candle, Zone, MitZone, Confirm, Entry, TP, SL, Risk, PnL($), MaxRR, Note, ImageLink</span><br>
+        <span style="color:var(--amber);">⚠ แถวแรกต้องเป็น Header &nbsp;|&nbsp; PnL: Win=PnL($), Loss=-Risk</span>
+      </div>
+
+      <!-- Tab: Paste / Upload -->
+      <div style="display:flex;gap:0;margin-bottom:10px;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:3px;width:fit-content;">
+        <button id="importTabPaste" onclick="importSwitchTab('paste')" style="background:var(--bg-card);color:var(--text-primary);border:none;padding:5px 16px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-main);">📋 Paste</button>
+        <button id="importTabFile" onclick="importSwitchTab('file')" style="background:none;color:var(--text-muted);border:none;padding:5px 16px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-main);">📁 CSV File</button>
+      </div>
+
+      <!-- Paste area -->
+      <div id="importPasteSection" style="margin-bottom:10px;">
+        <div style="font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">วาง Data ที่นี่ (CSV หรือ Tab-separated)</div>
+        <textarea id="importPasteArea" placeholder="วาง data จาก Google Sheet หรือ CSV ที่นี่..." style="width:100%;height:180px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:8px;padding:9px 11px;font-family:var(--font-mono);font-size:11px;resize:vertical;outline:none;" onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      </div>
+
+      <!-- File upload area -->
+      <div id="importFileSection" style="display:none;margin-bottom:10px;">
+        <div style="font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">เลือกไฟล์ CSV</div>
+        <label id="importDropZone" for="importFileInput" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;width:100%;height:120px;background:var(--bg-input);border:2px dashed var(--border);border-radius:8px;cursor:pointer;transition:all .2s;" ondragover="event.preventDefault();this.style.borderColor='var(--teal)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="importHandleDrop(event)">
+          <span style="font-size:28px;">📂</span>
+          <span style="font-size:12px;color:var(--text-secondary);">ลากไฟล์มาวาง หรือ คลิกเพื่อเลือก</span>
+          <span id="importFileName" style="font-size:11px;color:var(--teal);font-family:var(--font-mono);display:none;"></span>
+          <input type="file" id="importFileInput" accept=".csv,.tsv,.txt" style="display:none;" onchange="importHandleFile(this)">
+        </label>
+      </div>
+
+      <div id="importPreview" style="display:none;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm" onclick="dtPreviewImport()" style="border-color:var(--amber);color:var(--amber);">👁 Preview</button>
+        <button class="btn-primary" onclick="dtConfirmImport()" style="background:var(--teal);" id="importConfirmBtn">✓ Import ทั้งหมด</button>
+        <button class="btn-sm" onclick="closeM('mImportSheet')">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ DATA AI ANALYSIS MODAL ═══ -->
 <!-- Hidden compat element for dtIncludePort references -->
 <input type="checkbox" id="dtIncludePort" style="display:none;">
 <div id="portCheckList" style="display:none;"></div>
-</div>
 <div id="mDataAI" class="modal-backdrop">
   <div class="modal modal-wide">
     <div class="modal-header">
