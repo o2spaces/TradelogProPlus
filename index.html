@@ -1277,6 +1277,33 @@ function loadAll(){
       result.portfolios=ports;
     }
 
+    // ── fallback: ดึง unique Portfolio IDs จาก Trades sheet ถ้า Log ไม่มี ──
+    var tShFB=ss.getSheetByName(SHEET.TRADES);
+    if(tShFB&amp;&amp;tShFB.getLastRow()&gt;1){
+      var tPortVals=tShFB.getRange(2,3,tShFB.getLastRow()-1,1).getValues();
+      tPortVals.forEach(function(r){
+        var pid=String(r[0]||'').trim();
+        if(pid&amp;&amp;!result.portfolios[pid]){
+          var shortName=pid.replace(/^port_/,'').substring(0,7);
+          result.portfolios[pid]={name:'Port-'+shortName,balance:0,fund:''};
+        }
+      });
+    }
+
+    // ── fallback: สร้างพอร์ตจาก Trades sheet ถ้า Log ไม่มีข้อมูล ──
+    var tShP=ss.getSheetByName(SHEET.TRADES);
+    if(tShP&amp;&amp;tShP.getLastRow()&gt;1){
+      var tVals=tShP.getRange(2,3,tShP.getLastRow()-1,1).getValues(); // col C = Portfolio
+      tVals.forEach(function(r){
+        var pid=String(r[0]||'').trim();
+        if(pid&amp;&amp;!result.portfolios[pid]){
+          // สร้างชื่อจาก ID: port_1775435155523 → Port 1775435
+          var shortName=pid.replace(/^port_/,'').substring(0,7);
+          result.portfolios[pid]={name:'Port '+shortName,balance:0,fund:''};
+        }
+      });
+    }
+
     // helper: แปลง cell value เป็น string/number ปลอดภัย
     function _cv(v){
       if(v===null||v===undefined) return '';
@@ -1996,12 +2023,21 @@ function syncFromSheet(onDone){
 
       // ── 1. Portfolios ──
       if(d.portfolios && Object.keys(d.portfolios).length){
-        // Merge: Sheet wins, คง local ที่ Sheet ไม่รู้จัก
-        // Sheet wins — merge: เริ่มจาก local แล้ว Sheet ทับ
         var merged = Object.assign({}, S.portfolios);
         Object.keys(d.portfolios).forEach(function(id){
-          merged[id] = d.portfolios[id]; // Sheet เป็น source of truth
+          var p = d.portfolios[id];
+          // ถ้าชื่อยังเป็น ID ยาว (port_177...) ให้ตั้งชื่อสั้น
+          if(!p.name || p.name === id || p.name.match(/^Port-?\d{4,}/)){
+            if(id === 'default') p.name = 'Default';
+            else p.name = 'Port ' + id.replace(/^port_/,'').substring(0,6);
+          }
+          merged[id] = p;
         });
+        // ถ้า currentPortfolio ไม่อยู่ใน merged → เปลี่ยนไปพอร์ตแรก
+        if(!merged[S.currentPortfolio]){
+          S.currentPortfolio = Object.keys(merged)[0] || 'default';
+          localStorage.setItem('tj_curport', S.currentPortfolio);
+        }
         S.portfolios = merged;
         localStorage.setItem('tj_ports', JSON.stringify(S.portfolios));
         renderPortfolioBar();
@@ -2025,9 +2061,14 @@ function syncFromSheet(onDone){
           if(!date) return;
           if(!byPort[port]) byPort[port] = {};
           if(!byPort[port][date]) byPort[port][date] = [];
+          // compute day of week from date string
+          var _dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+          var _dayOfWeek='';
+          if(date){try{var _d=new Date(date);if(!isNaN(_d))_dayOfWeek=_dayNames[_d.getDay()];}catch(e){}}
           byPort[port][date].push({
             id:          gs(t,['ID','id']),
             date:        date,
+            day:         _dayOfWeek,
             portfolio:   port,
             asset:       gs(t,['Asset','asset']),
             side:        gs(t,['Side','side']) || 'Long',
@@ -2053,7 +2094,9 @@ function syncFromSheet(onDone){
             trend:       gs(t,['Trend','trend']),
             zone:        gs(t,['Zone','zone']),
             confirm:     gs(t,['Confirm','confirm']),
-            sessions:    gs(t,['Sessions','sessions']),
+            sessions:    gs(t,['Sessions','sessions','Session','session']),
+            session:     gs(t,['Sessions','sessions','Session','session']), // alias for display
+            duration:    gs(t,['TimeInPos','timeinpos','timeInPos','Duration','duration']),
             emotion:     gs(t,['Emotion','emotion']),
             discipline:  gs(t,['Discipline','discipline']),
             note:        gs(t,['Note','note']),
@@ -2096,9 +2139,29 @@ function syncFromSheet(onDone){
 
       // ── 4. Data Trades ──
       if(d.dataTrades && d.dataTrades.length){
-        function gv2(obj,keys){for(var i=0;i<keys.length;i++){var v=obj[keys[i]];if(v!==undefined&&v!==null&&v!=='')return v;}return '';}
+        function gv2(obj,keys){
+          for(var i=0;i<keys.length;i++){
+            var v=obj[keys[i]];
+            if(v!==undefined&&v!==null&&v!==''&&v!==0) return v;
+          }
+          // ลอง lowercase key ด้วย
+          for(var i=0;i<keys.length;i++){
+            var lk=keys[i].toLowerCase();
+            for(var k in obj){ if(k.toLowerCase()===lk&&obj[k]!==undefined&&obj[k]!==null&&obj[k]!=='') return obj[k]; }
+          }
+          return '';
+        }
         function gn2(obj,keys){var v=gv2(obj,keys);var n=parseFloat(v);return isNaN(n)?0:n;}
-        function gs2(obj,keys){var v=gv2(obj,keys);return (v instanceof Date)?v.toISOString().slice(0,19).replace('T',' '):String(v||'');}
+        function gs2(obj,keys){
+          var v=gv2(obj,keys);
+          if(v instanceof Date) return v.toISOString().slice(0,19).replace('T',' ');
+          var s=String(v||'');
+          // แปลง Date string "Thu Apr 10 2026..." → "2026-04-10"
+          var months={Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+          var dm=s.match(/^\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{4})/);
+          if(dm){var d=parseInt(dm[2]);return dm[3]+'-'+(months[dm[1]]||'01')+'-'+(d<10?'0':'')+d;}
+          return s;
+        }
 
         var existDT = [];
         try{ existDT = JSON.parse(localStorage.getItem('dt_trades')||'[]'); }catch(e){}
@@ -2112,13 +2175,19 @@ function syncFromSheet(onDone){
           var tradeObj={
             _id:       id,
             date:      gs2(t,['Date','date']),
-            day:       gs2(t,['Day','day']),
+            day:       (function(){
+              var dayVal=gs2(t,['Day','day']);
+              if(dayVal) return dayVal;
+              var dateStr=gs2(t,['Date','date']);
+              if(!dateStr) return '';
+              try{var _d=new Date(dateStr);var _dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];return isNaN(_d)?'':_dn[_d.getDay()];}catch(e){return '';}
+            })(),
             portfolio: gs2(t,['Portfolio','portfolio']) || 'data',
-            session:   gs2(t,['Session','session']),
+            session:   gs2(t,['Session','session','Sessions']),
             asset:     gs2(t,['Asset','asset']),
             side:      gs2(t,['Side','side']) || 'Long',
             entryTime: gs2(t,['EntryTime','entrytime','entryTime']),
-            duration:  gs2(t,['Duration','duration']),
+            duration:  gs2(t,['Duration','duration','TimeInPos','timeinpos']),
             mode:      gs2(t,['Mode','mode']),
             code:      gs2(t,['Code','code']),
             tf:        gs2(t,['TF','tf','Timeframe','timeframe']),
@@ -2126,7 +2195,7 @@ function syncFromSheet(onDone){
             candle:    gs2(t,['Candle','candle']),
             zoneMit:   gs2(t,['ZoneMit','zonemet','zoneMit','ZoneMet']),
             zone:      gs2(t,['Zone','zone']),
-            confirm:   gs2(t,['Confirm','confirm']),
+            confirm:   gs2(t,['Confirm','confirm','Confirmed']),
             entry:     gs2(t,['Entry','entry']),
             tp:        gs2(t,['TP','tp']),
             sl:        gs2(t,['SL','sl']),
@@ -2136,7 +2205,7 @@ function syncFromSheet(onDone){
             result:    gs2(t,['Result','result']),
             maxRR:     gs2(t,['MaxRR','maxRR','maxrr']),
             emo:       parseInt(gv2(t,['Emotion','emotion']))||5,
-            disc:      parseInt(gv2(t,['Discipline','discipline']))||5,
+            disc:      (function(){ var v=parseInt(gv2(t,['Discipline','discipline','Disc','disc'])); return (v&&v>0&&v<=10)?v:5; })(),
             note:      gs2(t,['Note','note']),
             imgLink:   gs2(t,['ImageLink','imagelink','imgLink'])
           };
