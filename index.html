@@ -1250,7 +1250,8 @@ function doGet(e){
   var p=e&amp;&amp;e.parameter;
   if(p&amp;&amp;p.action==='loadAssets')     return _json(loadAssets());
   if(p&amp;&amp;p.action==='loadPortfolios') return _json(loadPortfolios());
-  if(p&amp;&amp;p.action==='loadAll')         return _json(loadAll());
+  if(p&amp;&amp;p.action==='loadAll')           return _json(loadAll());
+  if(p&amp;&amp;p.action==='cleanDuplicates')   return _json(cleanDuplicates());
   return _json({status:'ready',version:'5.0',time:new Date().toISOString()});
 }
 function loadAll(){
@@ -1323,28 +1324,49 @@ function loadAll(){
     }
     function _row2obj(hdr,row){ var o={}; hdr.forEach(function(h,i){ o[h]=_cv(row[i]); }); return o; }
 
-    // ── Trades ──
+    // ── Trades (dedup by ID before returning) ──
     var tSh=ss.getSheetByName(SHEET.TRADES);
     if(tSh&amp;&amp;tSh.getLastRow()&gt;1){
       var tHdr=tSh.getRange(1,1,1,tSh.getLastColumn()).getValues()[0];
       var tRows=tSh.getRange(2,1,tSh.getLastRow()-1,tSh.getLastColumn()).getValues();
-      tRows.forEach(function(r){ result.trades.push(_row2obj(tHdr,r)); });
+      var tSeen={};
+      tRows.forEach(function(r){
+        var obj=_row2obj(tHdr,r);
+        var tid=String(obj['ID']||obj['id']||'').trim();
+        if(!tid) return; // skip blank rows
+        if(!tSeen[tid]){ tSeen[tid]=true; result.trades.push(obj); }
+        // ถ้า ID ซ้ำ ข้ามไป (dedup ใน memory ก่อนส่ง browser)
+      });
     }
 
-    // ── Sessions ──
+    // ── Sessions (dedup by Date+Portfolio) ──
     var sesSh=ss.getSheetByName(SHEET.SESSIONS);
     if(sesSh&amp;&amp;sesSh.getLastRow()&gt;1){
       var sHdr=sesSh.getRange(1,1,1,sesSh.getLastColumn()).getValues()[0];
       var sRows=sesSh.getRange(2,1,sesSh.getLastRow()-1,sesSh.getLastColumn()).getValues();
-      sRows.forEach(function(r){ result.sessions.push(_row2obj(sHdr,r)); });
+      var sSeen={};
+      sRows.forEach(function(r){
+        var obj=_row2obj(sHdr,r);
+        var sDate=String(obj['Date']||obj['date']||'').trim();
+        var sPort=String(obj['Portfolio']||obj['portfolio']||'default').trim();
+        if(!sDate) return;
+        var sKey=sPort+'|'+sDate;
+        if(!sSeen[sKey]){ sSeen[sKey]=true; result.sessions.push(obj); }
+      });
     }
 
-    // ── DataTrades ──
+    // ── DataTrades (dedup by ID) ──
     var dtSh=ss.getSheetByName(SHEET.DATA_TRADES);
     if(dtSh&amp;&amp;dtSh.getLastRow()&gt;1){
       var dHdr=dtSh.getRange(1,1,1,dtSh.getLastColumn()).getValues()[0];
       var dRows=dtSh.getRange(2,1,dtSh.getLastRow()-1,dtSh.getLastColumn()).getValues();
-      dRows.forEach(function(r){ result.dataTrades.push(_row2obj(dHdr,r)); });
+      var dtSeen={};
+      dRows.forEach(function(r){
+        var obj=_row2obj(dHdr,r);
+        var dtid=String(obj['ID']||obj['id']||'').trim();
+        if(!dtid) return;
+        if(!dtSeen[dtid]){ dtSeen[dtid]=true; result.dataTrades.push(obj); }
+      });
     }
 
     _log('loadAll','trades='+result.trades.length+' sessions='+result.sessions.length+' dataTrades='+result.dataTrades.length+' portfolios='+Object.keys(result.portfolios).length,'','system','ok');
@@ -1709,10 +1731,21 @@ function _stylePnlCell(sh,row,col,pnl){
 function _findRow(sh,col,val){
   if(sh.getLastRow()&lt;2) return -1;
   var data=sh.getDataRange().getValues();
+  var sVal=String(val).trim();
+  // ป้องกัน duplicate: ถ้าเจอซ้ำกัน ลบ row ซ้ำทิ้ง เหลือแค่แถวแรก
+  var firstFound=-1;
   for(var i=1;i&lt;data.length;i++){
-    if(String(data[i][col-1])===String(val)) return i+1;
+    var cell=String(data[i][col-1]).trim();
+    if(cell===sVal){
+      if(firstFound===-1){ firstFound=i+1; }
+      else {
+        // ลบ row ซ้ำออก (index ลดลงเพราะ row ถูกลบ)
+        sh.deleteRow(firstFound+1);
+        return firstFound;
+      }
+    }
   }
-  return -1;
+  return firstFound;
 }
 function _findRow2(sh,col1,val1,col2,val2){
   if(sh.getLastRow()&lt;2) return -1;
@@ -1735,6 +1768,62 @@ function _log(action,detail,portfolio,source,result){
 function _now(){return Utilities.formatDate(new Date(),'Asia/Bangkok','yyyy-MM-dd HH:mm:ss');}
 function _json(obj){return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);}
 
+function cleanDuplicates(){
+  // ลบ duplicate rows ออกจากทุก sheet โดยเก็บแถวล่าสุดของแต่ละ ID
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var report=[];
+
+  // Clean Trades (dedup by ID col 1)
+  var tSh=ss.getSheetByName(SHEET.TRADES);
+  if(tSh&amp;&amp;tSh.getLastRow()&gt;1){
+    var tData=tSh.getDataRange().getValues();
+    var tSeen={}; var tDel=[];
+    for(var i=tData.length-1;i&gt;=1;i--){
+      var tid=String(tData[i][0]).trim();
+      if(!tid){ tDel.push(i+1); continue; }
+      if(tSeen[tid]){ tDel.push(i+1); } else { tSeen[tid]=true; }
+    }
+    tDel.sort(function(a,b){return b-a;}).forEach(function(r){tSh.deleteRow(r);});
+    report.push('Trades: removed '+tDel.length+' duplicates');
+  }
+
+  // Clean Sessions (dedup by Date+Portfolio)
+  var sesSh=ss.getSheetByName(SHEET.SESSIONS);
+  if(sesSh&amp;&amp;sesSh.getLastRow()&gt;1){
+    var sData=sesSh.getDataRange().getValues();
+    var sHdr=sData[0];
+    var sDateCol=sHdr.indexOf('Date'); var sPortCol=sHdr.indexOf('Portfolio');
+    if(sDateCol&lt;0) sDateCol=0; if(sPortCol&lt;0) sPortCol=1;
+    var sSeen={}; var sDel=[];
+    for(var i=sData.length-1;i&gt;=1;i--){
+      var sk=String(sData[i][sPortCol]).trim()+'|'+String(sData[i][sDateCol]).trim();
+      if(!String(sData[i][sDateCol]).trim()){ sDel.push(i+1); continue; }
+      if(sSeen[sk]){ sDel.push(i+1); } else { sSeen[sk]=true; }
+    }
+    sDel.sort(function(a,b){return b-a;}).forEach(function(r){sesSh.deleteRow(r);});
+    report.push('Sessions: removed '+sDel.length+' duplicates');
+  }
+
+  // Clean DataTrades (dedup by ID col 1)
+  var dtSh=ss.getSheetByName(SHEET.DATA_TRADES);
+  if(dtSh&amp;&amp;dtSh.getLastRow()&gt;1){
+    var dtData=dtSh.getDataRange().getValues();
+    var dtSeen={}; var dtDel=[];
+    for(var i=dtData.length-1;i&gt;=1;i--){
+      var dtid=String(dtData[i][0]).trim();
+      if(!dtid){ dtDel.push(i+1); continue; }
+      if(dtSeen[dtid]){ dtDel.push(i+1); } else { dtSeen[dtid]=true; }
+    }
+    dtDel.sort(function(a,b){return b-a;}).forEach(function(r){dtSh.deleteRow(r);});
+    report.push('DataTrades: removed '+dtDel.length+' duplicates');
+  }
+
+  var msg=report.join('\n');
+  _log('cleanDuplicates',msg,'','system','ok');
+  SpreadsheetApp.getUi().alert('✅ Clean เสร็จ!\n\n'+msg);
+  return {status:'ok',report:report};
+}
+
 function setupSheets(){
   _sheet(SHEET.TRADES,HDR.TRADES);
   _sheet(SHEET.DATA_TRADES,HDR.DATA_TRADES);
@@ -1751,6 +1840,7 @@ function onOpen(){
   SpreadsheetApp.getUi().createMenu('🔧 TradeLog Pro')
     .addItem('⚙️ Setup Sheets','setupSheets')
     .addItem('📊 Refresh All Summaries','refreshAll')
+    .addItem('🧹 Clean Duplicate Rows','cleanDuplicates')
     .addItem('🗑 Clear Log','clearLog')
     .addToUi();
 }
@@ -1769,7 +1859,7 @@ function clearLog(){
   if(sh&amp;&amp;sh.getLastRow()&gt;1) sh.deleteRows(2,sh.getLastRow()-1);
 }</div>
     <button class="btn-sm" style="margin-top:5px;" onclick="copyCode()">📋 Copy</button></div>
-    <div style="margin-top:12px;display:flex;gap:7px;flex-wrap:wrap;"><button class="btn-primary" onclick="saveSheet()">💾 Save & Test</button><button class="btn-sm" onclick="testSheet()">🔗 Test</button><button class="btn-sm" onclick="syncFromSheet()" style="border-color:var(--teal);color:var(--teal);">🔄 Sync ดึงข้อมูลจาก Sheet</button></div>
+    <div style="margin-top:12px;display:flex;gap:7px;flex-wrap:wrap;"><button class="btn-primary" onclick="saveSheet()">💾 Save & Test</button><button class="btn-sm" onclick="testSheet()">🔗 Test</button><button class="btn-sm" onclick="syncFromSheet()" style="border-color:var(--teal);color:var(--teal);">🔄 Sync จาก Sheet</button><button class="btn-sm" onclick="clearAndResync()" style="border-color:var(--amber);color:var(--amber);" title="ล้างข้อมูลใน Browser ทั้งหมดแล้วดึงจาก Sheet ใหม่">🧹 Clear &amp; Re-sync</button><button class="btn-sm" onclick="cleanSheetDuplicates()" style="border-color:var(--red);color:var(--red);" title="รันฟังก์ชัน Clean Duplicates ที่ Google Sheet โดยตรง — ลบ row ซ้ำออกจาก Sheet ถาวร">🔧 Clean Sheet Dupes</button></div>
     <div id="sheetRes" style="margin-top:6px;font-size:11px;"></div>
   </div>
 </div>
@@ -2012,6 +2102,45 @@ var MONTHS=['January','February','March','April','May','June','July','August','S
 var MABBR=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 var S={sessions:{},trades:{},scriptUrl:'',keys:{mGem:'gemini-2.5-flash-preview-05-20',mGroq:'llama-4-scout-17b-16e-instruct'},prov:'gemini',provBackup:'groq',viewMonth:new Date(),viewYear:new Date().getFullYear(),emo:'😡',side:'Long',mKey:'',mTrades:[],upB64:null,eqChart:null,eqChartW:null,currentPortfolio:'default',portfolios:{}};
 
+// ── สั่ง GAS ล้าง duplicate rows ใน Sheet ──
+function cleanSheetDuplicates(){
+  if(!S.scriptUrl){ showToast('ยังไม่ได้ตั้งค่า Sheet URL','error'); return; }
+  if(!confirm('🔧 จะสั่งให้ Google Sheet ลบ Duplicate Rows ออกถาวร\n(Trades, Sessions, DataTrades)\n\nดำเนินการต่อ?')) return;
+  showToast('🔧 กำลัง Clean Sheet Duplicates...','success');
+  fetch(S.scriptUrl+'?action=cleanDuplicates')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.status==='ok'){
+        var rpt=(d.report||[]).join(', ');
+        showToast('✅ Clean เสร็จ! '+rpt,'success');
+        // หลัง clean แล้ว re-sync ดึงข้อมูลที่สะอาดกลับมา
+        setTimeout(function(){ clearAndResync(); }, 1000);
+      } else {
+        showToast('⚠ Clean error: '+(d.msg||'unknown'),'error');
+      }
+    })
+    .catch(function(err){ showToast('❌ Clean failed: '+err.message,'error'); });
+}
+
+// ── ล้างข้อมูล Browser ทั้งหมดแล้วดึงจาก Sheet ใหม่ ──
+function clearAndResync(){
+  if(!S.scriptUrl){ showToast('ยังไม่ได้ตั้งค่า Sheet URL','error'); return; }
+  if(!confirm('⚠️ จะล้างข้อมูลทุก Portfolio ใน Browser แล้วดึงจาก Sheet ใหม่ทั้งหมด\nออเดอร์ที่ยังไม่ได้ sync ขึ้น Sheet จะหายไป\n\nดำเนินการต่อ?')) return;
+  // ล้าง trade/session data ของทุก portfolio
+  Object.keys(S.portfolios).forEach(function(pid){
+    localStorage.removeItem('port_'+pid+'_t');
+    localStorage.removeItem('port_'+pid+'_s');
+  });
+  localStorage.removeItem('dt_trades');
+  // reset S.trades / S.sessions
+  S.trades = {};
+  S.sessions = {};
+  showToast('🧹 ล้างข้อมูลเก่าแล้ว — กำลัง Re-sync...','success');
+  syncFromSheet(function(){
+    showToast('✅ Re-sync สำเร็จ! ข้อมูลตรงกับ Sheet แล้ว','success');
+  });
+}
+
 // ── ดึงข้อมูลทั้งหมดจาก Sheet มาอัพเดต Browser ──
 function syncFromSheet(onDone){
   if(!S.scriptUrl) return;
@@ -2023,7 +2152,21 @@ function syncFromSheet(onDone){
 
       // ── 1. Portfolios ──
       if(d.portfolios && Object.keys(d.portfolios).length){
-        var merged = Object.assign({}, S.portfolios);
+        // FIX: ล้าง trade/session data ของทุก portfolio ที่มีอยู่ก่อน
+        // เพื่อป้องกัน stale data เก่ารวมกับ Sheet แล้ว duplicate
+        var allKnownPorts = Object.keys(S.portfolios).concat(Object.keys(d.portfolios));
+        var seenPorts = {};
+        allKnownPorts.forEach(function(pid){
+          if(!seenPorts[pid]){
+            seenPorts[pid]=1;
+            localStorage.removeItem('port_'+pid+'_t');
+            localStorage.removeItem('port_'+pid+'_s');
+          }
+        });
+        // ล้าง dt_trades เก่าด้วยเพราะ DataTrades จะ replace ใหม่จาก Sheet
+        localStorage.removeItem('dt_trades');
+
+        var merged = {};
         Object.keys(d.portfolios).forEach(function(id){
           var p = d.portfolios[id];
           // ถ้าชื่อยังเป็น ID ยาว (port_177...) ให้ตั้งชื่อสั้น
@@ -2031,8 +2174,14 @@ function syncFromSheet(onDone){
             if(id === 'default') p.name = 'Default';
             else p.name = 'Port ' + id.replace(/^port_/,'').substring(0,6);
           }
+          // คงชื่อที่ตั้งเองไว้ถ้ามี
+          var localP = S.portfolios[id];
+          if(localP && localP.name && !localP.name.match(/^Port[-\s]?\d{4,}/) && localP.name !== 'Default'){
+            p.name = localP.name;
+          }
           merged[id] = p;
         });
+        if(!merged['default']) merged['default'] = {name:'Default',balance:0,fund:''};
         // ถ้า currentPortfolio ไม่อยู่ใน merged → เปลี่ยนไปพอร์ตแรก
         if(!merged[S.currentPortfolio]){
           S.currentPortfolio = Object.keys(merged)[0] || 'default';
