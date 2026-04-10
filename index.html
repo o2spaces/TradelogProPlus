@@ -2104,12 +2104,13 @@ function syncFromSheet(onDone){
           });
         });
         // Save each portfolio's trades to localStorage
-        Object.keys(byPort).forEach(function(port){
-          var dateMap = byPort[port];
-          var existing = {};
-          try{ existing = JSON.parse(localStorage.getItem('port_'+port+'_t')||'{}'); }catch(e){}
-          Object.keys(dateMap).forEach(function(date){ existing[date] = dateMap[date]; });
-          localStorage.setItem('port_'+port+'_t', JSON.stringify(existing));
+        // FIX: ใช้ข้อมูลจาก Sheet เป็น source of truth ต่อ portfolio
+        // เก็บเฉพาะวันที่มาจาก Sheet แทนที่ (replace) ไม่ใช่ merge กับของเก่า
+        // เพื่อป้องกัน duplicate orders จากการ merge ซ้ำหลายรอบ
+        var portsFromSheet = Object.keys(byPort);
+        portsFromSheet.forEach(function(port){
+          // Replace ทั้ง portfolio ด้วยข้อมูลจาก Sheet โดยตรง
+          localStorage.setItem('port_'+port+'_t', JSON.stringify(byPort[port]));
         });
       }
 
@@ -2163,15 +2164,13 @@ function syncFromSheet(onDone){
           return s;
         }
 
-        var existDT = [];
-        try{ existDT = JSON.parse(localStorage.getItem('dt_trades')||'[]'); }catch(e){}
-        // Index existing by id for fast lookup + update
-        var existMap = {};
-        existDT.forEach(function(t,i){ existMap[t._id||t.id] = i; });
+        // FIX: แทนที่จะ merge กับ existDT (ซึ่งทำให้ข้อมูลเพิ่มขึ้นทุกครั้งที่ Sync)
+        // ให้ใช้ข้อมูลจาก Sheet เป็น source of truth โดยตรง
+        // แปลง dataTrades ทั้งหมดจาก Sheet → array ใหม่
+        var newDT = [];
         d.dataTrades.forEach(function(t){
           var id = gs2(t,['ID','id']);
           if(!id) return;
-          var isExist = existMap.hasOwnProperty(id);
           var tradeObj={
             _id:       id,
             date:      gs2(t,['Date','date']),
@@ -2209,14 +2208,10 @@ function syncFromSheet(onDone){
             note:      gs2(t,['Note','note']),
             imgLink:   gs2(t,['ImageLink','imagelink','imgLink'])
           };
-          if(isExist){
-            existDT[existMap[id]]=tradeObj; // update
-          } else {
-            existMap[id]=existDT.length;
-            existDT.push(tradeObj); // insert
-          }
+          newDT.push(tradeObj);
         });
-        localStorage.setItem('dt_trades', JSON.stringify(existDT));
+        // Replace ข้อมูล DataTrades ทั้งหมดด้วยข้อมูลจาก Sheet
+        localStorage.setItem('dt_trades', JSON.stringify(newDT));
       }
 
       // ── Reload current portfolio data ──
