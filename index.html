@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TradeLog Pro+</title>
+<title>TradeLog Pro</title>
 <link rel="shortcut icon" type="image/png" href="Icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="Icon.png">
 <link rel="icon" type="image/png" sizes="16x16" href="Icon.png">
@@ -437,7 +437,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
 <body data-theme="dark">
 
 <div class="topbar">
-  <div class="logo"><img src="Icon.png" style="width:44px;height:44px;border-radius:8px;object-fit:cover;">TradeLog Pro+</div>
+  <div class="logo"><img src="Icon.png" style="width:44px;height:44px;border-radius:8px;object-fit:cover;">TradeLog Pro</div>
   <div class="topbar-center">
     <button class="view-btn active" id="btnDaily" onclick="switchView('daily')">📅 Daily</button>
     <button class="view-btn" id="btnWeekly" onclick="switchView('weekly')">📊 Weekly</button>
@@ -625,24 +625,24 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
       </div>
       <div id="dtFilterBody" style="padding:0 12px 12px;display:none;">
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:7px;">
-          <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;">Asset</div>
-            <select id="dtfAsset" onchange="dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option><option>NQ1</option><option>MNQ1</option><option>GC1</option><option>MGC1</option><option>XAU/USD</option></select></div>
-          <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;">Result</div>
-            <select id="dtfResult" onchange="dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option><option>Win</option><option>Loss</option><option>BE</option></select></div>
-          <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;">Day</div>
-            <select id="dtfDay" onchange="dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option><option>Mon</option><option>Tue</option><option>Wed</option><option>Thu</option><option>Fri</option></select></div>
+          <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;">Asset <button onclick="event.stopPropagation();openDropEdit('dtfAsset','Asset (Filter)')" style="font-size:8px;background:none;border:none;color:var(--accent);cursor:pointer;padding:0;">✎</button></div>
+            <select id="dtfAsset" onchange="dtSaveFilters();dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option></select></div>
+          <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;">Result <button onclick="event.stopPropagation();openDropEdit('dtfResult','Result (Filter)')" style="font-size:8px;background:none;border:none;color:var(--accent);cursor:pointer;padding:0;">✎</button></div>
+            <select id="dtfResult" onchange="dtSaveFilters();dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option></select></div>
+          <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;">Day <button onclick="event.stopPropagation();openDropEdit('dtfDay','Day (Filter)')" style="font-size:8px;background:none;border:none;color:var(--accent);cursor:pointer;padding:0;">✎</button></div>
+            <select id="dtfDay" onchange="dtSaveFilters();dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option></select></div>
           <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;">Session <button onclick="event.stopPropagation();openDropEdit('dtfSession','Session (Filter)')" style="font-size:8px;background:none;border:none;color:var(--accent);cursor:pointer;padding:0;">✎</button></div>
-            <select id="dtfSession" onchange="dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option></select></div>
+            <select id="dtfSession" onchange="dtSaveFilters();dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option></select></div>
           <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;">Code <button onclick="event.stopPropagation();openDropEdit('dtfCode','Code (Filter)')" style="font-size:8px;background:none;border:none;color:var(--accent);cursor:pointer;padding:0;">✎</button></div>
-            <select id="dtfCode" onchange="dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option></select></div>
+            <select id="dtfCode" onchange="dtSaveFilters();dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option></select></div>
           <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;">Mode <button onclick="event.stopPropagation();openDropEdit('dtfMode','Mode (Filter)')" style="font-size:8px;background:none;border:none;color:var(--accent);cursor:pointer;padding:0;">✎</button></div>
-            <select id="dtfMode" onchange="dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option></select></div>
+            <select id="dtfMode" onchange="dtSaveFilters();dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option></select></div>
           <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;">Class</div>
-            <select id="dtfClass" onchange="dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option><option>A+</option><option>A</option><option>B</option><option>C</option></select></div>
+            <select id="dtfClass" onchange="dtSaveFilters();dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option><option>A+</option><option>A</option><option>B</option><option>C</option></select></div>
           <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;">Candle <button onclick="event.stopPropagation();openDropEdit('dtfModel','Candle (Filter)')" style="font-size:8px;background:none;border:none;color:var(--accent);cursor:pointer;padding:0;">✎</button></div>
-            <select id="dtfModel" onchange="dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option></select></div>
+            <select id="dtfModel" onchange="dtSaveFilters();dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option></select></div>
           <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;">Duration (≤ นาที)</div>
-            <input type="number" id="dtfDur" placeholder="ไม่จำกัด" min="0" oninput="dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"></div>
+            <input type="number" id="dtfDur" placeholder="ไม่จำกัด" min="0" oninput="dtSaveFilters();dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"></div>
         </div>
       </div>
     </div>
@@ -1201,7 +1201,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
     <input class="settings-input" id="sheetUrl" placeholder="https://script.google.com/macros/s/.../exec">
     <div style="margin-top:10px;"><div class="field-label" style="margin-bottom:5px;">📋 Code:</div>
     <div class="code-block">/* =========================================
-   TradeLog Pro+ — Google Apps Script v5.0
+   TradeLog Pro — Google Apps Script v5.0
    รองรับ: Portfolio | Data Mode Trades
            Candle | Mode | TF | Trend
            Zone | Confirm | Sessions
@@ -1277,16 +1277,31 @@ function loadAll(){
       result.portfolios=ports;
     }
 
+    // helper: แปลง cell value เป็น string/number ปลอดภัย
+    function _cv(v){
+      if(v===null||v===undefined) return '';
+      if(v instanceof Date) return Utilities.formatDate(v,'Asia/Bangkok','yyyy-MM-dd');
+      if(typeof v==='number') return v;
+      if(typeof v==='boolean') return v?'true':'false';
+      var s=String(v);
+      // ถ้าเป็น Date string ที่ GAS format มา เช่น "Thu Apr 10 2026 00:00:00..."
+      // แปลงให้เป็น yyyy-MM-dd
+      var dm=s.match(/^(\w{3})\s+(\w{3})\s+(\d{1,2})\s+(\d{4})/);
+      if(dm){
+        var months={Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+        var d=parseInt(dm[3]);
+        return dm[4]+'-'+(months[dm[2]]||'01')+'-'+(d<10?'0':'')+d;
+      }
+      return s;
+    }
+    function _row2obj(hdr,row){ var o={}; hdr.forEach(function(h,i){ o[h]=_cv(row[i]); }); return o; }
+
     // ── Trades ──
     var tSh=ss.getSheetByName(SHEET.TRADES);
     if(tSh&amp;&amp;tSh.getLastRow()&gt;1){
       var tHdr=tSh.getRange(1,1,1,tSh.getLastColumn()).getValues()[0];
       var tRows=tSh.getRange(2,1,tSh.getLastRow()-1,tSh.getLastColumn()).getValues();
-      tRows.forEach(function(r){
-        var obj={};
-        tHdr.forEach(function(h,i){ obj[h]=r[i]; });
-        result.trades.push(obj);
-      });
+      tRows.forEach(function(r){ result.trades.push(_row2obj(tHdr,r)); });
     }
 
     // ── Sessions ──
@@ -1294,11 +1309,7 @@ function loadAll(){
     if(sesSh&amp;&amp;sesSh.getLastRow()&gt;1){
       var sHdr=sesSh.getRange(1,1,1,sesSh.getLastColumn()).getValues()[0];
       var sRows=sesSh.getRange(2,1,sesSh.getLastRow()-1,sesSh.getLastColumn()).getValues();
-      sRows.forEach(function(r){
-        var obj={};
-        sHdr.forEach(function(h,i){ obj[h]=r[i]; });
-        result.sessions.push(obj);
-      });
+      sRows.forEach(function(r){ result.sessions.push(_row2obj(sHdr,r)); });
     }
 
     // ── DataTrades ──
@@ -1306,11 +1317,7 @@ function loadAll(){
     if(dtSh&amp;&amp;dtSh.getLastRow()&gt;1){
       var dHdr=dtSh.getRange(1,1,1,dtSh.getLastColumn()).getValues()[0];
       var dRows=dtSh.getRange(2,1,dtSh.getLastRow()-1,dtSh.getLastColumn()).getValues();
-      dRows.forEach(function(r){
-        var obj={};
-        dHdr.forEach(function(h,i){ obj[h]=r[i]; });
-        result.dataTrades.push(obj);
-      });
+      dRows.forEach(function(r){ result.dataTrades.push(_row2obj(dHdr,r)); });
     }
 
     _log('loadAll','trades='+result.trades.length+' sessions='+result.sessions.length+' dataTrades='+result.dataTrades.length+' portfolios='+Object.keys(result.portfolios).length,'','system','ok');
@@ -1711,10 +1718,10 @@ function setupSheets(){
   var ss=SpreadsheetApp.getActiveSpreadsheet();
   var def=ss.getSheetByName('Sheet1');
   if(def&amp;&amp;ss.getSheets().length&gt;1) ss.deleteSheet(def);
-  SpreadsheetApp.getUi().alert('✅ TradeLog Pro+ v5.0 พร้อม!\n\nSheets: Trades | DataTrades | Sessions | Summary | Assets | Log\nรองรับ: Multi-Portfolio + Data Mode + Custom Assets + Fees + Commission\nLog: ครบทุก action + Source (port/data/system) + 2000 rows');
+  SpreadsheetApp.getUi().alert('✅ TradeLog Pro v5.0 พร้อม!\n\nSheets: Trades | DataTrades | Sessions | Summary | Assets | Log\nรองรับ: Multi-Portfolio + Data Mode + Custom Assets + Fees + Commission\nLog: ครบทุก action + Source (port/data/system) + 2000 rows');
 }
 function onOpen(){
-  SpreadsheetApp.getUi().createMenu('🔧 TradeLog Pro+')
+  SpreadsheetApp.getUi().createMenu('🔧 TradeLog Pro')
     .addItem('⚙️ Setup Sheets','setupSheets')
     .addItem('📊 Refresh All Summaries','refreshAll')
     .addItem('🗑 Clear Log','clearLog')
@@ -1990,66 +1997,75 @@ function syncFromSheet(onDone){
       // ── 1. Portfolios ──
       if(d.portfolios && Object.keys(d.portfolios).length){
         // Merge: Sheet wins, คง local ที่ Sheet ไม่รู้จัก
-        var merged = Object.assign({}, S.portfolios, d.portfolios);
+        // Sheet wins — merge: เริ่มจาก local แล้ว Sheet ทับ
+        var merged = Object.assign({}, S.portfolios);
+        Object.keys(d.portfolios).forEach(function(id){
+          merged[id] = d.portfolios[id]; // Sheet เป็น source of truth
+        });
         S.portfolios = merged;
         localStorage.setItem('tj_ports', JSON.stringify(S.portfolios));
+        renderPortfolioBar();
       }
 
       // ── 2. Trades (Portfolio Mode) ──
       if(d.trades && d.trades.length){
-        // Group trades by portfolio + date
+        // helper: ดึงค่าจาก object โดยลอง key หลายรูปแบบ
+        function gv(obj, keys){ for(var i=0;i<keys.length;i++){ var v=obj[keys[i]]; if(v!==undefined&&v!==null&&v!=='') return v; } return ''; }
+        function gn(obj, keys){ var v=gv(obj,keys); var n=parseFloat(v); return isNaN(n)?0:n; }
+        function gs(obj, keys){ var v=gv(obj,keys); return (v instanceof Date)?v.toISOString().slice(0,19).replace('T',' '):String(v||''); }
+
         var byPort = {};
         d.trades.forEach(function(t){
-          var port = t.portfolio || 'default';
-          var date = t.date || '';
+          // Sheet headers: ID,Date,Portfolio,Asset,Side,Lots,Entry,Close,TP,SL,
+          //   PnL($),Fees($),Commission($),Result,Risk,MaxRR,TimeInPos,
+          //   EntryDateTime,CloseDateTime,SetupClass,Candle,Code,Mode,Timeframe,
+          //   Trend,Zone,Confirm,Sessions,Emotion,Discipline,Note,ImageLink,UpdatedAt
+          var port = gs(t,['Portfolio','portfolio']) || 'default';
+          var date = gs(t,['Date','date']) || '';
+          if(!date) return;
           if(!byPort[port]) byPort[port] = {};
           if(!byPort[port][date]) byPort[port][date] = [];
-          // Convert sheet row to trade object
           byPort[port][date].push({
-            id: String(t.id||t.ID||''),
-            date: date,
-            portfolio: port,
-            asset: t.asset||t.Asset||'',
-            side: t.side||t.Side||'Long',
-            lots: parseFloat(t.lots||t.Lots)||0,
-            entry: parseFloat(t.entry||t.Entry)||0,
-            close: parseFloat(t.close||t.Close)||0,
-            tp: parseFloat(t.tp||t.TP)||0,
-            sl: parseFloat(t.sl||t.SL)||0,
-            pnl: parseFloat(t['pnl($)']||t['PnL($)']||t.pnl)||0,
-            fees: parseFloat(t['fees($)']||t['Fees($)']||t.fees)||0,
-            commission: parseFloat(t['commission($)']||t['Commission($)']||t.commission)||0,
-            result: t.result||t.Result||'',
-            risk: t.risk||t.Risk||'',
-            maxRR: t.maxrr||t.MaxRR||t.maxRR||'',
-            timeInPos: t.timeinpos||t.TimeInPos||t.timeInPos||'',
-            entryDate: t.entrydatetime||t.EntryDateTime||t.entryDate||'',
-            closeDate: t.closedatetime||t.CloseDateTime||t.closeDate||'',
-            setupClass: t.setupclass||t.SetupClass||t.setupClass||'',
-            candle: t.candle||t.Candle||'',
-            code: t.code||t.Code||'',
-            mode: t.mode||t.Mode||'',
-            tf: t.timeframe||t.Timeframe||t.tf||'',
-            trend: t.trend||t.Trend||'',
-            zone: t.zone||t.Zone||'',
-            confirm: t.confirm||t.Confirm||'',
-            sessions: t.sessions||t.Sessions||'',
-            emotion: t.emotion||t.Emotion||'',
-            discipline: t.discipline||t.Discipline||'',
-            note: t.note||t.Note||'',
-            imgLink: t.imagelink||t.ImageLink||t.imgLink||''
+            id:          gs(t,['ID','id']),
+            date:        date,
+            portfolio:   port,
+            asset:       gs(t,['Asset','asset']),
+            side:        gs(t,['Side','side']) || 'Long',
+            lots:        gn(t,['Lots','lots']),
+            entry:       gn(t,['Entry','entry']),
+            close:       gn(t,['Close','close']),
+            tp:          gn(t,['TP','tp']),
+            sl:          gn(t,['SL','sl']),
+            pnl:         gn(t,['PnL($)','pnl($)','pnl','PnL']),
+            fees:        gn(t,['Fees($)','fees($)','fees','Fees']),
+            commission:  gn(t,['Commission($)','commission($)','commission','Commission']),
+            result:      gs(t,['Result','result']),
+            risk:        gs(t,['Risk','risk']),
+            maxRR:       gs(t,['MaxRR','maxRR','maxrr']),
+            timeInPos:   gs(t,['TimeInPos','timeinpos','timeInPos']),
+            entryDate:   gs(t,['EntryDateTime','entrydatetime','entryDate']),
+            closeDate:   gs(t,['CloseDateTime','closedatetime','closeDate']),
+            setupClass:  gs(t,['SetupClass','setupclass','setupClass']),
+            candle:      gs(t,['Candle','candle']),
+            code:        gs(t,['Code','code']),
+            mode:        gs(t,['Mode','mode']),
+            tf:          gs(t,['Timeframe','timeframe','tf','TF']),
+            trend:       gs(t,['Trend','trend']),
+            zone:        gs(t,['Zone','zone']),
+            confirm:     gs(t,['Confirm','confirm']),
+            sessions:    gs(t,['Sessions','sessions']),
+            emotion:     gs(t,['Emotion','emotion']),
+            discipline:  gs(t,['Discipline','discipline']),
+            note:        gs(t,['Note','note']),
+            imgLink:     gs(t,['ImageLink','imagelink','imgLink'])
           });
         });
         // Save each portfolio's trades to localStorage
         Object.keys(byPort).forEach(function(port){
           var dateMap = byPort[port];
-          // Load existing
           var existing = {};
           try{ existing = JSON.parse(localStorage.getItem('port_'+port+'_t')||'{}'); }catch(e){}
-          // Merge by date
-          Object.keys(dateMap).forEach(function(date){
-            existing[date] = dateMap[date];
-          });
+          Object.keys(dateMap).forEach(function(date){ existing[date] = dateMap[date]; });
           localStorage.setItem('port_'+port+'_t', JSON.stringify(existing));
         });
       }
@@ -2080,44 +2096,55 @@ function syncFromSheet(onDone){
 
       // ── 4. Data Trades ──
       if(d.dataTrades && d.dataTrades.length){
+        function gv2(obj,keys){for(var i=0;i<keys.length;i++){var v=obj[keys[i]];if(v!==undefined&&v!==null&&v!=='')return v;}return '';}
+        function gn2(obj,keys){var v=gv2(obj,keys);var n=parseFloat(v);return isNaN(n)?0:n;}
+        function gs2(obj,keys){var v=gv2(obj,keys);return (v instanceof Date)?v.toISOString().slice(0,19).replace('T',' '):String(v||'');}
+
         var existDT = [];
         try{ existDT = JSON.parse(localStorage.getItem('dt_trades')||'[]'); }catch(e){}
-        var existIds = {};
-        existDT.forEach(function(t){ existIds[t._id||t.id] = true; });
+        // Index existing by id for fast lookup + update
+        var existMap = {};
+        existDT.forEach(function(t,i){ existMap[t._id||t.id] = i; });
         d.dataTrades.forEach(function(t){
-          var id = t.id||t.ID||'';
-          if(!existIds[id]){
-            existDT.push({
-              _id: String(id),
-              date: t.date||t.Date||'',
-              day: t.day||t.Day||'',
-              portfolio: t.portfolio||t.Portfolio||'data',
-              session: t.session||t.Session||'',
-              asset: t.asset||t.Asset||'',
-              side: t.side||t.Side||'Long',
-              entryTime: t.entrytime||t.EntryTime||t.entryTime||'',
-              duration: t.duration||t.Duration||'',
-              mode: t.mode||t.Mode||'',
-              code: t.code||t.Code||'',
-              tf: t.tf||t.TF||'',
-              setupClass: t.setupclass||t.SetupClass||t.setupClass||'',
-              candle: t.candle||t.Candle||'',
-              zoneMit: t.zonemet||t.ZoneMit||t.zoneMit||'',
-              zone: t.zone||t.Zone||'',
-              confirm: t.confirm||t.Confirm||'',
-              entry: t.entry||t.Entry||'',
-              tp: t.tp||t.TP||'',
-              sl: t.sl||t.SL||'',
-              risk: t.risk||t.Risk||'',
-              lots: t.lots||t.Lots||'',
-              pnl: parseFloat(t['pnl($)']||t['PnL($)']||t.pnl)||0,
-              result: t.result||t.Result||'',
-              maxRR: t.maxrr||t.MaxRR||t.maxRR||'',
-              emo: parseInt(t.emotion||t.Emotion)||5,
-              disc: parseInt(t.discipline||t.Discipline)||5,
-              note: t.note||t.Note||'',
-              imgLink: t.imagelink||t.ImageLink||t.imgLink||''
-            });
+          var id = gs2(t,['ID','id']);
+          if(!id) return;
+          var isExist = existMap.hasOwnProperty(id);
+          var tradeObj={
+            _id:       id,
+            date:      gs2(t,['Date','date']),
+            day:       gs2(t,['Day','day']),
+            portfolio: gs2(t,['Portfolio','portfolio']) || 'data',
+            session:   gs2(t,['Session','session']),
+            asset:     gs2(t,['Asset','asset']),
+            side:      gs2(t,['Side','side']) || 'Long',
+            entryTime: gs2(t,['EntryTime','entrytime','entryTime']),
+            duration:  gs2(t,['Duration','duration']),
+            mode:      gs2(t,['Mode','mode']),
+            code:      gs2(t,['Code','code']),
+            tf:        gs2(t,['TF','tf','Timeframe','timeframe']),
+            setupClass:gs2(t,['SetupClass','setupclass','setupClass']),
+            candle:    gs2(t,['Candle','candle']),
+            zoneMit:   gs2(t,['ZoneMit','zonemet','zoneMit','ZoneMet']),
+            zone:      gs2(t,['Zone','zone']),
+            confirm:   gs2(t,['Confirm','confirm']),
+            entry:     gs2(t,['Entry','entry']),
+            tp:        gs2(t,['TP','tp']),
+            sl:        gs2(t,['SL','sl']),
+            risk:      gs2(t,['Risk','risk']),
+            lots:      gs2(t,['Lots','lots']),
+            pnl:       gn2(t,['PnL($)','pnl($)','pnl','PnL']),
+            result:    gs2(t,['Result','result']),
+            maxRR:     gs2(t,['MaxRR','maxRR','maxrr']),
+            emo:       parseInt(gv2(t,['Emotion','emotion']))||5,
+            disc:      parseInt(gv2(t,['Discipline','discipline']))||5,
+            note:      gs2(t,['Note','note']),
+            imgLink:   gs2(t,['ImageLink','imagelink','imgLink'])
+          };
+          if(isExist){
+            existDT[existMap[id]]=tradeObj; // update
+          } else {
+            existMap[id]=existDT.length;
+            existDT.push(tradeObj); // insert
           }
         });
         localStorage.setItem('dt_trades', JSON.stringify(existDT));
@@ -2151,6 +2178,7 @@ function init(){
     // Load current portfolio data
     S.sessions=getPortSessions();
     S.trades=getPortTrades();
+    renderPortfolioBar(); // แสดง local ports ก่อน
     if(S.scriptUrl){setConn(true); syncFromSheet();}
     updateBadge();
   }catch(e){}
@@ -6546,7 +6574,10 @@ function dtRender(){
   // Update filter dropdowns from ALL trades so options always visible
   var _allSrc=[];
   if(DT.trades) DT.trades.forEach(function(t){_allSrc.push(t);});
+  // รวม port trades ด้วย
+  Object.keys(S.trades||{}).forEach(function(dk){(S.trades[dk]||[]).forEach(function(t){_allSrc.push(t);});});
   dtUpdateFilterOpts(_allSrc.length?_allSrc:rows);
+  dtRestoreFilters();
   tbody.innerHTML=rows.map(function(t,i){
     var pnl=parseFloat(t.pnl)||0;
     var pnlColor=pnl>0?'var(--green)':pnl<0?'var(--red)':'var(--text-secondary)';
@@ -6589,18 +6620,55 @@ function dtRender(){
 }
 
 function dtUpdateFilterOpts(rows){
-  var assets=[...new Set(rows.map(function(t){return t.asset;}).filter(Boolean))];
-  var codes=[...new Set(rows.map(function(t){return t.code;}).filter(Boolean))];
-  var modes=[...new Set(rows.map(function(t){return t.mode;}).filter(Boolean))];
-  var models=[...new Set(rows.map(function(t){return t.model;}).filter(Boolean))];
+  // รวบรวม unique values จากข้อมูลจริง
+  var assets=[...new Set(rows.map(function(t){return t.asset;}).filter(Boolean))].sort();
+  var codes=[...new Set(rows.map(function(t){return t.code;}).filter(Boolean))].sort();
+  var modes=[...new Set(rows.map(function(t){return t.mode;}).filter(Boolean))].sort();
+  var models=[...new Set(rows.map(function(t){return t.model||t.candle;}).filter(Boolean))].sort();
+  var days=[...new Set(rows.map(function(t){return t.day;}).filter(Boolean))];
+  var dayOrder=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  days.sort(function(a,b){return dayOrder.indexOf(a)-dayOrder.indexOf(b);});
+  var results=[...new Set(rows.map(function(t){return t.result;}).filter(Boolean))].sort();
+
   function refreshSel(id,opts){
     var el=document.getElementById(id);if(!el)return;
     var cur=el.value;
-    var base='<option value="">All</option>';
-    el.innerHTML=base+opts.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+o+'</option>';}).join('');
+    // เพิ่ม options จาก localStorage ที่บันทึกไว้ด้วย (custom options)
+    var saved=[];
+    try{saved=JSON.parse(localStorage.getItem('tj_drop_'+id)||'[]');}catch(e){}
+    var merged=[...new Set([...opts,...saved])].filter(Boolean);
+    if(id==='dtfDay') merged=merged.sort(function(a,b){return dayOrder.indexOf(a)-dayOrder.indexOf(b);});
+    else merged=merged.sort();
+    el.innerHTML='<option value="">All</option>'+merged.map(function(o){
+      return '<option'+(o===cur?' selected':'')+'>'+o+'</option>';
+    }).join('');
   }
-  refreshSel('dtfAsset',assets);refreshSel('dtfCode',codes);
-  refreshSel('dtfMode',modes);refreshSel('dtfModel',models);
+  refreshSel('dtfAsset',assets);
+  refreshSel('dtfCode',codes);
+  refreshSel('dtfMode',modes);
+  refreshSel('dtfModel',models);
+  refreshSel('dtfDay',days);
+  refreshSel('dtfResult',results);
+}
+
+// บันทึก filter state ลง localStorage
+function dtSaveFilters(){
+  var state={};
+  ['dtfAsset','dtfResult','dtfDay','dtfSession','dtfCode','dtfMode','dtfClass','dtfModel','dtfDur'].forEach(function(id){
+    var el=document.getElementById(id);if(el)state[id]=el.value;
+  });
+  localStorage.setItem('dt_filters',JSON.stringify(state));
+}
+
+// โหลด filter state จาก localStorage
+function dtRestoreFilters(){
+  try{
+    var state=JSON.parse(localStorage.getItem('dt_filters')||'{}');
+    Object.keys(state).forEach(function(id){
+      var el=document.getElementById(id);
+      if(el&&state[id]) el.value=state[id];
+    });
+  }catch(e){}
 }
 
 function dtDeleteRow(visIdx){
@@ -6756,6 +6824,7 @@ function dtResetFilters(){
   });
   var dur=document.getElementById('dtfDur');if(dur)dur.value='';
   var inc=document.getElementById('dtIncludePort');if(inc)inc.checked=false;
+  localStorage.removeItem('dt_filters');
   dtRender();
 }
 
@@ -6966,6 +7035,7 @@ function dtToggleDataPanel(){
     updateSidebarBtnLeft&&updateSidebarBtnLeft();
     updateSidebarBtnRight&&updateSidebarBtnRight();
     dtRender();
+    setTimeout(dtRestoreFilters,50);
   } else {
     panel.classList.remove('open');
     if(track){track.style.background='var(--bg-input)';track.style.borderColor='var(--border)';}
