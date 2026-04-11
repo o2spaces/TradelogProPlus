@@ -1217,7 +1217,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
 <div class="modal">
   <div class="modal-header"><div><div class="modal-title">🔗 Google Sheet</div><div class="modal-subtitle">เชื่อมต่อกับ Google Sheet</div></div><button class="modal-close" onclick="closeM('mSheet')">✕</button></div>
   <div class="modal-body">
-    <div class="info-box"><span class="step-n">1</span>เปิด Google Sheet → Extensions → Apps Script<br><span class="step-n">2</span>วางโค้ดด้านล่าง → กด <strong>setupSheets()</strong> รันครั้งแรก<br><span class="step-n">3</span>Deploy → Web App → Execute as: <strong>Me</strong> → Access: <strong>Anyone</strong><br><span class="step-n">4</span>Copy URL → วางด้านล่าง → Save &amp; Test<br><span style="font-size:10px;color:var(--amber);margin-top:4px;display:block;">⚡ Sheets ที่สร้าง: Trades | Sessions | Summary | Assets | Log — รองรับ Fees + Commission แยกกัน + Log ครบทุก action</span></div>
+    <div class="info-box"><span class="step-n">1</span>เปิด Google Sheet → Extensions → Apps Script<br><span class="step-n">2</span>วางโค้ดด้านล่าง → กด <strong>setupSheets()</strong> รันครั้งแรก<br><span class="step-n">3</span>Deploy → Web App → Execute as: <strong>Me</strong> → Access: <strong>Anyone</strong><br><span class="step-n">4</span>Copy URL → วางด้านล่าง → Save &amp; Test<br><span style="font-size:10px;color:var(--amber);margin-top:4px;display:block;">⚡ Sheets ที่สร้าง: Trades | Sessions | Summary | Assets | Journal | Log — รองรับ Fees + Commission แยกกัน + Log ครบทุก action</span></div>
     <!-- Live connection status -->
     <div id="sheetLiveStatus" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border);margin-bottom:10px;font-size:11px;">
       <div id="sheetStatusDot" style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);flex-shrink:0;"></div>
@@ -1239,7 +1239,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
    Sheet: Trades | DataTrades | Sessions | Summary | Assets | Log
    ========================================= */
 
-var SHEET={TRADES:'Trades',DATA_TRADES:'DataTrades',SESSIONS:'Sessions',SUMMARY:'Summary',ASSETS:'Assets',LOG:'Log'};
+var SHEET={TRADES:'Trades',DATA_TRADES:'DataTrades',SESSIONS:'Sessions',SUMMARY:'Summary',ASSETS:'Assets',LOG:'Log',JOURNAL:'Journal'};
 var HDR={
   TRADES:[
     'ID','Date','Portfolio','Asset','Side','Lots','Entry','Close','TP','SL',
@@ -1270,7 +1270,8 @@ var HDR={
     'Emotion','Sessions','UpdatedAt'
   ],
   ASSETS:['Asset','UpdatedAt'],
-  LOG:['Time','Action','Detail','Portfolio','Source','Result']
+  LOG:['Time','Action','Detail','Portfolio','Source','Result'],
+  JOURNAL:['Date','Portfolio','NoteHTML','NotePlain','UpdatedAt']
 };
 
 function doGet(e){
@@ -1451,6 +1452,7 @@ function doPost(e){
     else if(d.action==='saveDataTrade')      res=saveDataTrade(d);
     else if(d.action==='deleteDataTrade')    res=deleteDataTrade(d);
     else if(d.action==='batchSaveDataTrades')res=batchSaveDataTrades(d);
+    else if(d.action==='saveNoteDay')         res=saveNoteDay(d);
     else res={status:'error',msg:'unknown action: '+d.action};
     return _json(res);
   }catch(err){
@@ -1467,6 +1469,25 @@ function saveAssets(d){
   assets.forEach(function(a){sh.appendRow([a,now]);});
   _log('saveAssets','count='+assets.length,d.portfolio||'default','port','ok');
   return {status:'ok',count:assets.length};
+}
+
+function saveNoteDay(d){
+  var sh=_sheet(SHEET.JOURNAL,HDR.JOURNAL);
+  var portfolio=d.portfolio||'default';
+  var date=d.date||'';
+  if(!date) return {status:'error',msg:'missing date'};
+  // strip base64 images from HTML before saving to keep sheet lightweight
+  var html=(d.noteHTML||'').replace(/src="data:[^"]{0,20000}"/g,'src="[image]"');
+  // plain text fallback (strip tags)
+  var plain=(d.notePlain||html.replace(/&lt;[^&gt;]*&gt;/g,' ').replace(/\s+/g,' ').trim()).substring(0,5000);
+  var row=[date, portfolio, html, plain, _now()];
+  var existing=_findRow2(sh,1,date,2,portfolio);
+  if(existing&gt;0) sh.getRange(existing,1,1,row.length).setValues([row]);
+  else{ sh.appendRow(row); existing=sh.getLastRow(); }
+  var bg='#1a1c2e';
+  sh.getRange(existing,1,1,row.length).setBackground(bg).setFontColor('#e8eaf0').setFontSize(10);
+  _log('saveNoteDay','date='+date+' len='+html.length,portfolio,'port','ok');
+  return {status:'ok',date:date,portfolio:portfolio};
 }
 function loadAssets(){
   var sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.ASSETS);
@@ -1878,11 +1899,12 @@ function setupSheets(){
   _sheet(SHEET.SESSIONS,HDR.SESSIONS);
   _sheet(SHEET.SUMMARY,HDR.SUMMARY);
   _sheet(SHEET.ASSETS,HDR.ASSETS);
+  _sheet(SHEET.JOURNAL,HDR.JOURNAL);
   _sheet(SHEET.LOG,HDR.LOG);
   var ss=SpreadsheetApp.getActiveSpreadsheet();
   var def=ss.getSheetByName('Sheet1');
   if(def&amp;&amp;ss.getSheets().length&gt;1) ss.deleteSheet(def);
-  SpreadsheetApp.getUi().alert('✅ TradeLog Pro+ v5.0 พร้อม!\n\nSheets: Trades | DataTrades | Sessions | Summary | Assets | Log\nรองรับ: Multi-Portfolio + Data Mode + Custom Assets + Fees + Commission\nLog: ครบทุก action + Source (port/data/system) + 2000 rows\n\n⚡ หมายเหตุ: ถ้า Sheet เดิมมี Header ไม่ครบ ระบบจะเพิ่ม Column ใหม่ให้อัตโนมัติ');
+  SpreadsheetApp.getUi().alert('✅ TradeLog Pro+ v5.0 พร้อม!\n\nSheets: Trades | DataTrades | Sessions | Summary | Assets | Journal | Log\nรองรับ: Multi-Portfolio + Data Mode + Custom Assets + Fees + Commission\nLog: ครบทุก action + Source (port/data/system) + 2000 rows\n\n⚡ หมายเหตุ: ถ้า Sheet เดิมมี Header ไม่ครบ ระบบจะเพิ่ม Column ใหม่ให้อัตโนมัติ');
 }
 function onOpen(){
   SpreadsheetApp.getUi().createMenu('🔧 TradeLog Pro+')
@@ -4717,7 +4739,7 @@ function testSheet(){
 function setConn(ok){var d=document.getElementById('sDot'),t=document.getElementById('sTxt');if(ok){d.classList.add('connected');t.textContent='Connected';t.style.color='var(--green)';loadAssetsFromSheet();}else{d.classList.remove('connected');t.textContent='Offline';t.style.color='var(--text-muted)';}}
 function sendSheet(action,data){
   if(!S.scriptUrl)return;
-  var icons={saveTrade:'📊',saveSession:'📝',deleteTrade:'🗑',deleteDay:'🗑',saveAssets:'🗂️',deletePortfolio:'🗑',saveSettings:'⚙️',batchSaveTrades:'📥'};
+  var icons={saveTrade:'📊',saveSession:'📝',deleteTrade:'🗑',deleteDay:'🗑',saveAssets:'🗂️',deletePortfolio:'🗑',saveSettings:'⚙️',batchSaveTrades:'📥',saveNoteDay:'📓'};
   var payload=Object.assign({action:action, portfolio:S.currentPortfolio}, data);
   fetch(S.scriptUrl,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(function(){showToast((icons[action]||'📊')+' Sheet: '+action+' OK','success');})
@@ -6232,7 +6254,12 @@ function ndSave(){
   localStorage.setItem(ndStorageKey(), editor.innerHTML);
   var lbl=document.getElementById('ndAutoSaveLabel');
   if(lbl){ var now=new Date(); lbl.textContent='บันทึกแล้ว '+pad(now.getHours())+':'+pad(now.getMinutes()); }
-  showToast('📝 บันทึก Note of Day แล้ว','success');
+  // sync to Google Sheet Journal
+  if(S.scriptUrl && S.mKey){
+    var plain=editor.innerText||editor.textContent||'';
+    sendSheet('saveNoteDay',{date:S.mKey,noteHTML:editor.innerHTML,notePlain:plain.substring(0,5000)});
+  }
+  showToast('📓 บันทึก Note of Day แล้ว'+(S.scriptUrl?' → Sheet':''),'success');
 }
 
 function ndAutoSave(){
