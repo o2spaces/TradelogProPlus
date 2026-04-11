@@ -8307,17 +8307,19 @@ function dtRenderCharts(rows){
   function groupByEntryHour(){
     var g={};
     rows.forEach(function(t){
-      var et=t.entryTime||'';var m=et.match(/(\d+):/);
-      var hr=m?parseInt(m[1]):null;
-      if(hr===null) return;
-      var key=hr+'h';
-      if(!g[key]) g[key]={pnl:0,count:0,wins:0};
-      g[key].pnl+=parseFloat(t.pnl)||0;
-      g[key].count++;
-      if(parseFloat(t.pnl)>0) g[key].wins++;
+      var et=t.entryTime||'';
+      var m=et.match(/^(\d{1,2}):(\d{2})/);
+      if(!m) return;
+      var hr=parseInt(m[1],10);
+      if(isNaN(hr)) return;
+      var label=(hr<10?'0':'')+hr+':00';
+      if(!g[label]) g[label]={pnl:0,count:0,wins:0,_hr:hr};
+      g[label].pnl+=parseFloat(t.pnl)||0;
+      g[label].count++;
+      if(parseFloat(t.pnl)>0) g[label].wins++;
     });
     var sorted={};
-    Object.keys(g).sort(function(a,b){return parseInt(a)-parseInt(b);}).forEach(function(k){sorted[k]=g[k];});
+    Object.keys(g).sort(function(a,b){return g[a]._hr-g[b]._hr;}).forEach(function(k){sorted[k]=g[k];});
     return sorted;
   }
 
@@ -8374,7 +8376,6 @@ function dtRenderCharts(rows){
     {key:'Candle',    fn:function(){return groupBy('candle');},         title:'🕯 Candle'},
     {key:'Zone',      fn:function(){return groupBy('zone');},           title:'📦 Zone'},
     {key:'Confirm',   fn:function(){return groupBy('confirm');},        title:'✅ Confirm'},
-    {key:'SetupDur',  fn:function(){return groupBy('setupDuration');},  title:'⏱ Setup Dur'},
   ];
 
   // Build all chart HTML
