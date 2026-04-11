@@ -724,7 +724,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
               <th id="dth_asset" onclick="dtSortBy('asset')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Asset <span id="dthi_asset" style="font-size:9px;opacity:.5;"></span></th>
               <th id="dth_side" onclick="dtSortBy('side')" style="padding:7px 6px;text-align:center;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Side <span id="dthi_side" style="font-size:9px;opacity:.5;"></span></th>
               <th id="dth_entryTime" onclick="dtSortBy('entryTime')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Entry Time <span id="dthi_entryTime" style="font-size:9px;opacity:.5;"></span></th>
-              <th id="dth_duration" onclick="dtSortBy('duration')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Dur. <span id="dthi_duration" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_duration" onclick="dtSortBy('duration')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Setup Dur <span id="dthi_duration" style="font-size:9px;opacity:.5;"></span></th>
               <th id="dth_mode" onclick="dtSortBy('mode')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Mode <span id="dthi_mode" style="font-size:9px;opacity:.5;"></span></th>
               <th id="dth_code" onclick="dtSortBy('code')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Code <span id="dthi_code" style="font-size:9px;opacity:.5;"></span></th>
               <th id="dth_tf" onclick="dtSortBy('tf')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">TF <span id="dthi_tf" style="font-size:9px;opacity:.5;"></span></th>
@@ -2394,7 +2394,19 @@ function syncFromSheet(onDone){
             risk:        gs(t,['Risk','risk']),
             maxRR:       gs(t,['MaxRR','maxRR','maxrr']),
             timeInPos:   gs(t,['TimeInPos','timeinpos','timeInPos']),
-            entryDate:   gs(t,['EntryDateTime','entrydatetime','entryDate']),
+            entryDate: (function(){
+              var raw = gv(t,['EntryDateTime','entrydatetime','entryDate']);
+              if(!raw && raw!==0) return '';
+              // ถ้าเป็น Date object
+              if(raw instanceof Date){
+                var hh=raw.getHours(),mm=raw.getMinutes();
+                return (hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm;
+              }
+              var s=String(raw);
+              // ดึง HH:MM จาก "2026-04-02 7:52", "1899-12-30 5:35", "T07:52"
+              var m=s.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/)||s.match(/^(\d{1,2}:\d{2})(?::\d{2})?$/);
+              return m ? m[1] : '';
+            })(),
             closeDate:   gs(t,['CloseDateTime','closedatetime','closeDate']),
             setupClass:  gs(t,['SetupClass','setupclass','setupClass']),
             candle:      gs(t,['Candle','candle']),
@@ -2497,11 +2509,18 @@ function syncFromSheet(onDone){
             asset:     gs2(t,['Asset','asset']),
             side:      gs2(t,['Side','side']) || 'Long',
             entryTime: (function(){
-              var raw=gs2(t,['EntryTime','entrytime','entryTime'])||'';
-              // ดึงแค่ HH:MM จาก datetime ทุก format
-              var m=raw.match(/[T ](\d{1,2}:\d{2})/)||raw.match(/^(\d{1,2}:\d{2})/);
-              var v=m?m[1]:raw;
-              return v.replace(/^(\d{1,2}:\d{2}):\d{2}$/,'$1');
+              // ดึงค่าดิบจาก Sheet (อาจเป็น Date object หรือ string)
+              var raw = gv2(t,['EntryTime','entrytime','entryTime']);
+              if(!raw && raw!==0) return '';
+              // ถ้าเป็น Date object — ดึง getHours/getMinutes ตรงๆ
+              if(raw instanceof Date){
+                var hh=raw.getHours(),mm=raw.getMinutes();
+                return (hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm;
+              }
+              var s=String(raw);
+              // ดึง HH:MM จาก string ทุก format: "1899-12-30 5:35", "2026-04-02 7:52", "T07:52", "7:52"
+              var m=s.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/)||s.match(/^(\d{1,2}:\d{2})(?::\d{2})?$/);
+              return m ? m[1] : '';
             })(),
             duration:  gs2(t,['Duration','duration','TimeInPos','timeinpos']),
             mode:      gs2(t,['Mode','mode']),
@@ -3916,17 +3935,7 @@ function showTradeConfirm(t, onConfirm){
     return row(label,val,valStyle);
   }
 
-  var entryTimeStr='';
-  if(t.entryDate){
-    var _d2=new Date(t.entryDate);
-    if(!isNaN(_d2)){
-      entryTimeStr=(_d2.getHours()<10?'0':'')+_d2.getHours()+':'+(_d2.getMinutes()<10?'0':'')+_d2.getMinutes();
-    } else {
-      // fallback: ดึง HH:MM จาก string ดิบ
-      var _m2=(t.entryDate+'').match(/[T ](\d{1,2}:\d{2})/)||(''+t.entryDate).match(/^(\d{1,2}:\d{2})/);
-      if(_m2) entryTimeStr=_m2[1];
-    }
-  }
+  var entryTimeStr=t.entryDate||''; // entryDate ถูกแปลงเป็น HH:MM แล้วตอน sync
   var closeTimeStr='';
   if(t.closeDate){var d2=new Date(t.closeDate);if(!isNaN(d2))closeTimeStr=d2.toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});}
 
@@ -4075,13 +4084,7 @@ function renderTT(){
     var p=parseFloat(t.pnl)||0;
     var resBadge=t.result==='Win'?'<span style="color:var(--green);font-size:10px;font-weight:600;">✓W</span>':t.result==='Loss'?'<span style="color:var(--red);font-size:10px;font-weight:600;">✗L</span>':'<span style="color:var(--amber);font-size:10px;">BE</span>';
     var imgCell=t.imgLink?'<span onclick="window.open(\''+t.imgLink+'\',\'_blank\')" style="font-size:12px;cursor:pointer;">🖼️</span>':'-';
-    var entryTimeStr=(function(){
-      // 1) ลอง parse entryDate เป็น Date object
-      if(t.entryDate){var _d=new Date(t.entryDate);if(!isNaN(_d))return (_d.getHours()<10?'0':'')+_d.getHours()+':'+(_d.getMinutes()<10?'0':'')+_d.getMinutes();}
-      // 2) fallback: ถ้า entryDate เป็น string ดิบที่มีเวลาอยู่
-      if(t.entryDate){var _m=(t.entryDate+'').match(/[T ](\d{1,2}:\d{2})/)||(''+t.entryDate).match(/^(\d{1,2}:\d{2})/);if(_m)return _m[1];}
-      return '';
-    })();
+    var entryTimeStr=t.entryDate||''; // entryDate ถูกแปลงเป็น HH:MM แล้วตอน sync
     var sessStr=t.sessions?(t.sessions.split(',').map(function(s){return s.trim();}).filter(Boolean).join(', ')):'';
     return '<tr><td style="font-family:var(--font-mono);font-weight:500;white-space:nowrap;">'+t.asset+'</td><td><span class="side-badge '+t.side.toLowerCase()+'">'+t.side+'</span></td><td>'+t.lots+'</td><td style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);white-space:nowrap;">'+entryTimeStr+'</td><td style="font-size:10px;color:var(--text-secondary);white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="'+sessStr+'">'+sessStr+'</td><td style="font-family:var(--font-mono)">'+t.entry+'</td><td style="font-family:var(--font-mono)">'+(t.close||'-')+'</td><td class="'+(p>=0?'pnl-pos':'pnl-neg')+'">'+(p>=0?'+':'')+'$'+Math.abs(p).toFixed(2)+'</td><td>'+resBadge+'</td><td style="font-size:10px;color:var(--text-muted);white-space:nowrap;">'+(t.timeInPos||'-')+'</td><td style="font-size:10px;color:var(--text-secondary);max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="'+t.note+'">'+t.note+'</td><td>'+imgCell+'</td><td style="white-space:nowrap;"><button class="btn-del" onclick="editTr('+i+')" title="แก้ไข" style="color:var(--accent);margin-right:2px;">✎</button><button class="btn-del" onclick="moveTrDate('+i+')" title="ย้ายไปวันอื่น" style="color:var(--amber);margin-right:2px;">📅</button><button class="btn-del" onclick="delTr('+i+')">✕</button></td></tr>';
   }).join('');
@@ -7085,11 +7088,9 @@ function dtParseSheetData(raw){
   for(var i=1;i<lines.length;i++){
     var row=dtCsvSplitLine(lines[i],sep);
     var entryTime=g(row,'entryTime'), entry=g(row,'entry'), day=g(row,'day');
-    // sanitize entryTime: ดึงแค่ HH:MM
     if(entryTime){
-      var _etm=entryTime.match(/[T ](\d{1,2}:\d{2})/)||entryTime.match(/^(\d{1,2}:\d{2})/);
-      entryTime=_etm?_etm[1]:entryTime;
-      entryTime=entryTime.replace(/^(\d{1,2}:\d{2}):\d{2}$/,'$1');
+      var _em=entryTime.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/)||entryTime.match(/^(\d{1,2}:\d{2})(?::\d{2})?$/);
+      if(_em) entryTime=_em[1];
     }
     if(!day&&!entryTime&&!entry) continue;
 
