@@ -624,6 +624,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
       <div style="font-size:15px;font-weight:600;color:var(--purple);display:flex;align-items:center;gap:8px;">🗃 Data Mode <span style="font-size:11px;font-weight:400;color:var(--text-muted);">เก็บข้อมูลแยกจากพอร์ต — รวมดูพอร์ตได้</span></div>
       <div style="display:flex;gap:7px;align-items:center;">
+        <button class="btn-sm" onclick="dtConfirmClearAll()" style="border-color:var(--red);color:var(--red);">🗑 ลบทั้งหมด</button>
         <button class="btn-sm" onclick="dtExportCSV()" style="border-color:var(--green);color:var(--green);">&#x1F4E4; Export CSV</button>
         <button class="btn-sm" onclick="dtOpenImport()" style="border-color:var(--teal);color:var(--teal);">&#x1F4E5; Import Sheet</button>
         <button class="btn-primary" onclick="dtOpenAdd()" style="background:var(--purple);gap:5px;">&#xFF0B; เพิ่ม Trade</button>
@@ -690,19 +691,22 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
     <!-- Winrate Charts — dynamic rows layout -->
     <div id="dtChartsWrap" style="margin-bottom:14px;">
       <div id="dtChartsRow" style="display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0;align-items:stretch;min-height:30px;"></div>
-      <div id="dtChartsDivider" style="display:flex;align-items:center;gap:8px;padding:4px 0;margin:6px 0;user-select:none;">
+      <div id="dtRowHandle1" style="height:8px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;margin:2px 0;" title="ลากเพื่อปรับความสูงแถวที่ 1"><div style="width:40px;height:3px;border-radius:2px;background:var(--border);transition:background .15s;pointer-events:none;"></div></div>
+      <div id="dtChartsDivider" style="display:flex;align-items:center;gap:8px;padding:2px 0;margin:2px 0;user-select:none;">
         <div style="flex:1;height:1px;background:var(--border);"></div>
         <span style="font-size:9px;color:var(--text-muted);letter-spacing:.5px;white-space:nowrap;">── แถวที่ 2 ──</span>
         <div style="flex:1;height:1px;background:var(--border);"></div>
       </div>
       <div id="dtChartsRow2" style="display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0;align-items:stretch;min-height:30px;"></div>
+      <div id="dtRowHandle2" style="height:8px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;margin:2px 0;" title="ลากเพื่อปรับความสูงแถวที่ 2"><div style="width:40px;height:3px;border-radius:2px;background:var(--border);transition:background .15s;pointer-events:none;"></div></div>
       <div id="dtChartsRow3Wrap" style="display:none;">
-        <div style="display:flex;align-items:center;gap:8px;padding:4px 0;margin:6px 0;user-select:none;">
+        <div style="display:flex;align-items:center;gap:8px;padding:2px 0;margin:2px 0;user-select:none;">
           <div style="flex:1;height:1px;background:var(--border);"></div>
           <span style="font-size:9px;color:var(--text-muted);letter-spacing:.5px;white-space:nowrap;">── แถวที่ 3 ──</span>
           <div style="flex:1;height:1px;background:var(--border);"></div>
         </div>
         <div id="dtChartsRow3" style="display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0;align-items:stretch;min-height:30px;"></div>
+        <div id="dtRowHandle3" style="height:8px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;margin:2px 0;" title="ลากเพื่อปรับความสูงแถวที่ 3"><div style="width:40px;height:3px;border-radius:2px;background:var(--border);transition:background .15s;pointer-events:none;"></div></div>
       </div>
       <div id="dtChartsDropZone3" style="margin-top:8px;border:2px dashed var(--border);border-radius:var(--radius);padding:10px;text-align:center;font-size:10px;color:var(--text-muted);transition:all .2s;display:none;">+ ลากมาวางที่นี่เพื่อสร้างแถวที่ 3</div>
     </div>
@@ -7082,11 +7086,11 @@ function dtParseSheetData(raw){
     }
 
     // ── Result ──
-    var rawResult=g(row,'result');
-    var normResult=rawResult;
-    if(/^(tp|win|w|✓w)$/i.test(rawResult)) normResult='Win';
-    else if(/^(sl|loss|l|x loss)$/i.test(rawResult)) normResult='Loss';
-    else if(/^(be|miss|m|break.?even)$/i.test(rawResult)) normResult='BE';
+    var rawResult=(g(row,'result')||'').trim();
+    var normResult='BE'; // default to BE
+    if(/^(tp|win|w|\u2713w|\u221aw)$/i.test(rawResult)) normResult='Win';
+    else if(/^(sl|loss|l|x\s*loss|xloss)$/i.test(rawResult)) normResult='Loss';
+    // Miss / BE / empty / unrecognized → all become BE
 
     // ── PnL logic: Win → PnL($), Loss → -Risk ──
     var pnlVal=0;
@@ -7830,6 +7834,87 @@ function dtSaveChartRows(){
 function dtSetupChartDrag(rowEl){
   // no-op per-row; global setup done after both rows rendered
 }
+// ── Row height resize (ลากความสูงทั้งแถว) ──
+var _dtRowHeights={1:110,2:110,3:110};
+
+function dtApplyRowHeight(rowNum, h){
+  _dtRowHeights[rowNum]=h;
+  var rowId=['','dtChartsRow','dtChartsRow2','dtChartsRow3'][rowNum];
+  var row=document.getElementById(rowId);
+  if(!row) return;
+  // set bc-body height on all cards in row
+  row.querySelectorAll('.bc-body').forEach(function(b){
+    b.style.height=h+'px';
+    b.style.minHeight=h+'px';
+  });
+  try{localStorage.setItem('dt_row_heights',JSON.stringify(_dtRowHeights));}catch(e){}
+}
+
+function dtLoadRowHeights(){
+  try{
+    var saved=JSON.parse(localStorage.getItem('dt_row_heights')||'null');
+    if(saved) _dtRowHeights=Object.assign({1:110,2:110,3:110},saved);
+  }catch(e){}
+}
+
+function dtSetupRowHeightHandles(){
+  dtLoadRowHeights();
+  [1,2,3].forEach(function(n){
+    var handle=document.getElementById('dtRowHandle'+n);
+    if(!handle) return;
+    var pip=handle.querySelector('div');
+    handle.addEventListener('mouseenter',function(){if(pip)pip.style.background='var(--accent)';});
+    handle.addEventListener('mouseleave',function(){if(!handle._drag&&pip)pip.style.background='var(--border)';});
+    handle.addEventListener('mousedown',function(e){
+      e.preventDefault();
+      handle._drag=true;
+      if(pip)pip.style.background='var(--accent)';
+      var startY=e.clientY;
+      var startH=_dtRowHeights[n]||110;
+      document.body.style.cursor='ns-resize';
+      document.body.style.userSelect='none';
+      function onMove(ev){
+        var newH=Math.max(60,Math.min(400,startH+(ev.clientY-startY)));
+        dtApplyRowHeight(n,newH);
+      }
+      function onUp(){
+        handle._drag=false;
+        if(pip)pip.style.background='var(--border)';
+        document.body.style.cursor='';
+        document.body.style.userSelect='';
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+      }
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    });
+  });
+}
+
+// ── ลบ Data ทั้งหมด ──
+function dtConfirmClearAll(){
+  var modal=document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML='<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:24px 28px;max-width:380px;width:90%;box-shadow:0 16px 48px rgba(0,0,0,.8);">'
+    +'<div style="font-size:32px;text-align:center;margin-bottom:12px;">🗑</div>'
+    +'<div style="font-size:15px;font-weight:700;color:var(--text-primary);text-align:center;margin-bottom:8px;">ลบ Data ทั้งหมด?</div>'
+    +'<div style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:20px;line-height:1.6;">ข้อมูล Trade ทั้งหมดใน Data Mode จะถูกลบถาวร<br>ไม่สามารถกู้คืนได้</div>'
+    +'<div style="display:flex;gap:10px;justify-content:center;">'
+    +'<button id="dtClearCancel" style="background:none;border:1px solid var(--border);color:var(--text-secondary);padding:8px 22px;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-main);transition:all .15s;" onmouseover="this.style.borderColor=\'var(--border-hover)\'" onmouseout="this.style.borderColor=\'var(--border)\'">ยกเลิก</button>'
+    +'<button id="dtClearConfirm" style="background:var(--red);border:none;color:#fff;padding:8px 22px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-main);transition:opacity .15s;" onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'">ลบทั้งหมด</button>'
+    +'</div></div>';
+  document.body.appendChild(modal);
+  modal.querySelector('#dtClearCancel').onclick=function(){modal.remove();};
+  modal.querySelector('#dtClearConfirm').onclick=function(){
+    try{localStorage.removeItem('dt_trades');}catch(e){}
+    DT.trades=[];
+    modal.remove();
+    showToast('ลบ Data ทั้งหมดแล้ว','success');
+    dtRender();
+  };
+  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+}
+
 function dtSetupResizeHandles(){
   ['dtChartsRow','dtChartsRow2','dtChartsRow3'].forEach(function(rowId){
     var row=document.getElementById(rowId);
@@ -8240,6 +8325,10 @@ function dtRenderCharts(rows){
   // Activate cross-row drag-and-drop
   dtSetupAllChartDrag();
   dtSetupResizeHandles();
+  dtSetupRowHeightHandles();
+  // apply saved heights to newly rendered cards
+  dtLoadRowHeights();
+  [1,2,3].forEach(function(n){ dtApplyRowHeight(n,_dtRowHeights[n]||110); });
 }
 
 function dtExportCSV(){
