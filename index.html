@@ -1510,6 +1510,7 @@ function doPost(e){
     else if(d.action==='saveDataTrade')      res=saveDataTrade(d);
     else if(d.action==='deleteDataTrade')    res=deleteDataTrade(d);
     else if(d.action==='batchSaveDataTrades')res=batchSaveDataTrades(d);
+    else if(d.action==='clearAllDataTrades')   res=clearAllDataTrades(d);
     else if(d.action==='saveNoteDay')         res=saveNoteDay(d);
     else res={status:'error',msg:'unknown action: '+d.action};
     return _json(res);
@@ -1616,6 +1617,15 @@ function deleteDataTrade(d){
   if(row&gt;0) sh.deleteRow(row);
   _log('deleteDataTrade','id='+(d._id||d.id)+' deleted='+(row&gt;0),d.portfolio||'data','data',row&gt;0?'ok':'not_found');
   return {status:'ok',deleted:row&gt;0};
+}
+
+function clearAllDataTrades(d){
+  var sh=_sheet(SHEET.DATA_TRADES,HDR.DATA_TRADES);
+  var last=sh.getLastRow();
+  var deleted=0;
+  if(last&gt;1){ sh.deleteRows(2,last-1); deleted=last-1; }
+  _log('clearAllDataTrades','deleted='+deleted,d.portfolio||'data','data','ok');
+  return {status:'ok',deleted:deleted};
 }
 
 function saveTrade(d){
@@ -6574,6 +6584,12 @@ function dtLoad(){
     var raw=localStorage.getItem('dt_trades');
     DT.trades=raw?JSON.parse(raw):[];
     if(!Array.isArray(DT.trades)) DT.trades=[];
+    // ── Migrate: normalize result ค่าที่ไม่ถูกต้อง ──
+    var needSave=false;
+    DT.trades.forEach(function(t){
+      if(t.result==='m'||t.result==='M') { t.result='Miss'; needSave=true; }
+    });
+    if(needSave) localStorage.setItem('dt_trades',JSON.stringify(DT.trades));
   }catch(e){ DT.trades=DT.trades||[]; }
 }
 function dtSave(){ localStorage.setItem('dt_trades',JSON.stringify(DT.trades)); }
@@ -7020,6 +7036,7 @@ function dtParseSheetData(raw){
     side:     hIdx(['side']),
     entryTime:hIdx(['entrytime','time','เวลา']),
     duration: hIdx(['duration','dur']),
+    setupDuration: hIdx(['setupduration','setup_duration','duration','dur']),
     mode:     hIdx(['mode','โหมด']),
     code:     hIdx(['code','โค้ด']),
     tf:       hIdx(['tf','timeframe']),
@@ -7087,10 +7104,11 @@ function dtParseSheetData(raw){
 
     // ── Result ──
     var rawResult=(g(row,'result')||'').trim();
-    var normResult='BE'; // default to BE
+    var normResult='BE'; // default
     if(/^(tp|win|w|\u2713w|\u221aw)$/i.test(rawResult)) normResult='Win';
     else if(/^(sl|loss|l|x\s*loss|xloss)$/i.test(rawResult)) normResult='Loss';
-    // Miss / BE / empty / unrecognized → all become BE
+    else if(/^(miss|m)$/i.test(rawResult)) normResult='Miss';
+    // BE / empty / unrecognized → BE
 
     // ── PnL logic: Win → PnL($), Loss → -Risk ──
     var pnlVal=0;
@@ -7119,6 +7137,7 @@ function dtParseSheetData(raw){
       side:side,
       entryTime:entryTime,
       duration:g(row,'duration'),
+      setupDuration:g(row,'setupDuration'),
       code:g(row,'code'),
       mode:g(row,'mode'),
       model:'',
@@ -7932,24 +7951,69 @@ function dtSetupRowHeightHandles(){
 function dtConfirmClearAll(){
   var modal=document.createElement('div');
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
-  modal.innerHTML='<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:24px 28px;max-width:380px;width:90%;box-shadow:0 16px 48px rgba(0,0,0,.8);">'
-    +'<div style="font-size:32px;text-align:center;margin-bottom:12px;">🗑</div>'
-    +'<div style="font-size:15px;font-weight:700;color:var(--text-primary);text-align:center;margin-bottom:8px;">ลบ Data ทั้งหมด?</div>'
-    +'<div style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:20px;line-height:1.6;">ข้อมูล Trade ทั้งหมดใน Data Mode จะถูกลบถาวร<br>ไม่สามารถกู้คืนได้</div>'
-    +'<div style="display:flex;gap:10px;justify-content:center;">'
-    +'<button id="dtClearCancel" style="background:none;border:1px solid var(--border);color:var(--text-secondary);padding:8px 22px;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-main);transition:all .15s;" onmouseover="this.style.borderColor=\'var(--border-hover)\'" onmouseout="this.style.borderColor=\'var(--border)\'">ยกเลิก</button>'
-    +'<button id="dtClearConfirm" style="background:var(--red);border:none;color:#fff;padding:8px 22px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-main);transition:opacity .15s;" onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'">ลบทั้งหมด</button>'
+  modal.innerHTML='<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:28px 28px 24px;max-width:400px;width:92%;box-shadow:0 16px 48px rgba(0,0,0,.9);">'
+    +'<div style="font-size:36px;text-align:center;margin-bottom:10px;">⚠️</div>'
+    +'<div style="font-size:15px;font-weight:700;color:var(--red);text-align:center;margin-bottom:8px;">ลบ Data ทั้งหมด?</div>'
+    +'<div style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:6px;line-height:1.7;">ข้อมูล Trade <strong style="color:var(--text-primary);">ทั้งหมด</strong> ใน Data Mode จะถูกลบถาวร<br>รวมถึงใน <strong style="color:var(--text-primary);">Google Sheet (DataTrades)</strong> ด้วย<br><span style="color:var(--red);">⚠ ไม่สามารถกู้คืนได้</span></div>'
+    +'<div style="margin:14px 0 6px;text-align:center;font-size:11px;color:var(--text-muted);">พิมพ์ <strong style="color:var(--text-primary);">ลบทั้งหมด</strong> เพื่อยืนยัน</div>'
+    +'<input id="dtClearInput" type="text" placeholder="พิมพ์ที่นี่..." autocomplete="off" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:8px;font-size:13px;padding:8px 12px;font-family:var(--font-main);text-align:center;outline:none;box-sizing:border-box;transition:border-color .15s;">'
+    +'<div style="display:flex;gap:10px;justify-content:center;margin-top:16px;">'
+    +'<button id="dtClearCancel" style="background:none;border:1px solid var(--border);color:var(--text-secondary);padding:8px 22px;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-main);">ยกเลิก</button>'
+    +'<button id="dtClearConfirm" disabled style="background:var(--border);border:none;color:var(--text-muted);padding:8px 22px;border-radius:8px;font-size:13px;font-weight:600;cursor:not-allowed;font-family:var(--font-main);transition:all .2s;">ลบทั้งหมด</button>'
     +'</div></div>';
   document.body.appendChild(modal);
+
+  var inp=modal.querySelector('#dtClearInput');
+  var btn=modal.querySelector('#dtClearConfirm');
+
+  // Enable button only when typed correctly
+  inp.addEventListener('input',function(){
+    var ok=inp.value==='ลบทั้งหมด';
+    btn.disabled=!ok;
+    btn.style.background=ok?'var(--red)':'var(--border)';
+    btn.style.color=ok?'#fff':'var(--text-muted)';
+    btn.style.cursor=ok?'pointer':'not-allowed';
+    inp.style.borderColor=ok?'var(--red)':'var(--border)';
+  });
+
+  // Focus input
+  setTimeout(function(){ inp.focus(); },80);
+
   modal.querySelector('#dtClearCancel').onclick=function(){modal.remove();};
-  modal.querySelector('#dtClearConfirm').onclick=function(){
+  btn.onclick=function(){
+    if(btn.disabled) return;
+    dtLoad();
+    var toDelete=DT.trades.slice();
     try{localStorage.removeItem('dt_trades');}catch(e){}
     DT.trades=[];
     modal.remove();
-    showToast('ลบ Data ทั้งหมดแล้ว','success');
+    showToast('🗑 ลบ Data ทั้งหมดแล้ว','success');
     dtRender();
+    dtClearAllFromSheet(toDelete);
   };
+  // Enter key shortcut
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!btn.disabled) btn.click();
+    if(e.key==='Escape') modal.remove();
+  });
   modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+}
+
+// ── Sync ลบ Data ทั้งหมดออกจาก Google Sheet (single request) ──
+function dtClearAllFromSheet(trades){
+  if(!S.scriptUrl) return;
+  var cnt=trades?trades.length:0;
+  showToast('📤 กำลังลบ '+cnt+' rows จาก Google Sheet...','success');
+  fetch(S.scriptUrl,{
+    method:'POST',
+    mode:'no-cors',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'clearAllDataTrades',portfolio:S.currentPortfolio})
+  }).then(function(){
+    showToast('✅ ลบออกจาก Sheet เสร็จ ('+cnt+' rows)','success');
+  }).catch(function(err){
+    showToast('⚠ Sheet error: '+err.message,'error');
+  });
 }
 
 function dtSetupResizeHandles(){
