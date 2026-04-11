@@ -7162,7 +7162,44 @@ function dtConfirmImport(){
   closeM('mImportSheet');
   if(!_dtPanelOpen) dtToggleDataPanel();
   dtRender();
-  showToast('✅ Import '+trades.length+' trades สำเร็จ','success');
+  showToast('✅ Import '+trades.length+' trades สำเร็จ (บันทึก local แล้ว)','success');
+  // ── Sync imported trades to Google Sheet ──
+  dtSyncImportToSheet(trades);
+}
+
+function dtSyncImportToSheet(trades){
+  if(!S.scriptUrl||!trades||!trades.length) return;
+  // Batch in chunks of 50 to avoid payload size limits
+  var CHUNK=50;
+  var chunks=[];
+  for(var i=0;i<trades.length;i+=CHUNK) chunks.push(trades.slice(i,i+CHUNK));
+  var sent=0;
+  showToast('📤 กำลัง Sync '+trades.length+' trades ขึ้น Google Sheet...','success');
+  function sendChunk(idx){
+    if(idx>=chunks.length){
+      showToast('✅ Sync Sheet เสร็จ '+sent+' trades','success');
+      return;
+    }
+    var payload={
+      action:'batchSaveDataTrades',
+      portfolio:S.currentPortfolio,
+      trades:chunks[idx]
+    };
+    fetch(S.scriptUrl,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    }).then(function(){
+      sent+=chunks[idx].length;
+      sendChunk(idx+1);
+    }).catch(function(err){
+      showToast('⚠ Sheet Sync error chunk '+(idx+1)+': '+err.message,'error');
+      // ยังคง try chunk ถัดไป
+      sendChunk(idx+1);
+    });
+  }
+  sendChunk(0);
 }
 
 // ── Filter helper ──
