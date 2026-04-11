@@ -651,7 +651,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
     <div id="dtStatsBar" style="display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:14px;"></div>
 
     <!-- Winrate Charts Row -->
-    <div id="dtChartsRow" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:14px;"></div>
+    <div id="dtChartsRow" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;align-items:flex-start;"></div>
 
     <!-- Table -->
     <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
@@ -1004,16 +1004,20 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
             </div>
             <div class="form-field"><label>Side <span style="font-size:9px;color:var(--amber)">(auto)</span></label><div class="side-toggle"><button class="side-opt active long" id="sL" onclick="setSide('Long')">↑ Long</button><button class="side-opt short" id="sS" onclick="setSide('Short')">↓ Short</button></div></div>
           </div>
-          <!-- SESSION + Time in Position on same row (fix 2) -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;align-items:start;">
+          <!-- SESSION row + Time in Position + Setup Duration -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;align-items:start;">
             <div>
               <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;">Session <div style="display:flex;gap:4px;align-items:center;"><button id="orderSessEditBtn" onclick="toggleOrderSessEdit()" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text-muted);padding:1px 5px;border-radius:4px;font-size:9px;cursor:pointer;">Edit</button><span style="font-size:9px;color:var(--accent);cursor:pointer;" onclick="addSessionTag()">+ Add</span></div></div>
-              <div id="oSessionTagRow" style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:0;min-height:24px;"></div>
+              <div id="oSessionTagRow" style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:0;min-height:28px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 6px;"></div>
               <div id="oSessionAIHint" style="font-size:9px;color:var(--green);margin-top:2px;display:none;">🤖 AI ตรวจจับแล้ว</div>
             </div>
             <div class="form-field">
               <label>Time in Position <span style="font-size:9px;color:var(--amber)">(auto)</span></label>
               <input class="form-input" id="oTimePos" placeholder="--" readonly style="opacity:.7;">
+            </div>
+            <div class="form-field">
+              <label>Setup Duration <span style="font-size:9px;color:var(--text-muted)" title="เวลาตั้งแต่เริ่มวิเคราะห์จนถึงเข้า Order">⏱</span></label>
+              <input class="form-input" id="oSetupDur" placeholder="e.g. 5m, 1h 30m">
             </div>
           </div>
           <!-- Entry/Close Date & Time -->
@@ -1247,7 +1251,7 @@ var HDR={
   ],
   DATA_TRADES:[
     'ID','Date','Day','Portfolio',
-    'Session','Asset','Side','EntryTime','Duration',
+    'Session','Asset','Side','EntryTime','Duration','SetupDuration',
     'Mode','Code','TF','SetupClass','Candle',
     'ZoneMit','Zone','Confirm',
     'Entry','TP','SL','Risk','Lots','PnL($)','Result','MaxRR',
@@ -1483,7 +1487,7 @@ function saveDataTrade(d){
   var id=String(d._id||d.id||Date.now());
   var row=[
     id, d.date||'', d.day||'', d.portfolio||'data',
-    d.session||'', d.asset||'', d.side||'Long', d.entryTime||'', d.duration||'',
+    d.session||'', d.asset||'', d.side||'Long', d.entryTime||'', d.duration||'', d.setupDuration||'',
     d.mode||'', d.code||'', d.tf||'', d.setupClass||'', d.candle||'',
     d.zoneMit||'', d.zone||'', d.confirm||'',
     d.entry||'', d.tp||'', d.sl||'',
@@ -1510,7 +1514,7 @@ function batchSaveDataTrades(d){
     var pnl=parseFloat(t.pnl)||0;
     var row=[
       id, t.date||'', t.day||'', t.portfolio||'data',
-      t.session||'', t.asset||'', t.side||'Long', t.entryTime||'', t.duration||'',
+      t.session||'', t.asset||'', t.side||'Long', t.entryTime||'', t.duration||'', t.setupDuration||'',
       t.mode||'', t.code||'', t.tf||'', t.setupClass||'', t.candle||'',
       t.zoneMit||'', t.zone||'', t.confirm||'',
       t.entry||'', t.tp||'', t.sl||'',
@@ -2293,6 +2297,7 @@ function syncFromSheet(onDone){
             sessions:    gs(t,['Sessions','sessions','Session','session']),
             session:     gs(t,['Sessions','sessions','Session','session']), // alias for display
             duration:    gs(t,['TimeInPos','timeinpos','timeInPos','Duration','duration']),
+            setupDuration: gs(t,['SetupDuration','setupDuration','setupduration']),
             emotion:     gs(t,['Emotion','emotion']),
             discipline:  gs(t,['Discipline','discipline']),
             note:        gs(t,['Note','note']),
@@ -3698,6 +3703,7 @@ function addTrade(){if(_isReadOnly){showToast('🔒 โหมดดูเท่�
     entryDate:document.getElementById('oEntryDate').value,
     closeDate:document.getElementById('oCloseDate').value,
     timeInPos:document.getElementById('oTimePos').value,
+    setupDuration:document.getElementById('oSetupDur')?document.getElementById('oSetupDur').value.trim():'',
     note:document.getElementById('oNote').value,
     imgLink:document.getElementById('oImgLink').value,
     maxRR:document.getElementById('oMaxRR').value||'',
@@ -6616,7 +6622,7 @@ function dtOpenAdd(){
   // Re-load dropdown options from localStorage every time modal opens
   loadDropOptions();
   // Reset all fields
-  var ids=['dtEntry','dtTP','dtSL2','dtRisk','dtLots','dtPnl','dtMaxRR','dtNote','dtImgLink','dtTimePos'];
+  var ids=['dtEntry','dtTP','dtSL2','dtRisk','dtLots','dtPnl','dtMaxRR','dtNote','dtImgLink','dtTimePos','dtSetupDur'];
   ids.forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   ['dtAsset','dtResult','dtSetupClass','dtCandle','dtCode','dtMode','dtTF','dtMitZone','dtZone','dtConfirm','dtContractSize'].forEach(function(id){
     var el=document.getElementById(id);if(el)el.selectedIndex=0;
@@ -6655,6 +6661,7 @@ function dtOpenEdit(visIdx){
   sv('dtEntry',t.entry);sv('dtTP',t.tp);sv('dtSL2',t.sl);
   sv('dtRisk',t.risk);sv('dtLots',t.lots);sv('dtPnl',t.pnl);
   sv('dtMaxRR',t.maxRR);sv('dtNote',t.note);sv('dtImgLink',t.imgLink);
+  sv('dtSetupDur',t.setupDuration);
   // Entry date from entryTime + date
   if(t.date&&t.entryTime){
     document.getElementById('dtEntryDate').value=t.date+'T'+t.entryTime;
@@ -6691,7 +6698,7 @@ function dtSaveTrade(){
     _id:DT.editIdx>=0&&DT.trades[DT.editIdx]?DT.trades[DT.editIdx]._id:(Date.now()+'_'+Math.random()),
     date:dateOnly,day:dayName,session:sessionVal,
     asset:gs('dtAsset'),side:DT.side,
-    entryTime:timeOnly,duration:'',
+    entryTime:timeOnly,duration:'',setupDuration:document.getElementById('dtSetupDur')?document.getElementById('dtSetupDur').value.trim():'',
     mode:gs('dtMode'),code:gs('dtCode'),tf:gs('dtTF'),
     setupClass:gs('dtSetupClass'),candle:gs('dtCandle'),
     zoneMit:gs('dtMitZone'),zone:gs('dtZone'),confirm:gs('dtConfirm'),
@@ -7454,24 +7461,32 @@ function dtRenderCharts(rows){
 
   function makeBarChart(title,groups,colorFn){
     var keys=Object.keys(groups);if(!keys.length) return '';
+    var totalPnl=keys.reduce(function(s,k){return s+Math.abs(groups[k].pnl);},0)||1;
     var maxAbs=Math.max.apply(null,keys.map(function(k){return Math.abs(groups[k].pnl);}));
     if(!maxAbs) maxAbs=1;
     var bars=keys.map(function(k){
-      var g=groups[k];
-      var pnl=g.pnl;var cnt=g.count;
+      var g=groups[k];var pnl=g.pnl;var cnt=g.count;
       var h=Math.max(Math.abs(pnl)/maxAbs*70,3);
       var col=colorFn?colorFn(k,pnl):pnl>0?'var(--green)':pnl<0?'var(--red)':'var(--border)';
       var wr=cnt?Math.round((g.wins||0)/cnt*100):0;
-      return '<div style="flex:1;min-width:36px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:default;" title="'+k+': '+cnt+' trades, WR '+wr+'%">'
-        +'<div style="font-size:9px;font-family:var(--font-mono);color:'+col+';white-space:nowrap;">'+(pnl?((pnl>0?'+':'')+pnl.toFixed(0)):'')+'</div>'
+      var pct=totalPnl?Math.round(Math.abs(pnl)/totalPnl*100):0;
+      var pctStr=(pnl>0?'+':pnl<0?'-':'')+pct+'%';
+      return '<div style="flex:1;min-width:36px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:default;" title="'+k+': $'+(pnl>0?'+':'')+pnl.toFixed(0)+' | '+cnt+' trades | WR '+wr+'%">'
+        +'<div style="font-size:9px;font-family:var(--font-mono);color:'+col+';white-space:nowrap;">'+pctStr+'</div>'
         +'<div style="width:100%;max-width:34px;background:'+col+';height:'+h+'px;border-radius:4px 4px 0 0;opacity:.85;"></div>'
         +'<div style="font-size:9px;color:var(--text-muted);text-align:center;max-width:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+k+'</div>'
         +'<div style="font-size:8px;color:var(--text-muted);">'+cnt+'t '+wr+'%</div>'
         +'</div>';
     }).join('');
-    return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 14px;">'
-      +'<div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:10px;letter-spacing:.4px;text-transform:uppercase;">'+title+'</div>'
-      +'<div style="display:flex;gap:6px;align-items:flex-end;min-height:100px;overflow-x:auto;">'+bars+'</div>'
+    // Each card gets a stable ID for collapse state
+    var cid='_bc_'+title.replace(/[^a-zA-Z0-9]/g,'');
+    return '<div id="'+cid+'" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:width .25s,min-width .25s,flex-basis .25s;flex:1 1 260px;min-width:260px;max-width:100%;box-sizing:border-box;">'
+      +'<div onclick="(function(el){var card=el.closest(\'[id^=_bc_]\');var body=card.querySelector(\'.bc-body\');var lbl=card.querySelector(\'.bc-lbl\');var chev=card.querySelector(\'.bc-chev\');var isOpen=body.style.display!==\'none\';body.style.display=isOpen?\'none\':\'flex\';lbl.style.display=isOpen?\'flex\':\'none\';chev.textContent=isOpen?\'▶\':\'◀\';card.style.flexBasis=isOpen?\'36px\':\'260px\';card.style.flexGrow=isOpen?\'0\':\'1\';card.style.minWidth=isOpen?\'36px\':\'260px\';})(this)" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;cursor:pointer;user-select:none;white-space:nowrap;">'
+      +'<span style="font-size:10px;font-weight:700;color:var(--text-secondary);letter-spacing:.4px;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;">'+title+'</span>'
+      +'<span class="bc-chev" style="font-size:9px;color:var(--text-muted);margin-left:6px;flex-shrink:0;">◀</span>'
+      +'</div>'
+      +'<div class="bc-lbl" style="display:none;writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);padding:10px 8px;font-size:10px;font-weight:700;color:var(--text-muted);letter-spacing:.4px;text-transform:uppercase;align-items:center;justify-content:center;min-height:80px;">'+title+'</div>'
+      +'<div class="bc-body" style="display:flex;gap:6px;align-items:flex-end;min-height:90px;overflow-x:auto;padding:6px 12px 10px;">'+bars+'</div>'
       +'</div>';
   }
 
@@ -7537,12 +7552,17 @@ function dtRenderCharts(rows){
   html+=makeBarChart('⏱ Duration', groupBy('duration'));
   html+=makeBarChart('🎭 Mode', groupBy('mode'));
   html+=makeBarChart('🔑 Code', groupBy('code'));
+  // Force TF to start on new row
+  html+='<div style="flex-basis:100%;height:0;"></div>';
   html+=makeBarChart('📐 TF', groupBy('tf'));
   html+=makeBarChart('🏆 Class', groupBy('setupClass'));
   html+=makeBarChart('🕯 Candle', groupBy('candle'));
   html+=makeBarChart('📦 Zone', groupBy('zone'));
   html+=makeBarChart('✅ Confirm', groupBy('confirm'));
-  cr.style.gridTemplateColumns='repeat(auto-fill,minmax(260px,1fr))';
+  html+=makeBarChart('⏱ Setup Dur', groupBy('setupDuration'));
+  cr.style.display='flex';
+  cr.style.flexWrap='wrap';
+  cr.style.alignItems='flex-start';
   cr.innerHTML=html;
 }
 
@@ -7837,15 +7857,22 @@ if(document.readyState==='loading'){
         </div>
       </div>
       <!-- Row: Close Date + Time in Pos -->
+      <!-- Close Date full width -->
+      <div class="form-field" style="margin-bottom:8px;">
+        <label>Close Date &amp; Time <span style="font-size:9px;color:var(--text-muted)">(ถ้ามี)</span></label>
+        <input class="form-input" id="dtCloseDate" type="datetime-local" oninput="dtCalcTimeInPos()">
+      </div>
+      <!-- Time in Position + Setup Duration — like Contract Size / Set up Class -->
       <div class="fg2" style="margin-bottom:8px;">
-        <div class="form-field">
-          <label>Close Date &amp; Time <span style="font-size:9px;color:var(--text-muted)">(ถ้ามี)</span></label>
-          <input class="form-input" id="dtCloseDate" type="datetime-local" oninput="dtCalcTimeInPos()">
-        </div>
         <div class="form-field">
           <label>Time in Position <span style="font-size:9px;color:var(--amber)">(auto)</span></label>
           <input class="form-input" id="dtTimePos" placeholder="auto" readonly style="opacity:.7;">
         </div>
+        <div class="form-field">
+          <label>Setup Duration <span style="font-size:9px;color:var(--text-muted)" title="เวลาตั้งแต่วิเคราะห์จนเข้า Order">⏱</span></label>
+          <input class="form-input" id="dtSetupDur" placeholder="e.g. 5m, 1h 30m">
+        </div>
+      </div>
 
       <!-- Row: Entry + TP + SL -->
       <div class="fg3">
