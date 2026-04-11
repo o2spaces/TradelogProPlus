@@ -2524,10 +2524,21 @@ function syncFromSheet(onDone){
             side:      gs2(t,['Side','side']) || 'Long',
             entryTime: (function(raw){
               if(!raw) return '';
-              if(raw instanceof Date){ var h=raw.getHours(),m=raw.getMinutes(); return (h<10?'0':'')+h+':'+(m<10?'0':'')+m; }
+              if(raw instanceof Date){
+                // UTC+7 safe conversion
+                var _iso=raw.toISOString();
+                var _tot=parseInt(_iso.substr(11,2))*60+parseInt(_iso.substr(14,2))+420;
+                _tot=_tot%(24*60); if(_tot<0)_tot+=1440;
+                var _h=Math.floor(_tot/60),_m=_tot%60;
+                return (_h<10?'0':'')+_h+':'+(_m<10?'0':'')+_m;
+              }
               var s=String(raw);
-              var m=s.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/)||s.match(/^(\d{1,2}:\d{2})(?::\d{2})?$/);
-              return m?m[1]:'';
+              // time-only "HH:mm" or "H:mm"
+              if(/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) return s.substr(0,5);
+              // datetime "yyyy-MM-dd HH:mm" or with T
+              var m=s.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/);
+              if(m) return m[1];
+              return '';
             })(gv2(t,['EntryTime','entrytime','entryTime'])),
             duration:  gs2(t,['Duration','duration','TimeInPos','timeinpos']),
             mode:      gs2(t,['Mode','mode']),
@@ -7303,7 +7314,18 @@ function dtFiltered(){
       try{ portTrades=JSON.parse(localStorage.getItem('port_'+pid+'_t')||'{}'); }catch(e){}
       Object.keys(portTrades).forEach(function(dk){
         (portTrades[dk]||[]).forEach(function(t){
-          src.push(Object.assign({},t,{_src:'port',portfolio:pid,_portfolio:pid}));
+          // Map entryDate (portfolio field) → entryTime (data table field) for display
+          var _et=t.entryTime||'';
+          if(!_et&&t.entryDate){
+            // entryDate may be "HH:mm" or "yyyy-MM-dd HH:mm"
+            var _em=String(t.entryDate).match(/[T ]\s*(\d{1,2}:\d{2})/)||String(t.entryDate).match(/^(\d{1,2}:\d{2})/);
+            if(_em) _et=_em[1];
+          }
+          if(!_et&&t.entryDateRaw){
+            var _em2=String(t.entryDateRaw).match(/[T ]\s*(\d{1,2}:\d{2})/);
+            if(_em2) _et=_em2[1];
+          }
+          src.push(Object.assign({},t,{_src:'port',portfolio:pid,_portfolio:pid,entryTime:_et||t.entryTime||''}));
         });
       });
     });
@@ -7451,7 +7473,18 @@ function dtRender(){
       +'<td style="padding:6px;font-size:10px;color:var(--text-muted);">'+(t.session||'')+'</td>'
       +'<td style="padding:6px;font-weight:600;font-size:11px;">'+(t.asset||'-')+'</td>'
       +'<td style="padding:6px;text-align:center;"><span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:'+(t.side==='Long'?'rgba(46,204,138,0.15)':'rgba(255,77,106,0.15)')+';color:'+sideColor+';">'+(t.side||'-')+'</span></td>'
-      +'<td style="padding:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);">'+(t.entryTime||'-')+'</td>'
+      +(function(){
+        var _et=t.entryTime||'';
+        if(!_et) return '<td style="padding:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);">-</td>';
+        // Extract date part from entryDateRaw or entryDate for small display
+        var _raw=t.entryDateRaw||t.entryDate||'';
+        var _dp=(_raw||'').substring(0,10).split('-');
+        var _ds=_dp.length===3&&_dp[0].length===4?_dp[2]+'/'+_dp[1]:'';
+        return '<td style="padding:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);line-height:1.3;">'
+          +'<span style="font-size:11px;font-weight:600;">'+_et+'</span>'
+          +(_ds?'<br><span style="font-size:8px;color:var(--text-muted);">'+_ds+'</span>':'')
+          +'</td>';
+      })()
       +'<td style="padding:6px;font-size:10px;color:var(--text-muted);">'+(t.setupDuration||'-')+'</td>'
       +'<td style="padding:6px;font-size:10px;">'+(t.mode||'-')+'</td>'
       +'<td style="padding:6px;font-size:10px;">'+(t.code||'-')+'</td>'
