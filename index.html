@@ -1400,8 +1400,9 @@ function loadAll(){
         // Time-only cell in Google Sheets uses epoch 1899-12-30 as base date
         if(_y<=1900) return Utilities.formatDate(v,'Asia/Bangkok','HH:mm');
         // Full datetime: include time only if non-midnight
-        var _h=v.getHours(),_mi=v.getMinutes();
-        if(_h===0&&_mi===0) return Utilities.formatDate(v,'Asia/Bangkok','yyyy-MM-dd');
+        // Use Utilities.formatDate for midnight check (timezone-safe, avoids getHours() UTC mismatch)
+        var _hm=Utilities.formatDate(v,'Asia/Bangkok','HH:mm');
+        if(_hm==='00:00') return Utilities.formatDate(v,'Asia/Bangkok','yyyy-MM-dd');
         return Utilities.formatDate(v,'Asia/Bangkok','yyyy-MM-dd HH:mm');
       }
       if(typeof v==='number') return v;
@@ -2404,8 +2405,20 @@ function syncFromSheet(onDone){
             timeInPos:   gs(t,['TimeInPos','timeinpos','timeInPos']),
             entryDate: (function(raw){
               if(!raw) return '';
-              if(raw instanceof Date){ var h=raw.getHours(),m=raw.getMinutes(); return (h<10?'0':'')+h+':'+(m<10?'0':'')+m; }
-              var s=String(raw);
+              // Date object — extract time portion as string first to avoid timezone issues
+              var s=(raw instanceof Date)?String(raw):String(raw);
+              if(raw instanceof Date){
+                // Try to extract HH:mm from ISO string (UTC) then convert via offset, or just use toLocaleTimeString
+                // Simplest safe approach: format manually
+                var _iso=raw.toISOString(); // always UTC "2026-04-01T17:52:00.000Z"
+                var _utcH=parseInt(_iso.substr(11,2)),_utcM=parseInt(_iso.substr(14,2));
+                // Add UTC+7 offset
+                var _totMin=_utcH*60+_utcM+420; // +7h
+                _totMin=_totMin%(24*60); if(_totMin<0)_totMin+=1440;
+                var _h=Math.floor(_totMin/60),_m=_totMin%60;
+                return (_h<10?'0':'')+_h+':'+(_m<10?'0':'')+_m;
+              }
+              s=String(raw);
               var m=s.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/)||s.match(/^(\d{1,2}:\d{2})(?::\d{2})?$/);
               return m?m[1]:'';
             })(gv(t,['EntryDateTime','entrydatetime','entryDate'])),
