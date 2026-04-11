@@ -1395,7 +1395,15 @@ function loadAll(){
     // helper: แปลง cell value เป็น string/number ปลอดภัย
     function _cv(v){
       if(v===null||v===undefined) return '';
-      if(v instanceof Date) return Utilities.formatDate(v,'Asia/Bangkok','yyyy-MM-dd');
+      if(v instanceof Date){
+        var _y=v.getFullYear();
+        // Time-only cell in Google Sheets uses epoch 1899-12-30 as base date
+        if(_y<=1900) return Utilities.formatDate(v,'Asia/Bangkok','HH:mm');
+        // Full datetime: include time only if non-midnight
+        var _h=v.getHours(),_mi=v.getMinutes();
+        if(_h===0&&_mi===0) return Utilities.formatDate(v,'Asia/Bangkok','yyyy-MM-dd');
+        return Utilities.formatDate(v,'Asia/Bangkok','yyyy-MM-dd HH:mm');
+      }
       if(typeof v==='number') return v;
       if(typeof v==='boolean') return v?'true':'false';
       var s=String(v);
@@ -2394,19 +2402,13 @@ function syncFromSheet(onDone){
             risk:        gs(t,['Risk','risk']),
             maxRR:       gs(t,['MaxRR','maxRR','maxrr']),
             timeInPos:   gs(t,['TimeInPos','timeinpos','timeInPos']),
-            entryDate: (function(){
-              var raw = gv(t,['EntryDateTime','entrydatetime','entryDate']);
-              if(!raw && raw!==0) return '';
-              // ถ้าเป็น Date object
-              if(raw instanceof Date){
-                var hh=raw.getHours(),mm=raw.getMinutes();
-                return (hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm;
-              }
+            entryDate: (function(raw){
+              if(!raw) return '';
+              if(raw instanceof Date){ var h=raw.getHours(),m=raw.getMinutes(); return (h<10?'0':'')+h+':'+(m<10?'0':'')+m; }
               var s=String(raw);
-              // ดึง HH:MM จาก "2026-04-02 7:52", "1899-12-30 5:35", "T07:52"
               var m=s.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/)||s.match(/^(\d{1,2}:\d{2})(?::\d{2})?$/);
-              return m ? m[1] : '';
-            })(),
+              return m?m[1]:'';
+            })(gv(t,['EntryDateTime','entrydatetime','entryDate'])),
             closeDate:   gs(t,['CloseDateTime','closedatetime','closeDate']),
             setupClass:  gs(t,['SetupClass','setupclass','setupClass']),
             candle:      gs(t,['Candle','candle']),
@@ -2508,20 +2510,13 @@ function syncFromSheet(onDone){
             session:   gs2(t,['Session','session','Sessions']),
             asset:     gs2(t,['Asset','asset']),
             side:      gs2(t,['Side','side']) || 'Long',
-            entryTime: (function(){
-              // ดึงค่าดิบจาก Sheet (อาจเป็น Date object หรือ string)
-              var raw = gv2(t,['EntryTime','entrytime','entryTime']);
-              if(!raw && raw!==0) return '';
-              // ถ้าเป็น Date object — ดึง getHours/getMinutes ตรงๆ
-              if(raw instanceof Date){
-                var hh=raw.getHours(),mm=raw.getMinutes();
-                return (hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm;
-              }
+            entryTime: (function(raw){
+              if(!raw) return '';
+              if(raw instanceof Date){ var h=raw.getHours(),m=raw.getMinutes(); return (h<10?'0':'')+h+':'+(m<10?'0':'')+m; }
               var s=String(raw);
-              // ดึง HH:MM จาก string ทุก format: "1899-12-30 5:35", "2026-04-02 7:52", "T07:52", "7:52"
               var m=s.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/)||s.match(/^(\d{1,2}:\d{2})(?::\d{2})?$/);
-              return m ? m[1] : '';
-            })(),
+              return m?m[1]:'';
+            })(gv2(t,['EntryTime','entrytime','entryTime'])),
             duration:  gs2(t,['Duration','duration','TimeInPos','timeinpos']),
             mode:      gs2(t,['Mode','mode']),
             code:      gs2(t,['Code','code']),
@@ -3935,7 +3930,7 @@ function showTradeConfirm(t, onConfirm){
     return row(label,val,valStyle);
   }
 
-  var entryTimeStr=t.entryDate||''; // entryDate ถูกแปลงเป็น HH:MM แล้วตอน sync
+  var entryTimeStr=t.entryDate||'';
   var closeTimeStr='';
   if(t.closeDate){var d2=new Date(t.closeDate);if(!isNaN(d2))closeTimeStr=d2.toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});}
 
@@ -4084,7 +4079,7 @@ function renderTT(){
     var p=parseFloat(t.pnl)||0;
     var resBadge=t.result==='Win'?'<span style="color:var(--green);font-size:10px;font-weight:600;">✓W</span>':t.result==='Loss'?'<span style="color:var(--red);font-size:10px;font-weight:600;">✗L</span>':'<span style="color:var(--amber);font-size:10px;">BE</span>';
     var imgCell=t.imgLink?'<span onclick="window.open(\''+t.imgLink+'\',\'_blank\')" style="font-size:12px;cursor:pointer;">🖼️</span>':'-';
-    var entryTimeStr=t.entryDate||''; // entryDate ถูกแปลงเป็น HH:MM แล้วตอน sync
+    var entryTimeStr=t.entryDate||'';
     var sessStr=t.sessions?(t.sessions.split(',').map(function(s){return s.trim();}).filter(Boolean).join(', ')):'';
     return '<tr><td style="font-family:var(--font-mono);font-weight:500;white-space:nowrap;">'+t.asset+'</td><td><span class="side-badge '+t.side.toLowerCase()+'">'+t.side+'</span></td><td>'+t.lots+'</td><td style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);white-space:nowrap;">'+entryTimeStr+'</td><td style="font-size:10px;color:var(--text-secondary);white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="'+sessStr+'">'+sessStr+'</td><td style="font-family:var(--font-mono)">'+t.entry+'</td><td style="font-family:var(--font-mono)">'+(t.close||'-')+'</td><td class="'+(p>=0?'pnl-pos':'pnl-neg')+'">'+(p>=0?'+':'')+'$'+Math.abs(p).toFixed(2)+'</td><td>'+resBadge+'</td><td style="font-size:10px;color:var(--text-muted);white-space:nowrap;">'+(t.timeInPos||'-')+'</td><td style="font-size:10px;color:var(--text-secondary);max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="'+t.note+'">'+t.note+'</td><td>'+imgCell+'</td><td style="white-space:nowrap;"><button class="btn-del" onclick="editTr('+i+')" title="แก้ไข" style="color:var(--accent);margin-right:2px;">✎</button><button class="btn-del" onclick="moveTrDate('+i+')" title="ย้ายไปวันอื่น" style="color:var(--amber);margin-right:2px;">📅</button><button class="btn-del" onclick="delTr('+i+')">✕</button></td></tr>';
   }).join('');
@@ -6901,6 +6896,7 @@ function dtSaveTrade(){
     emo:DT.emo,disc:DT.disc,
     discipline:'วินัย '+DT.disc+'/10',
     note:gv('dtNote'),imgLink:gv('dtImgLink'),
+    portfolio:'data',
     _src:'data'
   };
   _dtPendingTrade=t;
@@ -7088,10 +7084,7 @@ function dtParseSheetData(raw){
   for(var i=1;i<lines.length;i++){
     var row=dtCsvSplitLine(lines[i],sep);
     var entryTime=g(row,'entryTime'), entry=g(row,'entry'), day=g(row,'day');
-    if(entryTime){
-      var _em=entryTime.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/)||entryTime.match(/^(\d{1,2}:\d{2})(?::\d{2})?$/);
-      if(_em) entryTime=_em[1];
-    }
+    if(entryTime){ var _em=(entryTime+'').match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/)||(entryTime+'').match(/^(\d{1,2}:\d{2})(?::\d{2})?$/); if(_em) entryTime=_em[1]; }
     if(!day&&!entryTime&&!entry) continue;
 
     // ── Resolve date ──
@@ -7443,7 +7436,7 @@ function dtRender(){
       +'<td style="padding:6px;text-align:center;min-width:40px;">'+discBar+'<span style="font-size:9px;color:var(--text-muted);">'+(t.disc||'-')+'/10</span></td>'
       +'<td style="padding:6px;text-align:right;font-weight:700;font-family:var(--font-mono);font-size:11px;color:'+pnlColor+';">'+pnlStr+'</td>'
       +'<td style="padding:6px;text-align:center;"><span style="font-size:10px;font-weight:600;color:'+resultColor+';">'+(t.result||'-')+'</span></td>'
-      +'<td style="padding:6px;text-align:right;font-family:var(--font-mono);font-size:10px;">'+(t.maxRR?t.maxRR:'-')+'</td>'
+      +'<td style="padding:6px;text-align:right;font-family:var(--font-mono);font-size:10px;">'+(t.maxRR||'-')+'</td>'
       +'<td style="padding:6px;text-align:center;">'+imgBtn+'</td>'
       +'<td style="padding:6px;text-align:center;"><button onclick="dtOpenEdit('+absIdx+')" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:10px;transition:all .1s;" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✎</button>'
       +' <button onclick="dtDeleteRow('+absIdx+')" style="background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:10px;transition:all .1s;" onmouseover="this.style.borderColor=\'var(--red)\';this.style.color=\'var(--red)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✕</button></td>'
@@ -8373,7 +8366,7 @@ function dtRenderCharts(rows){
     {key:'Asset',     fn:function(){return groupBy('asset');},          title:'💱 Asset'},
     {key:'EntryHour', fn:function(){return groupByEntryHour();},        title:'📈 Entry Hour'},
     {key:'Duration',  fn:function(){
-      // group setupDuration into 3-minute buckets
+      // group duration into 3-minute buckets
       var g={};
       rows.forEach(function(t){
         var raw=t.setupDuration||'-';
@@ -8404,6 +8397,7 @@ function dtRenderCharts(rows){
     {key:'Candle',    fn:function(){return groupBy('candle');},         title:'🕯 Candle'},
     {key:'Zone',      fn:function(){return groupBy('zone');},           title:'📦 Zone'},
     {key:'Confirm',   fn:function(){return groupBy('confirm');},        title:'✅ Confirm'},
+    {key:'SetupDur',  fn:function(){return groupBy('setupDuration');},  title:'⏱ Setup Dur'},
   ];
 
   // Build all chart HTML
