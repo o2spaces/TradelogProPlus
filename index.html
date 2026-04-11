@@ -8043,7 +8043,7 @@ function dtRenderCharts(rows){
     var barMaxW=isDuration?Math.max(10,Math.min(34,Math.floor(560/keys.length)))+'px':'34px';
     var bars=keys.map(function(k,idx){
       var g=groups[k];var pnl=g.pnl;var cnt=g.count;
-      var h=Math.max(Math.abs(pnl)/maxAbs*80,3);
+      var h=Math.max(Math.abs(pnl)/maxAbs*66,3);
       var col=barColor(idx,pnl,colorFn,k);
       var wr=cnt?Math.round((g.wins||0)/cnt*100):0;
       var pct=totalPnl?Math.round(Math.abs(pnl)/totalPnl*100):0;
@@ -8084,7 +8084,7 @@ function dtRenderCharts(rows){
       +'<span class="bc-chev" style="font-size:9px;color:var(--text-secondary);flex-shrink:0;cursor:pointer;" onclick="(function(el){var card=el.closest(\'.bc-card\');var body=card.querySelector(\'.bc-body\');var lbl=card.querySelector(\'.bc-lbl\');var chev=card.querySelector(\'.bc-chev\');var drag=card.querySelector(\'.bc-drag-handle\');var mv=card.querySelector(\'.bc-move-row\');var isOpen=body.style.display!==\'none\';body.style.display=isOpen?\'none\':\'flex\';lbl.style.display=isOpen?\'flex\':\'none\';chev.style.display=isOpen?\'none\':\'inline\';drag.style.display=isOpen?\'none\':\'inline\';if(mv)mv.style.display=isOpen?\'none\':\'inline\';card.style.flexBasis=isOpen?\'36px\':\'260px\';card.style.flexGrow=isOpen?\'0\':\'1\';card.style.minWidth=isOpen?\'36px\':\'260px\';})(this)">◀</span>'
       +'</div>'
       +'<div class="bc-lbl" style="display:none;writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);padding:10px 8px;font-size:10px;font-weight:700;color:var(--text-secondary);letter-spacing:.4px;text-transform:uppercase;align-items:center;justify-content:center;min-height:80px;cursor:pointer;" onclick="(function(el){var card=el.closest(\'.bc-card\');var body=card.querySelector(\'.bc-body\');var lbl=card.querySelector(\'.bc-lbl\');var chev=card.querySelector(\'.bc-chev\');var drag=card.querySelector(\'.bc-drag-handle\');var mv=card.querySelector(\'.bc-move-row\');body.style.display=\'flex\';lbl.style.display=\'none\';chev.style.display=\'inline\';drag.style.display=\'inline\';if(mv)mv.style.display=\'inline\';card.style.flexBasis=\'260px\';card.style.flexGrow=\'1\';card.style.minWidth=\'260px\';})(this)">'+title+'</div>'
-      +'<div class="bc-body" style="display:flex;gap:'+(isDuration?'2px':'6px')+';align-items:flex-end;height:110px;min-height:110px;overflow:hidden;padding:6px 8px 10px;">'+bars+'</div>'
+      +'<div class="bc-body" style="display:flex;gap:'+(isDuration?'2px':'6px')+';align-items:flex-end;height:110px;min-height:110px;overflow:visible;padding:20px 8px 10px;">'+bars+'</div>'
       +'</div>';
   }
 
