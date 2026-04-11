@@ -713,30 +713,30 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
         <table style="width:100%;border-collapse:collapse;font-size:11px;min-width:900px;">
           <thead>
             <tr style="background:var(--bg-secondary);border-bottom:1px solid var(--border);">
-              <th style="padding:7px 10px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;">#</th>
-              <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;">Date</th>
-              <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">Day</th>
-              <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">Session</th>
-              <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">Asset</th>
-              <th style="padding:7px 6px;text-align:center;color:var(--text-muted);font-weight:600;">Side</th>
-              <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;">Entry Time</th>
-              <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;">Dur.</th>
-              <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">Mode</th>
-              <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">Code</th>
-              <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">TF</th>
-              <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">Class</th>
-              <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">Candle</th>
-              <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">Zone</th>
-              <th style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;">Confirm</th>
-              <th style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;">Entry</th>
-              <th style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;">TP</th>
-              <th style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;">SL</th>
-              <th style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;">Risk$</th>
-              <th style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;">Lots</th>
-              <th style="padding:7px 6px;text-align:center;color:var(--text-muted);font-weight:600;">วินัย</th>
-              <th style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;">P&L$</th>
-              <th style="padding:7px 6px;text-align:center;color:var(--text-muted);font-weight:600;">Result</th>
-              <th style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;">MaxRR</th>
+<th style="padding:7px 10px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;">#</th>
+              <th id="dth_date" onclick="dtSortBy('date')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Date <span id="dthi_date" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_day" onclick="dtSortBy('day')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Day <span id="dthi_day" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_session" onclick="dtSortBy('session')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Session <span id="dthi_session" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_asset" onclick="dtSortBy('asset')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Asset <span id="dthi_asset" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_side" onclick="dtSortBy('side')" style="padding:7px 6px;text-align:center;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Side <span id="dthi_side" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_entryTime" onclick="dtSortBy('entryTime')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Entry Time <span id="dthi_entryTime" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_duration" onclick="dtSortBy('duration')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Dur. <span id="dthi_duration" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_mode" onclick="dtSortBy('mode')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Mode <span id="dthi_mode" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_code" onclick="dtSortBy('code')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Code <span id="dthi_code" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_tf" onclick="dtSortBy('tf')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">TF <span id="dthi_tf" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_setupClass" onclick="dtSortBy('setupClass')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Class <span id="dthi_setupClass" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_candle" onclick="dtSortBy('candle')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Candle <span id="dthi_candle" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_zone" onclick="dtSortBy('zone')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Zone <span id="dthi_zone" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_confirm" onclick="dtSortBy('confirm')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Confirm <span id="dthi_confirm" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_entry" onclick="dtSortBy('entry')" style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Entry <span id="dthi_entry" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_tp" onclick="dtSortBy('tp')" style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">TP <span id="dthi_tp" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_sl" onclick="dtSortBy('sl')" style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">SL <span id="dthi_sl" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_risk" onclick="dtSortBy('risk')" style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Risk$ <span id="dthi_risk" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_lots" onclick="dtSortBy('lots')" style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Lots <span id="dthi_lots" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_disc" onclick="dtSortBy('disc')" style="padding:7px 6px;text-align:center;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">วินัย <span id="dthi_disc" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_pnl" onclick="dtSortBy('pnl')" style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">P&amp;L$ <span id="dthi_pnl" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_result" onclick="dtSortBy('result')" style="padding:7px 6px;text-align:center;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Result <span id="dthi_result" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_maxRR" onclick="dtSortBy('maxRR')" style="padding:7px 6px;text-align:right;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">MaxRR <span id="dthi_maxRR" style="font-size:9px;opacity:.5;"></span></th>
               <th style="padding:7px 6px;text-align:center;color:var(--text-muted);font-weight:600;">AI</th>
               <th style="padding:7px 6px;text-align:center;color:var(--text-muted);font-weight:600;">⚙</th>
             </tr>
@@ -7240,6 +7240,45 @@ function dtChangePageSize(val){
 function dtGoPage(p){_dtPage=p;dtRender();}
 
 // ── Render table ──
+// ── Table sort state ──
+var _dtSortKey=null, _dtSortDir=1; // 1=asc, -1=desc
+
+function dtSortBy(key){
+  if(_dtSortKey===key){ _dtSortDir*=-1; }
+  else { _dtSortKey=key; _dtSortDir=1; }
+  // update header indicators
+  document.querySelectorAll('[id^="dthi_"]').forEach(function(el){el.textContent='';el.style.opacity='.5';});
+  var ind=document.getElementById('dthi_'+key);
+  if(ind){ ind.textContent=_dtSortDir===1?'▲':'▼'; ind.style.opacity='1'; }
+  document.querySelectorAll('[id^="dth_"]').forEach(function(el){el.style.color='var(--text-muted)';});
+  var hdr=document.getElementById('dth_'+key);
+  if(hdr){ hdr.style.color='var(--accent)'; }
+  _dtPage=1;
+  dtRender();
+}
+
+function dtSortRows(rows){
+  if(!_dtSortKey) return rows;
+  var key=_dtSortKey, dir=_dtSortDir;
+  return rows.slice().sort(function(a,b){
+    var av=a[key], bv=b[key];
+    // numeric fields
+    if(['entry','tp','sl','risk','lots','pnl','maxRR','disc'].indexOf(key)>=0){
+      av=parseFloat(av)||0; bv=parseFloat(bv)||0;
+    } else if(key==='duration'){
+      function toMin(s){ if(!s||s==='-') return 0; var m=s.match(/(\d+)\s*m/),sec=s.match(/(\d+)\s*s/); return (m?parseInt(m[1]):0)+(sec?parseInt(sec[1])/60:0); }
+      av=toMin(av); bv=toMin(bv);
+    } else if(key==='date'){
+      av=av||''; bv=bv||'';
+    } else {
+      av=(av||'').toString().toLowerCase(); bv=(bv||'').toString().toLowerCase();
+    }
+    if(av<bv) return -dir;
+    if(av>bv) return dir;
+    return 0;
+  });
+}
+
 function dtRender(){
   // Guard: block recursive calls from programmatic dropdown changes
   if(window._dtUpdatingOpts) return;
@@ -7250,7 +7289,7 @@ function dtRender(){
   Object.keys(S.trades||{}).forEach(function(dk){(S.trades[dk]||[]).forEach(function(t){_allSrc.push(t);});});
   dtUpdateFilterOpts(_allSrc.length?_allSrc:[]);
   // ── Filter directly from DOM — dropdowns are now populated and have correct values ──
-  var rows=dtFiltered();
+  var rows=dtSortRows(dtFiltered());
   _dtCurrentRows=rows;
   var tbody=document.getElementById('dtBody');
   var empty=document.getElementById('dtEmpty');
