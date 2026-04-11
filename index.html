@@ -8135,12 +8135,25 @@ function dtRenderCharts(rows){
     return sorted;
   }
 
-  var sessionColors={'Sydney':'#38bdf8','Tokyo':'#818cf8','London':'#22d3ee','New York':'#6366f1'};
+  var sessionColors={'Sydney':'#f5a623','Tokyo':'#a855f7','London':'#22d3ee','New York':'#2ecc8a','sydney':'#f5a623','tokyo':'#a855f7','london':'#22d3ee','new york':'#2ecc8a','sydney, tokyo':'#ff4d6a','tokyo, sydney':'#ff4d6a','sydney,tokyo':'#ff4d6a','tokyo,sydney':'#ff4d6a'};
+  var _sessionColorPool=['#ff4d6a','#facc15','#60a5fa','#f472b6','#34d399','#fb923c','#e879f9','#4ade80'];
+  var _sessionColorMap={};
+  var _sessionColorIdx=0;
+  function getSessionColor(k){
+    var lk=(k||'').toLowerCase().trim();
+    var col=sessionColors[k]||sessionColors[lk];
+    if(col) return col;
+    if(_sessionColorMap[lk]) return _sessionColorMap[lk];
+    var c=_sessionColorPool[_sessionColorIdx%_sessionColorPool.length];
+    _sessionColorIdx++;
+    _sessionColorMap[lk]=c;
+    return c;
+  }
 
   // Define all chart slots
   var ALL_CHARTS=[
     {key:'Day',       fn:function(){return groupByDay();},              title:'📅 Day'},
-    {key:'Session',   fn:function(){return groupBy('session');},        title:'🕐 Session',    colorFn:function(k){return sessionColors[k]||'var(--purple)';}},
+    {key:'Session',   fn:function(){return groupBy('session');},        title:'🕐 Session',    colorFn:function(k){return getSessionColor(k);}},
     {key:'Asset',     fn:function(){return groupBy('asset');},          title:'💱 Asset'},
     {key:'EntryHour', fn:function(){return groupByEntryHour();},        title:'📈 Entry Hour'},
     {key:'Duration',  fn:function(){
