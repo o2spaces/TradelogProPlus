@@ -1733,6 +1733,26 @@ function _sheet(name,headers){
   var sh=ss.getSheetByName(name);
   if(!sh){sh=ss.insertSheet(name);sh.appendRow(headers);_styleHeader(sh,headers.length);}
   else if(sh.getLastRow()===0){sh.appendRow(headers);_styleHeader(sh,headers.length);}
+  else{
+    // ตรวจหา header ที่หายไปแล้วเพิ่ม column ใหม่
+    var lastCol=sh.getLastColumn();
+    var existingHeaders=lastCol>0?sh.getRange(1,1,1,lastCol).getValues()[0]:[];
+    var added=0;
+    headers.forEach(function(h){
+      if(existingHeaders.indexOf(h)<0){
+        var newCol=sh.getLastColumn()+1;
+        sh.getRange(1,newCol).setValue(h);
+        sh.getRange(1,newCol).setBackground('#0d1117').setFontColor('#4f7aff').setFontWeight('bold').setFontSize(10).setHorizontalAlignment('center');
+        try{sh.autoResizeColumn(newCol);}catch(e){}
+        existingHeaders.push(h);
+        added++;
+      }
+    });
+    if(added>0){
+      sh.setFrozenRows(1);
+      _log('setupSheets','Added '+added+' missing column(s) to '+name,'','system','ok');
+    }
+  }
   return sh;
 }
 function _styleHeader(sh,n){
@@ -1862,7 +1882,7 @@ function setupSheets(){
   var ss=SpreadsheetApp.getActiveSpreadsheet();
   var def=ss.getSheetByName('Sheet1');
   if(def&amp;&amp;ss.getSheets().length&gt;1) ss.deleteSheet(def);
-  SpreadsheetApp.getUi().alert('✅ TradeLog Pro+ v5.0 พร้อม!\n\nSheets: Trades | DataTrades | Sessions | Summary | Assets | Log\nรองรับ: Multi-Portfolio + Data Mode + Custom Assets + Fees + Commission\nLog: ครบทุก action + Source (port/data/system) + 2000 rows');
+  SpreadsheetApp.getUi().alert('✅ TradeLog Pro+ v5.0 พร้อม!\n\nSheets: Trades | DataTrades | Sessions | Summary | Assets | Log\nรองรับ: Multi-Portfolio + Data Mode + Custom Assets + Fees + Commission\nLog: ครบทุก action + Source (port/data/system) + 2000 rows\n\n⚡ หมายเหตุ: ถ้า Sheet เดิมมี Header ไม่ครบ ระบบจะเพิ่ม Column ใหม่ให้อัตโนมัติ');
 }
 function onOpen(){
   SpreadsheetApp.getUi().createMenu('🔧 TradeLog Pro+')
