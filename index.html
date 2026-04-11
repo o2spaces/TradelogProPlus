@@ -242,7 +242,7 @@ body.data-mode-open .portfolio-bar {
 .chart-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:10px;}
 .chart-title{font-size:12px;font-weight:500;margin-bottom:3px;}
 .chart-subtitle{font-size:10px;color:var(--text-muted);margin-bottom:10px;}
-.chart-wrap{height:110px;position:relative;}
+.chart-wrap{height:120px;position:relative;width:100%;}
 /* Weekly */
 #weeklyView{display:none;}
 .weekly-grid-container{overflow-x:auto;}
@@ -554,7 +554,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
         <div class="stats-row"><span class="stats-key">Worst day</span><span class="stats-v neg" id="d-worst">-</span></div>
       </div>
     </div>
-    <div class="chart-card"><div class="chart-title">Equity Curve</div><div class="chart-subtitle">Cumulative P&L over time</div><div class="chart-wrap"><canvas id="eqChart"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Equity Curve</div><div class="chart-subtitle">Cumulative P&L over time</div><div class="chart-wrap"><canvas id="eqChart" style="width:100%;height:100%;display:block;"></canvas></div></div>
   </div>
   <!-- WEEKLY -->
   <div id="weeklyView">
@@ -593,7 +593,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
         <div class="stats-row"><span class="stats-key">Total weeks</span><span class="stats-v neu" id="w-weeks">0</span></div>
       </div>
     </div>
-    <div class="chart-card"><div class="chart-title">Equity Curve</div><div class="chart-subtitle">Cumulative P&L over time</div><div class="chart-wrap"><canvas id="eqChartW"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Equity Curve</div><div class="chart-subtitle">Cumulative P&L over time</div><div class="chart-wrap"><canvas id="eqChartW" style="width:100%;height:100%;display:block;"></canvas></div></div>
   </div>
 
   <!-- DATA MODE PANEL (overlay on .main) -->
@@ -3101,7 +3101,8 @@ function switchView(v){
   document.getElementById('btnWeekly').className='view-btn'+(v==='weekly'?' active':'');
   document.getElementById('navDaily').className='nav-item'+(v==='daily'?' active':'');
   document.getElementById('navWeekly').className='nav-item'+(v==='weekly'?' active':'');
-  if(v==='weekly') renderWeekly();
+  if(v==='weekly'){renderWeekly();drawEQW();}
+  else{drawEQ();}
 }
 
 function renderCal(){
@@ -3286,20 +3287,39 @@ function updateWStats(){
 }
 
 function drawEQ(){
-  var ctx=document.getElementById('eqChart');if(!ctx) return;
-  var a=allTrades();if(a.length<2) return;
-  var cum=0,pts=a.map(function(t){cum+=(parseFloat(t.pnl)||0);return cum;});
-  var col=pts[pts.length-1]>=0?'#2ecc8a':'#ff4d6a';
-  if(S.eqChart) S.eqChart.destroy();
-  S.eqChart=new Chart(ctx,{type:'line',data:{labels:pts.map(function(_,i){return i+1;}),datasets:[{data:pts,borderColor:col,borderWidth:2,fill:true,backgroundColor:col+'22',tension:.35,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#555b70',font:{size:9},callback:function(v){return '$'+v.toFixed(0);}}}}}});
+  setTimeout(function(){
+    var canvas=document.getElementById('eqChart');
+    if(!canvas) return;
+    var a=allTrades().slice().sort(function(x,y){return (x.date||'').localeCompare(y.date||'');});
+    if(a.length<2) return;
+    try{if(S.eqChart){S.eqChart.destroy();S.eqChart=null;}}catch(e){S.eqChart=null;}
+    // force canvas size from parent
+    var wrap=canvas.parentElement;
+    if(wrap){canvas.width=wrap.offsetWidth||300;canvas.height=wrap.offsetHeight||120;}
+    var cum=0,pts=a.map(function(t){cum+=(parseFloat(t.pnl)||0);return cum;});
+    var col=pts[pts.length-1]>=0?'#22d3ee':'#818cf8';
+    var gc=canvas.getContext('2d');
+    var grad=gc.createLinearGradient(0,0,0,canvas.height);
+    grad.addColorStop(0,col+'66');grad.addColorStop(1,col+'05');
+    S.eqChart=new Chart(canvas,{type:'line',data:{labels:pts.map(function(_,i){return i+1;}),datasets:[{data:pts,borderColor:col,borderWidth:1.5,fill:true,backgroundColor:grad,tension:.4,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:col}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:500},plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return '$'+c.parsed.y.toFixed(2);}}}},scales:{x:{display:false},y:{grid:{color:'rgba(100,120,200,.07)',drawBorder:false},border:{display:false},ticks:{color:'#6b7280',font:{size:9},maxTicksLimit:4,callback:function(v){return '$'+v.toFixed(0);}}}}}});
+  },50);
 }
 function drawEQW(){
-  var ctx=document.getElementById('eqChartW');if(!ctx) return;
-  var a=allTrades();if(a.length<2) return;
-  var cum=0,pts=a.map(function(t){cum+=(parseFloat(t.pnl)||0);return cum;});
-  var col=pts[pts.length-1]>=0?'#2ecc8a':'#ff4d6a';
-  if(S.eqChartW) S.eqChartW.destroy();
-  S.eqChartW=new Chart(ctx,{type:'line',data:{labels:pts.map(function(_,i){return i+1;}),datasets:[{data:pts,borderColor:col,borderWidth:2,fill:true,backgroundColor:col+'22',tension:.35,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#555b70',font:{size:9},callback:function(v){return '$'+v.toFixed(0);}}}}}});
+  setTimeout(function(){
+    var canvas=document.getElementById('eqChartW');
+    if(!canvas) return;
+    var a=allTrades().slice().sort(function(x,y){return (x.date||'').localeCompare(y.date||'');});
+    if(a.length<2) return;
+    try{if(S.eqChartW){S.eqChartW.destroy();S.eqChartW=null;}}catch(e){S.eqChartW=null;}
+    var wrap=canvas.parentElement;
+    if(wrap){canvas.width=wrap.offsetWidth||300;canvas.height=wrap.offsetHeight||120;}
+    var cum=0,pts=a.map(function(t){cum+=(parseFloat(t.pnl)||0);return cum;});
+    var col=pts[pts.length-1]>=0?'#22d3ee':'#818cf8';
+    var gc=canvas.getContext('2d');
+    var grad=gc.createLinearGradient(0,0,0,canvas.height);
+    grad.addColorStop(0,col+'66');grad.addColorStop(1,col+'05');
+    S.eqChartW=new Chart(canvas,{type:'line',data:{labels:pts.map(function(_,i){return i+1;}),datasets:[{data:pts,borderColor:col,borderWidth:1.5,fill:true,backgroundColor:grad,tension:.4,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:col}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:500},plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return '$'+c.parsed.y.toFixed(2);}}}},scales:{x:{display:false},y:{grid:{color:'rgba(100,120,200,.07)',drawBorder:false},border:{display:false},ticks:{color:'#6b7280',font:{size:9},maxTicksLimit:4,callback:function(v){return '$'+v.toFixed(0);}}}}}});
+  },50);
 }
 
 function updateRecent(){
@@ -7514,7 +7534,7 @@ function dtRenderCharts(rows){
     var bars=keys.map(function(k){
       var g=groups[k];var pnl=g.pnl;var cnt=g.count;
       var h=Math.max(Math.abs(pnl)/maxAbs*70,3);
-      var col=colorFn?colorFn(k,pnl):pnl>0?'var(--green)':pnl<0?'var(--red)':'var(--border)';
+      var col=colorFn?colorFn(k,pnl):pnl>0?'#22d3ee':pnl<0?'#818cf8':'var(--border)';
       var wr=cnt?Math.round((g.wins||0)/cnt*100):0;
       var pct=totalPnl?Math.round(Math.abs(pnl)/totalPnl*100):0;
       var pctStr=(pnl>0?'+':pnl<0?'-':'')+pct+'%';
@@ -7589,9 +7609,140 @@ function dtRenderCharts(rows){
     return sorted;
   }
 
-  var sessionColors={'Sydney':'var(--red)','Tokyo':'var(--amber)','London':'var(--accent)','New York':'var(--teal)'};
+  var sessionColors={'Sydney':'#38bdf8','Tokyo':'#818cf8','London':'#22d3ee','New York':'#6366f1'};
+
+  // ── Equity Curve ──
+  function makeEquityCurve(){
+    var sorted=rows.slice().sort(function(a,b){
+      var da=a.date||'';var db=b.date||'';return da<db?-1:da>db?1:0;
+    });
+    var cumPnl=0,points=[],labels=[];
+    sorted.forEach(function(t,i){
+      cumPnl+=parseFloat(t.pnl)||0;
+      points.push(Math.round(cumPnl*100)/100);
+      labels.push((t.date||'#'+(i+1)).slice(5));
+    });
+    var finalVal=points[points.length-1];
+    var finalColor=finalVal>=0?'#2ecc8a':'#ff4d6a';
+    var finalLabel=(finalVal>=0?'+':'')+finalVal.toFixed(2);
+
+    window._dtEqPts=points;
+    window._dtEqLbs=labels;
+    window._dtEqColor=finalColor;
+    window._dtEqHover=null;
+
+    window._dtEqDraw=function(hoverIdx){
+      var cv=document.getElementById('dtEqCanvas');
+      if(!cv)return;
+      var pts=window._dtEqPts,lbs=window._dtEqLbs,fc=window._dtEqColor;
+      var W=cv.parentElement.clientWidth||400,H=168;
+      cv.width=W*2;cv.height=H*2;cv.style.width=W+'px';cv.style.height=H+'px';
+      var ctx=cv.getContext('2d');ctx.scale(2,2);
+      var minV=Math.min.apply(null,pts),maxV=Math.max.apply(null,pts);
+      var rng=maxV-minV||1;
+      var pL=42,pR=6,pT=10,pB=18;
+      var cw=W-pL-pR,ch=H-pT-pB,n=pts.length;
+      function gx(i){return pL+i/(n-1||1)*cw;}
+      function gy(v){return pT+ch-(v-minV)/rng*ch;}
+      ctx.clearRect(0,0,W,H);
+      // Grid + Y axis
+      var steps=6;
+      for(var s=0;s<=steps;s++){
+        var tv=minV+rng*(s/steps),ty=gy(tv);
+        ctx.fillStyle='rgba(139,144,160,0.55)';ctx.font='5.5px monospace';ctx.textAlign='right';
+        ctx.fillText((tv>=0?'+':'')+tv.toFixed(0),pL-3,ty+2);
+        ctx.strokeStyle='rgba(42,47,61,0.4)';ctx.lineWidth=0.4;
+        ctx.beginPath();ctx.moveTo(pL,ty);ctx.lineTo(pL+cw,ty);ctx.stroke();
+      }
+      // Zero line
+      if(minV<0&&maxV>0){
+        var zy=gy(0);
+        ctx.strokeStyle='rgba(139,144,160,0.2)';ctx.lineWidth=0.5;ctx.setLineDash([3,2]);
+        ctx.beginPath();ctx.moveTo(pL,zy);ctx.lineTo(pL+cw,zy);ctx.stroke();ctx.setLineDash([]);
+      }
+      // Area fill
+      var isGreen=fc==='#2ecc8a';
+      var grad=ctx.createLinearGradient(0,pT,0,H-pB);
+      grad.addColorStop(0,isGreen?'rgba(46,204,138,0.15)':'rgba(255,77,106,0.15)');
+      grad.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.beginPath();ctx.moveTo(gx(0),gy(pts[0]));
+      for(var i=1;i<n;i++)ctx.lineTo(gx(i),gy(pts[i]));
+      ctx.lineTo(gx(n-1),H-pB);ctx.lineTo(gx(0),H-pB);ctx.closePath();
+      ctx.fillStyle=grad;ctx.fill();
+      // Line
+      ctx.beginPath();ctx.moveTo(gx(0),gy(pts[0]));
+      for(var i=1;i<n;i++)ctx.lineTo(gx(i),gy(pts[i]));
+      ctx.strokeStyle=fc;ctx.lineWidth=0.8;ctx.lineJoin='round';ctx.lineCap='round';ctx.setLineDash([]);ctx.stroke();
+      // X ticks
+      var ts=Math.max(1,Math.floor(n/6));
+      ctx.fillStyle='rgba(139,144,160,0.55)';ctx.font='5px monospace';ctx.textAlign='center';
+      for(var ti=0;ti<n;ti+=ts)ctx.fillText(lbs[ti],gx(ti),H-3);
+      // Hover crosshair
+      if(hoverIdx!==null&&hoverIdx!==undefined&&hoverIdx>=0&&hoverIdx<n){
+        var hx=gx(hoverIdx),hy=gy(pts[hoverIdx]);
+        // Vertical dashed green line
+        ctx.strokeStyle='rgba(46,204,138,0.55)';ctx.lineWidth=0.7;ctx.setLineDash([3,2]);
+        ctx.beginPath();ctx.moveTo(hx,pT);ctx.lineTo(hx,H-pB);ctx.stroke();ctx.setLineDash([]);
+        // Dot
+        ctx.beginPath();ctx.arc(hx,hy,2.2,0,Math.PI*2);
+        ctx.fillStyle=fc;ctx.fill();
+        ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=0.7;ctx.stroke();
+      }
+    };
+
+    window._dtEqMove=function(e){
+      var cv=document.getElementById('dtEqCanvas');
+      var tip=document.getElementById('dtEqTip');
+      var valEl=document.getElementById('dtEqVal');
+      if(!cv)return;
+      var pts=window._dtEqPts,lbs=window._dtEqLbs,fc=window._dtEqColor;
+      var rect=cv.getBoundingClientRect();
+      var W=cv.offsetWidth,n=pts.length;
+      var pL=42,pR=6,cw=W-pL-pR;
+      var mx=e.clientX-rect.left;
+      var fi=Math.round((mx-pL)/cw*(n-1));fi=Math.max(0,Math.min(n-1,fi));
+      window._dtEqHover=fi;
+      window._dtEqDraw(fi);
+      var v=pts[fi],vStr=(v>=0?'+':'')+v.toFixed(2);
+      if(tip){
+        tip.style.display='block';
+        tip.textContent=lbs[fi]+'  '+vStr;
+        // Follow mouse exactly on X
+        var tipX=mx;
+        var tipW=tip.offsetWidth||90;
+        if(tipX+tipW/2>W)tipX=W-tipW/2-4;
+        if(tipX-tipW/2<pL)tipX=pL+tipW/2+2;
+        tip.style.left=tipX+'px';tip.style.transform='translateX(-50%)';
+      }
+      if(valEl){valEl.textContent=vStr;valEl.style.color=v>=0?'#2ecc8a':'#ff4d6a';}
+    };
+
+    window._dtEqLeave=function(){
+      window._dtEqHover=null;
+      window._dtEqDraw(null);
+      var tip=document.getElementById('dtEqTip');if(tip)tip.style.display='none';
+      var valEl=document.getElementById('dtEqVal');
+      var fv=window._dtEqPts[window._dtEqPts.length-1];
+      if(valEl){valEl.textContent=(fv>=0?'+':'')+fv.toFixed(2);valEl.style.color=window._dtEqColor;}
+    };
+
+    return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;flex:2 1 380px;min-width:280px;max-width:100%;box-sizing:border-box;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px 1px;">'
+      +'<span style="font-size:9px;font-weight:700;color:var(--text-secondary);letter-spacing:.4px;text-transform:uppercase;">📈 Equity Curve</span>'
+      +'<span id="dtEqVal" style="font-size:10px;font-family:var(--font-mono);font-weight:600;color:'+finalColor+';">'+finalLabel+'</span>'
+      +'</div>'
+      +'<div style="position:relative;">'
+      +'<canvas id="dtEqCanvas" style="display:block;cursor:crosshair;"></canvas>'
+      +'<div id="dtEqTip" style="position:absolute;top:4px;left:50%;background:var(--bg-secondary);border:1px solid rgba(46,204,138,0.4);border-radius:4px;padding:2px 8px;font-size:9px;font-family:var(--font-mono);color:var(--text-primary);pointer-events:none;white-space:nowrap;display:none;z-index:10;"></div>'
+      +'</div>'
+      +'</div>';
+  }
 
   var html='';
+  // Equity Curve spans full width at the top
+  html+='<div style="flex-basis:100%;"></div>';
+  html+=makeEquityCurve();
+  html+='<div style="flex-basis:100%;height:0;"></div>';
   html+=makeBarChart('📅 Day', groupByDay());
   html+=makeBarChart('🕐 Session', groupBy('session'), function(k){return sessionColors[k]||'var(--purple)';});
   html+=makeBarChart('💱 Asset', groupBy('asset'));
@@ -7611,6 +7762,7 @@ function dtRenderCharts(rows){
   cr.style.flexWrap='wrap';
   cr.style.alignItems='flex-start';
   cr.innerHTML=html;
+  setTimeout(function(){if(window._dtEqDraw){var cv=document.getElementById("dtEqCanvas");if(cv){cv.addEventListener("mousemove",window._dtEqMove);cv.addEventListener("mouseleave",window._dtEqLeave);}window._dtEqDraw(null);}},30);
 }
 
 function dtExportCSV(){
@@ -7689,6 +7841,7 @@ function dtToggleDataPanel(){
     updateSidebarBtnLeft&&updateSidebarBtnLeft();
     updateSidebarBtnRight&&updateSidebarBtnRight();
     dtRender();
+    setTimeout(function(){if(window._dtEqDraw){var cv=document.getElementById("dtEqCanvas");if(cv){cv.addEventListener("mousemove",window._dtEqMove);cv.addEventListener("mouseleave",window._dtEqLeave);}window._dtEqDraw(null);}},80);
     setTimeout(dtRestoreFilters,50);
   } else {
     panel.classList.remove('open');
