@@ -724,7 +724,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
               <th id="dth_asset" onclick="dtSortBy('asset')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Asset <span id="dthi_asset" style="font-size:9px;opacity:.5;"></span></th>
               <th id="dth_side" onclick="dtSortBy('side')" style="padding:7px 6px;text-align:center;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Side <span id="dthi_side" style="font-size:9px;opacity:.5;"></span></th>
               <th id="dth_entryTime" onclick="dtSortBy('entryTime')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Entry Time <span id="dthi_entryTime" style="font-size:9px;opacity:.5;"></span></th>
-              <th id="dth_duration" onclick="dtSortBy('duration')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Dur. <span id="dthi_duration" style="font-size:9px;opacity:.5;"></span></th>
+              <th id="dth_duration" onclick="dtSortBy('duration')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Setup Dur <span id="dthi_duration" style="font-size:9px;opacity:.5;"></span></th>
               <th id="dth_mode" onclick="dtSortBy('mode')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Mode <span id="dthi_mode" style="font-size:9px;opacity:.5;"></span></th>
               <th id="dth_code" onclick="dtSortBy('code')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">Code <span id="dthi_code" style="font-size:9px;opacity:.5;"></span></th>
               <th id="dth_tf" onclick="dtSortBy('tf')" style="padding:7px 6px;text-align:left;color:var(--text-muted);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">TF <span id="dthi_tf" style="font-size:9px;opacity:.5;"></span></th>
@@ -7034,7 +7034,7 @@ function dtParseSheetData(raw){
     session:  hIdx(['session','เซสชัน']),
     asset:    hIdx(['asset','symbol','สินทรัพย์']),
     side:     hIdx(['side']),
-    entryTime:hIdx(['entrytime','time','เวลา']),
+    entryTime:hIdx(['entrytime','entry time','entry_time','time','เวลา']),
     duration: hIdx(['duration','dur']),
     setupDuration: hIdx(['setupduration','setup_duration','duration','dur']),
     mode:     hIdx(['mode','โหมด']),
@@ -7062,6 +7062,14 @@ function dtParseSheetData(raw){
   for(var i=1;i<lines.length;i++){
     var row=dtCsvSplitLine(lines[i],sep);
     var entryTime=g(row,'entryTime'), entry=g(row,'entry'), day=g(row,'day');
+    // ── sanitize entryTime: ดึงเฉพาะ HH:MM จาก datetime ทุก format ──
+    if(entryTime){
+      // รองรับ "12:30", "12:30:00", "2024-01-01 12:30", "1899-12-38 12:30", datetime-local "T12:30"
+      var _etm=entryTime.match(/[T ](\d{1,2}:\d{2})/)||entryTime.match(/^(\d{1,2}:\d{2})/);
+      entryTime=_etm?_etm[1]:entryTime;
+      // ตัด seconds ออกถ้ามี "12:30:45" → "12:30"
+      entryTime=entryTime.replace(/^(\d{1,2}:\d{2}):\d{2}$/,'$1');
+    }
     if(!day&&!entryTime&&!entry) continue;
 
     // ── Resolve date ──
@@ -7397,7 +7405,7 @@ function dtRender(){
       +'<td style="padding:6px;font-weight:600;font-size:11px;">'+(t.asset||'-')+'</td>'
       +'<td style="padding:6px;text-align:center;"><span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:'+(t.side==='Long'?'rgba(46,204,138,0.15)':'rgba(255,77,106,0.15)')+';color:'+sideColor+';">'+(t.side||'-')+'</span></td>'
       +'<td style="padding:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);">'+(t.entryTime||'-')+'</td>'
-      +'<td style="padding:6px;font-size:10px;color:var(--text-muted);">'+(t.duration||'-')+'</td>'
+      +'<td style="padding:6px;font-size:10px;color:var(--text-muted);">'+(t.setupDuration||'-')+'</td>'
       +'<td style="padding:6px;font-size:10px;">'+(t.mode||'-')+'</td>'
       +'<td style="padding:6px;font-size:10px;">'+(t.code||'-')+'</td>'
       +'<td style="padding:6px;font-size:10px;">'+(t.tf||'-')+'</td>'
@@ -8307,19 +8315,17 @@ function dtRenderCharts(rows){
   function groupByEntryHour(){
     var g={};
     rows.forEach(function(t){
-      var et=t.entryTime||'';
-      var m=et.match(/^(\d{1,2}):(\d{2})/);
-      if(!m) return;
-      var hr=parseInt(m[1],10);
-      if(isNaN(hr)) return;
-      var label=(hr<10?'0':'')+hr+':00';
-      if(!g[label]) g[label]={pnl:0,count:0,wins:0,_hr:hr};
-      g[label].pnl+=parseFloat(t.pnl)||0;
-      g[label].count++;
-      if(parseFloat(t.pnl)>0) g[label].wins++;
+      var et=t.entryTime||'';var m=et.match(/(\d+):/);
+      var hr=m?parseInt(m[1]):null;
+      if(hr===null) return;
+      var key=hr+'h';
+      if(!g[key]) g[key]={pnl:0,count:0,wins:0};
+      g[key].pnl+=parseFloat(t.pnl)||0;
+      g[key].count++;
+      if(parseFloat(t.pnl)>0) g[key].wins++;
     });
     var sorted={};
-    Object.keys(g).sort(function(a,b){return g[a]._hr-g[b]._hr;}).forEach(function(k){sorted[k]=g[k];});
+    Object.keys(g).sort(function(a,b){return parseInt(a)-parseInt(b);}).forEach(function(k){sorted[k]=g[k];});
     return sorted;
   }
 
@@ -8345,10 +8351,10 @@ function dtRenderCharts(rows){
     {key:'Asset',     fn:function(){return groupBy('asset');},          title:'💱 Asset'},
     {key:'EntryHour', fn:function(){return groupByEntryHour();},        title:'📈 Entry Hour'},
     {key:'Duration',  fn:function(){
-      // group duration into 3-minute buckets
+      // group setupDuration into 3-minute buckets
       var g={};
       rows.forEach(function(t){
-        var raw=t.duration||'-';
+        var raw=t.setupDuration||'-';
         var totalMin=0;
         var mM=raw.match(/(\d+)\s*m/);var mS=raw.match(/(\d+)\s*s/);
         if(mM) totalMin+=parseInt(mM[1]);
@@ -8368,7 +8374,7 @@ function dtRenderCharts(rows){
       var sorted={};
       Object.keys(g).sort(function(a,b){return (g[a]._sort||0)-(g[b]._sort||0);}).forEach(function(k){sorted[k]=g[k];});
       return sorted;
-    }, title:'⏱ Duration', isDuration:true},
+    }, title:'⏱ Setup Dur', isDuration:true},
     {key:'Mode',      fn:function(){return groupBy('mode');},           title:'🎭 Mode'},
     {key:'Code',      fn:function(){return groupBy('code');},           title:'🔑 Code'},
     {key:'TF',        fn:function(){return groupBy('tf');},             title:'📐 TF'},
