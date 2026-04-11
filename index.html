@@ -107,6 +107,10 @@ body.data-mode-open #sidebarBtnRight {
 body.data-mode-open .portfolio-bar {
   display:none !important;
 }
+body.data-mode-open #dailyView,
+body.data-mode-open #weeklyView {
+  visibility:hidden !important;
+}
 
 .sidebar-right-expand,.sidebar-left-expand{display:none!important;}
 
@@ -193,7 +197,7 @@ body.data-mode-open .portfolio-bar {
 /* ให้ text-align ทำงานใน li */
 #noteDayEditor li[style*="text-align"]{list-style-position:inside;padding-left:0;}
 .main{overflow-y:auto;padding:14px;transition:padding .25s;position:relative;}
-#dataView{position:absolute;top:0;left:0;right:0;min-height:100%;background:var(--bg-primary);padding:14px;z-index:10;display:none;}
+#dataView{position:absolute;top:0;left:0;right:0;bottom:0;background:var(--bg-primary);padding:14px;z-index:10;display:none;overflow-y:auto;}
 #dataView.open{display:block;}
 .layout.left-collapsed .main{ padding-left:28px; }
 .layout.right-collapsed .main{ padding-right:28px; }
@@ -242,7 +246,19 @@ body.data-mode-open .portfolio-bar {
 .chart-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:10px;}
 .chart-title{font-size:12px;font-weight:500;margin-bottom:3px;}
 .chart-subtitle{font-size:10px;color:var(--text-muted);margin-bottom:10px;}
-.chart-wrap{height:120px;position:relative;width:100%;}
+.chart-wrap{height:var(--eq-h,120px);position:relative;width:100%;min-height:60px;}
+.chart-resize-handle{
+  width:100%;height:8px;display:flex;align-items:center;justify-content:center;
+  cursor:ns-resize;user-select:none;margin-top:2px;
+  border-radius:0 0 var(--radius-sm) var(--radius-sm);
+}
+.chart-resize-handle:hover .chart-resize-pip{background:rgba(79,122,255,0.7);}
+.chart-resize-pip{
+  width:36px;height:3px;border-radius:2px;
+  background:rgba(139,144,160,0.25);
+  transition:background .15s;
+  pointer-events:none;
+}
 /* Weekly */
 #weeklyView{display:none;}
 .weekly-grid-container{overflow-x:auto;}
@@ -554,7 +570,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
         <div class="stats-row"><span class="stats-key">Worst day</span><span class="stats-v neg" id="d-worst">-</span></div>
       </div>
     </div>
-    <div class="chart-card"><div class="chart-title">Equity Curve</div><div class="chart-subtitle">Cumulative P&L over time</div><div class="chart-wrap"><canvas id="eqChart" style="width:100%;height:100%;display:block;"></canvas></div></div>
+    <div class="chart-card" id="eqChartCard"><div class="chart-title">📈 Equity Curve</div><div class="chart-subtitle">Cumulative P&L over time</div><div class="chart-wrap" id="eqChartWrap"><canvas id="eqChart" style="width:100%;height:100%;display:block;"></canvas></div><div class="chart-resize-handle" id="eqResizeHandle"><div class="chart-resize-pip" id="eqResizePip"></div></div></div>
   </div>
   <!-- WEEKLY -->
   <div id="weeklyView">
@@ -593,7 +609,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
         <div class="stats-row"><span class="stats-key">Total weeks</span><span class="stats-v neu" id="w-weeks">0</span></div>
       </div>
     </div>
-    <div class="chart-card"><div class="chart-title">Equity Curve</div><div class="chart-subtitle">Cumulative P&L over time</div><div class="chart-wrap"><canvas id="eqChartW" style="width:100%;height:100%;display:block;"></canvas></div></div>
+    <div class="chart-card" id="eqChartCardW"><div class="chart-title">📈 Equity Curve</div><div class="chart-subtitle">Cumulative P&L over time</div><div class="chart-wrap" id="eqChartWrapW"><canvas id="eqChartW" style="width:100%;height:100%;display:block;"></canvas></div><div class="chart-resize-handle" id="eqResizeHandleW"><div class="chart-resize-pip" id="eqResizePipW"></div></div></div>
   </div>
 
   <!-- DATA MODE PANEL (overlay on .main) -->
@@ -7629,13 +7645,13 @@ function dtRenderCharts(rows){
     window._dtEqPts=points;
     window._dtEqLbs=labels;
     window._dtEqColor=finalColor;
-    window._dtEqHover=null;
+    window._dtEqH=168;
 
     window._dtEqDraw=function(hoverIdx){
       var cv=document.getElementById('dtEqCanvas');
       if(!cv)return;
       var pts=window._dtEqPts,lbs=window._dtEqLbs,fc=window._dtEqColor;
-      var W=cv.parentElement.clientWidth||400,H=168;
+      var W=cv.parentElement.clientWidth||400,H=window._dtEqH;
       cv.width=W*2;cv.height=H*2;cv.style.width=W+'px';cv.style.height=H+'px';
       var ctx=cv.getContext('2d');ctx.scale(2,2);
       var minV=Math.min.apply(null,pts),maxV=Math.max.apply(null,pts);
@@ -7645,7 +7661,6 @@ function dtRenderCharts(rows){
       function gx(i){return pL+i/(n-1||1)*cw;}
       function gy(v){return pT+ch-(v-minV)/rng*ch;}
       ctx.clearRect(0,0,W,H);
-      // Grid + Y axis
       var steps=6;
       for(var s=0;s<=steps;s++){
         var tv=minV+rng*(s/steps),ty=gy(tv);
@@ -7654,13 +7669,11 @@ function dtRenderCharts(rows){
         ctx.strokeStyle='rgba(42,47,61,0.4)';ctx.lineWidth=0.4;
         ctx.beginPath();ctx.moveTo(pL,ty);ctx.lineTo(pL+cw,ty);ctx.stroke();
       }
-      // Zero line
       if(minV<0&&maxV>0){
         var zy=gy(0);
         ctx.strokeStyle='rgba(139,144,160,0.2)';ctx.lineWidth=0.5;ctx.setLineDash([3,2]);
         ctx.beginPath();ctx.moveTo(pL,zy);ctx.lineTo(pL+cw,zy);ctx.stroke();ctx.setLineDash([]);
       }
-      // Area fill
       var isGreen=fc==='#2ecc8a';
       var grad=ctx.createLinearGradient(0,pT,0,H-pB);
       grad.addColorStop(0,isGreen?'rgba(46,204,138,0.15)':'rgba(255,77,106,0.15)');
@@ -7669,21 +7682,16 @@ function dtRenderCharts(rows){
       for(var i=1;i<n;i++)ctx.lineTo(gx(i),gy(pts[i]));
       ctx.lineTo(gx(n-1),H-pB);ctx.lineTo(gx(0),H-pB);ctx.closePath();
       ctx.fillStyle=grad;ctx.fill();
-      // Line
       ctx.beginPath();ctx.moveTo(gx(0),gy(pts[0]));
       for(var i=1;i<n;i++)ctx.lineTo(gx(i),gy(pts[i]));
       ctx.strokeStyle=fc;ctx.lineWidth=0.8;ctx.lineJoin='round';ctx.lineCap='round';ctx.setLineDash([]);ctx.stroke();
-      // X ticks
       var ts=Math.max(1,Math.floor(n/6));
       ctx.fillStyle='rgba(139,144,160,0.55)';ctx.font='5px monospace';ctx.textAlign='center';
       for(var ti=0;ti<n;ti+=ts)ctx.fillText(lbs[ti],gx(ti),H-3);
-      // Hover crosshair
       if(hoverIdx!==null&&hoverIdx!==undefined&&hoverIdx>=0&&hoverIdx<n){
         var hx=gx(hoverIdx),hy=gy(pts[hoverIdx]);
-        // Vertical dashed green line
         ctx.strokeStyle='rgba(46,204,138,0.55)';ctx.lineWidth=0.7;ctx.setLineDash([3,2]);
         ctx.beginPath();ctx.moveTo(hx,pT);ctx.lineTo(hx,H-pB);ctx.stroke();ctx.setLineDash([]);
-        // Dot
         ctx.beginPath();ctx.arc(hx,hy,2.2,0,Math.PI*2);
         ctx.fillStyle=fc;ctx.fill();
         ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=0.7;ctx.stroke();
@@ -7695,7 +7703,7 @@ function dtRenderCharts(rows){
       var tip=document.getElementById('dtEqTip');
       var valEl=document.getElementById('dtEqVal');
       if(!cv)return;
-      var pts=window._dtEqPts,lbs=window._dtEqLbs,fc=window._dtEqColor;
+      var pts=window._dtEqPts,lbs=window._dtEqLbs;
       var rect=cv.getBoundingClientRect();
       var W=cv.offsetWidth,n=pts.length;
       var pL=42,pR=6,cw=W-pL-pR;
@@ -7705,11 +7713,9 @@ function dtRenderCharts(rows){
       window._dtEqDraw(fi);
       var v=pts[fi],vStr=(v>=0?'+':'')+v.toFixed(2);
       if(tip){
-        tip.style.display='block';
-        tip.textContent=lbs[fi]+'  '+vStr;
-        // Follow mouse exactly on X
-        var tipX=mx;
+        tip.style.display='block';tip.textContent=lbs[fi]+'  '+vStr;
         var tipW=tip.offsetWidth||90;
+        var tipX=mx;
         if(tipX+tipW/2>W)tipX=W-tipW/2-4;
         if(tipX-tipW/2<pL)tipX=pL+tipW/2+2;
         tip.style.left=tipX+'px';tip.style.transform='translateX(-50%)';
@@ -7731,9 +7737,13 @@ function dtRenderCharts(rows){
       +'<span style="font-size:9px;font-weight:700;color:var(--text-secondary);letter-spacing:.4px;text-transform:uppercase;">📈 Equity Curve</span>'
       +'<span id="dtEqVal" style="font-size:10px;font-family:var(--font-mono);font-weight:600;color:'+finalColor+';">'+finalLabel+'</span>'
       +'</div>'
-      +'<div style="position:relative;">'
+      +'<div style="position:relative;" id="dtEqWrap">'
       +'<canvas id="dtEqCanvas" style="display:block;cursor:crosshair;"></canvas>'
       +'<div id="dtEqTip" style="position:absolute;top:4px;left:50%;background:var(--bg-secondary);border:1px solid rgba(46,204,138,0.4);border-radius:4px;padding:2px 8px;font-size:9px;font-family:var(--font-mono);color:var(--text-primary);pointer-events:none;white-space:nowrap;display:none;z-index:10;"></div>'
+      +'</div>'
+      +'<div id="dtEqHandle" style="width:100%;height:10px;display:flex;align-items:center;justify-content:center;cursor:ns-resize;user-select:none;background:transparent;">'
+      +'<div id="dtEqHandlePip" style="width:36px;height:3px;border-radius:2px;background:rgba(139,144,160,0.25);transition:background .15s;pointer-events:none;"></div>'
+      +'</div>'
       +'</div>'
       +'</div>';
   }
@@ -7762,7 +7772,34 @@ function dtRenderCharts(rows){
   cr.style.flexWrap='wrap';
   cr.style.alignItems='flex-start';
   cr.innerHTML=html;
-  setTimeout(function(){if(window._dtEqDraw){var cv=document.getElementById("dtEqCanvas");if(cv){cv.addEventListener("mousemove",window._dtEqMove);cv.addEventListener("mouseleave",window._dtEqLeave);}window._dtEqDraw(null);}},30);
+  setTimeout(function(){
+    if(window._dtEqDraw){
+      var cv=document.getElementById('dtEqCanvas');
+      if(cv){
+        cv.addEventListener('mousemove',window._dtEqMove);
+        cv.addEventListener('mouseleave',window._dtEqLeave);
+      }
+      window._dtEqDraw(null);
+      var handle=document.getElementById('dtEqHandle');
+      if(handle&&!handle._bound){
+        handle._bound=true;
+        var pip2=document.getElementById('dtEqHandlePip');
+        if(pip2){
+          handle.addEventListener('mouseenter',function(){pip2.style.background='rgba(79,122,255,0.7)';});
+          handle.addEventListener('mouseleave',function(){if(!window._dtEqDragging)pip2.style.background='rgba(139,144,160,0.25)';});
+        }
+        handle.addEventListener('mousedown',function(e){
+          e.preventDefault();e.stopPropagation();
+          window._dtEqDragging=true;
+          window._dtEqStartY=e.clientY;
+          window._dtEqStartH=window._dtEqH||168;
+          document.body.style.cursor='ns-resize';
+          document.body.style.userSelect='none';
+          if(pip2)pip2.style.background='rgba(79,122,255,0.9)';
+        });
+      }
+    }
+  },30);
 }
 
 function dtExportCSV(){
@@ -7841,7 +7878,35 @@ function dtToggleDataPanel(){
     updateSidebarBtnLeft&&updateSidebarBtnLeft();
     updateSidebarBtnRight&&updateSidebarBtnRight();
     dtRender();
-    setTimeout(function(){if(window._dtEqDraw){var cv=document.getElementById("dtEqCanvas");if(cv){cv.addEventListener("mousemove",window._dtEqMove);cv.addEventListener("mouseleave",window._dtEqLeave);}window._dtEqDraw(null);}},80);
+    setTimeout(function(){
+      if(window._dtEqDraw){
+        var cv=document.getElementById('dtEqCanvas');
+        if(cv){
+          cv.addEventListener('mousemove',window._dtEqMove);
+          cv.addEventListener('mouseleave',window._dtEqLeave);
+        }
+        window._dtEqDraw(null);
+        // Resize handle drag
+        var handle=document.getElementById('dtEqHandle');
+        if(handle&&!handle._bound){
+          handle._bound=true;
+          var pip=document.getElementById('dtEqHandlePip');
+          if(pip){
+            handle.addEventListener('mouseenter',function(){pip.style.background='rgba(79,122,255,0.7)';});
+            handle.addEventListener('mouseleave',function(){if(!window._dtEqDragging)pip.style.background='rgba(139,144,160,0.25)';});
+          }
+          handle.addEventListener('mousedown',function(e){
+            e.preventDefault();e.stopPropagation();
+            window._dtEqDragging=true;
+            window._dtEqStartY=e.clientY;
+            window._dtEqStartH=window._dtEqH||168;
+            document.body.style.cursor='ns-resize';
+            document.body.style.userSelect='none';
+            if(pip)pip.style.background='rgba(79,122,255,0.9)';
+          });
+        }
+      }
+    },80);
     setTimeout(dtRestoreFilters,50);
   } else {
     panel.classList.remove('open');
@@ -8332,5 +8397,79 @@ if(document.readyState==='loading'){
   </div>
 </div>
 
+
+<script>
+// ── Main Equity Curve resize (Daily & Weekly) ──
+(function(){
+  var eqH = 120;
+  var eqHW = 120;
+
+  function setupResize(handleId, pipId, wrapId, getH, setH, onResize){
+    var handle = document.getElementById(handleId);
+    var pip = document.getElementById(pipId);
+    var wrap = document.getElementById(wrapId);
+    if(!handle || !wrap) return;
+    var dragging = false, startY = 0, startH = 0;
+    handle.addEventListener('mousedown', function(e){
+      e.preventDefault(); e.stopPropagation();
+      dragging = true;
+      startY = e.clientY;
+      startH = getH();
+      document.body.style.cursor = 'ns-resize';
+      document.body.style.userSelect = 'none';
+      if(pip) pip.style.background = 'rgba(79,122,255,0.9)';
+    });
+    handle.addEventListener('mouseenter', function(){ if(pip) pip.style.background = 'rgba(79,122,255,0.7)'; });
+    handle.addEventListener('mouseleave', function(){ if(!dragging && pip) pip.style.background = 'rgba(139,144,160,0.25)'; });
+    document.addEventListener('mousemove', function(e){
+      if(!dragging) return;
+      var newH = Math.max(60, Math.min(600, startH + (e.clientY - startY)));
+      setH(newH);
+      wrap.style.height = newH + 'px';
+      if(onResize) onResize(newH);
+    });
+    document.addEventListener('mouseup', function(){
+      if(!dragging) return;
+      dragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      if(pip) pip.style.background = 'rgba(139,144,160,0.25)';
+    });
+  }
+
+  // Wait for DOM ready
+  window.addEventListener('load', function(){
+    setupResize('eqResizeHandle','eqResizePip','eqChartWrap',
+      function(){ return eqH; },
+      function(h){ eqH = h; },
+      function(){ if(S.eqChart) S.eqChart.resize(); }
+    );
+    setupResize('eqResizeHandleW','eqResizePipW','eqChartWrapW',
+      function(){ return eqHW; },
+      function(h){ eqHW = h; },
+      function(){ if(S.eqChartW) S.eqChartW.resize(); }
+    );
+  });
+})();
+</script>
+
+<script>
+// Global equity curve resize handlers
+document.addEventListener('mousemove', function(e){
+  if(!window._dtEqDragging) return;
+  var diff = e.clientY - (window._dtEqStartY||0);
+  var newH = Math.max(60, Math.min(600, (window._dtEqStartH||168) + diff));
+  window._dtEqH = newH;
+  if(window._dtEqDraw) window._dtEqDraw(window._dtEqHover||null);
+});
+document.addEventListener('mouseup', function(){
+  if(!window._dtEqDragging) return;
+  window._dtEqDragging = false;
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+  var pip = document.getElementById('dtEqHandlePip');
+  if(pip) pip.style.background = 'rgba(139,144,160,0.25)';
+});
+</script>
 </body>
 </html>
