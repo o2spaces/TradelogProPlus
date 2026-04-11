@@ -1243,7 +1243,7 @@ var SHEET={TRADES:'Trades',DATA_TRADES:'DataTrades',SESSIONS:'Sessions',SUMMARY:
 var HDR={
   TRADES:[
     'ID','Date','Portfolio','Asset','Side','Lots','Entry','Close','TP','SL',
-    'PnL($)','Fees($)','Commission($)','Result','Risk','MaxRR','TimeInPos',
+    'PnL($)','Fees($)','Commission($)','Result','Risk','MaxRR','TimeInPos','SetupDuration',
     'EntryDateTime','CloseDateTime',
     'SetupClass','Candle','Code','Mode','Timeframe',
     'Trend','Zone','Confirm','Sessions','Emotion','Discipline',
@@ -1571,7 +1571,7 @@ function saveTrade(d){
     d.asset||'', d.side||'', parseFloat(d.lots)||0,
     parseFloat(d.entry)||0, parseFloat(d.close)||0,
     parseFloat(d.tp)||0, parseFloat(d.sl)||0,
-    pnl, fees, comm, d.result||'', d.risk||'', d.maxRR||'', d.timeInPos||'',
+    pnl, fees, comm, d.result||'', d.risk||'', d.maxRR||'', d.timeInPos||'', d.setupDuration||'',
     d.entryDate||'', d.closeDate||'',
     d.setupClass||'', d.candle||'', d.code||'', d.mode||'', d.tf||'',
     d.trend||'', d.zone||'', d.confirm||'', d.sessions||'',
@@ -1602,7 +1602,7 @@ function batchSaveTrades(d){
       parseFloat(t.entry)||0, parseFloat(t.close)||0,
       parseFloat(t.tp)||0, parseFloat(t.sl)||0,
       pnl, parseFloat(t.fees)||0, parseFloat(t.commission)||0,
-      t.result||'', t.risk||'', t.maxRR||'', t.timeInPos||'',
+      t.result||'', t.risk||'', t.maxRR||'', t.timeInPos||'', t.setupDuration||'',
       t.entryDate||'', t.closeDate||'',
       t.setupClass||'', t.candle||'', t.code||'', t.mode||'', t.tf||'',
       t.trend||'', t.zone||'', t.confirm||'', t.sessions||'',
