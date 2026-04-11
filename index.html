@@ -2415,13 +2415,12 @@ function syncFromSheet(onDone){
                 return (_h<10?'0':'')+_h+':'+(_m<10?'0':'')+_m;
               }
               var s=String(raw);
-              // time-only "HH:mm"
               if(/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) return s.substr(0,5);
-              // datetime "yyyy-MM-dd HH:mm" or "...THH:mm"
               var m=s.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/);
               if(m) return m[1];
               return '';
             })(gv(t,['EntryDateTime','entrydatetime','entryDate'])),
+            entryDateRaw: gs(t,['EntryDateTime','entrydatetime','entryDate']),
             closeDate:   gs(t,['CloseDateTime','closedatetime','closeDate']),
             setupClass:  gs(t,['SetupClass','setupclass','setupClass']),
             candle:      gs(t,['Candle','candle']),
@@ -3943,7 +3942,7 @@ function showTradeConfirm(t, onConfirm){
     return row(label,val,valStyle);
   }
 
-  var entryTimeStr=t.entryDate||'';
+  var entryTimeStr=_parseEntryTime(t);
   var closeTimeStr='';
   if(t.closeDate){var d2=new Date(t.closeDate);if(!isNaN(d2))closeTimeStr=d2.toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});}
 
@@ -4082,6 +4081,27 @@ function updateOrderDisc(v){
   var el=document.getElementById('oDiscLabel');
   if(el) el.textContent=v;
 }
+function _parseEntryTime(t){
+  // Priority 1: already parsed clean time "HH:mm"
+  if(t.entryDate&&t.entryDate.match(/^\d{1,2}:\d{2}$/)) return t.entryDate;
+  // Priority 2: parse from entryDate if it contains datetime
+  if(t.entryDate){var _m=t.entryDate.match(/[T ]\s*(\d{1,2}:\d{2})/);if(_m) return _m[1];}
+  // Priority 3: parse from raw EntryDateTime (fallback when Apps Script not updated)
+  var raw=t.entryDateRaw||'';
+  if(raw){var _m=raw.match(/[T ]\s*(\d{1,2}:\d{2})/);if(_m) return _m[1];}
+  return '';
+}
+function _fmtEntryTime(t){
+  var timeStr=_parseEntryTime(t);
+  if(!timeStr) return '-';
+  // Try to get date part for small display below time
+  var raw=t.entryDateRaw||t.entryDate||'';
+  var dateShort='';
+  var dp=(raw||'').substring(0,10).split('-');
+  if(dp.length===3&&dp[0].length===4) dateShort=dp[2]+'/'+dp[1];
+  return '<span style="font-size:11px;font-weight:600;font-family:var(--font-mono);">'+timeStr+'</span>'
+    +(dateShort?'<br><span style="font-size:8px;color:var(--text-muted);">'+dateShort+'</span>':'');
+}
 function renderTT(){
   var em=document.getElementById('emptyTr'),tb=document.getElementById('trTable'),pr=document.getElementById('dayPnlRow');
   if(!S.mTrades.length){em.style.display='block';tb.style.display='none';if(pr)pr.style.display='none';return;}
@@ -4092,9 +4112,8 @@ function renderTT(){
     var p=parseFloat(t.pnl)||0;
     var resBadge=t.result==='Win'?'<span style="color:var(--green);font-size:10px;font-weight:600;">✓W</span>':t.result==='Loss'?'<span style="color:var(--red);font-size:10px;font-weight:600;">✗L</span>':'<span style="color:var(--amber);font-size:10px;">BE</span>';
     var imgCell=t.imgLink?'<span onclick="window.open(\''+t.imgLink+'\',\'_blank\')" style="font-size:12px;cursor:pointer;">🖼️</span>':'-';
-    var entryTimeStr=t.entryDate||'';
     var sessStr=t.sessions?(t.sessions.split(',').map(function(s){return s.trim();}).filter(Boolean).join(', ')):'';
-    return '<tr><td style="font-family:var(--font-mono);font-weight:500;white-space:nowrap;">'+t.asset+'</td><td><span class="side-badge '+t.side.toLowerCase()+'">'+t.side+'</span></td><td>'+t.lots+'</td><td style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);white-space:nowrap;">'+entryTimeStr+'</td><td style="font-size:10px;color:var(--text-secondary);white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="'+sessStr+'">'+sessStr+'</td><td style="font-family:var(--font-mono)">'+t.entry+'</td><td style="font-family:var(--font-mono)">'+(t.close||'-')+'</td><td class="'+(p>=0?'pnl-pos':'pnl-neg')+'">'+(p>=0?'+':'')+'$'+Math.abs(p).toFixed(2)+'</td><td>'+resBadge+'</td><td style="font-size:10px;color:var(--text-muted);white-space:nowrap;">'+(t.timeInPos||'-')+'</td><td style="font-size:10px;color:var(--text-secondary);max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="'+t.note+'">'+t.note+'</td><td>'+imgCell+'</td><td style="white-space:nowrap;"><button class="btn-del" onclick="editTr('+i+')" title="แก้ไข" style="color:var(--accent);margin-right:2px;">✎</button><button class="btn-del" onclick="moveTrDate('+i+')" title="ย้ายไปวันอื่น" style="color:var(--amber);margin-right:2px;">📅</button><button class="btn-del" onclick="delTr('+i+')">✕</button></td></tr>';
+    return '<tr><td style="font-family:var(--font-mono);font-weight:500;white-space:nowrap;">'+t.asset+'</td><td><span class="side-badge '+t.side.toLowerCase()+'">'+t.side+'</span></td><td>'+t.lots+'</td><td style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);white-space:nowrap;line-height:1.4;">'+_fmtEntryTime(t)+'</td><td style="font-size:10px;color:var(--text-secondary);white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="'+sessStr+'">'+sessStr+'</td><td style="font-family:var(--font-mono)">'+t.entry+'</td><td style="font-family:var(--font-mono)">'+(t.close||'-')+'</td><td class="'+(p>=0?'pnl-pos':'pnl-neg')+'">'+(p>=0?'+':'')+'$'+Math.abs(p).toFixed(2)+'</td><td>'+resBadge+'</td><td style="font-size:10px;color:var(--text-muted);white-space:nowrap;">'+(t.timeInPos||'-')+'</td><td style="font-size:10px;color:var(--text-secondary);max-width:80px;overflow:hidden;text-overflow:ellipsis;" title="'+t.note+'">'+t.note+'</td><td>'+imgCell+'</td><td style="white-space:nowrap;"><button class="btn-del" onclick="editTr('+i+')" title="แก้ไข" style="color:var(--accent);margin-right:2px;">✎</button><button class="btn-del" onclick="moveTrDate('+i+')" title="ย้ายไปวันอื่น" style="color:var(--amber);margin-right:2px;">📅</button><button class="btn-del" onclick="delTr('+i+')">✕</button></td></tr>';
   }).join('');
 }
 function delTr(i){if(_isReadOnly){showToast('🔒 โหมดดูเท่านั้น — ไม่สามารถแก้ไขได้','error');return;}
