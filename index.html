@@ -687,15 +687,24 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
       </div>
     </div>
 
-    <!-- Winrate Charts — 2 rows layout -->
+    <!-- Winrate Charts — dynamic rows layout -->
     <div id="dtChartsWrap" style="margin-bottom:14px;">
-      <div id="dtChartsRow" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;min-height:30px;"></div>
+      <div id="dtChartsRow" style="display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0;align-items:stretch;min-height:30px;"></div>
       <div id="dtChartsDivider" style="display:flex;align-items:center;gap:8px;padding:4px 0;margin:6px 0;user-select:none;">
         <div style="flex:1;height:1px;background:var(--border);"></div>
         <span style="font-size:9px;color:var(--text-muted);letter-spacing:.5px;white-space:nowrap;">── แถวที่ 2 ──</span>
         <div style="flex:1;height:1px;background:var(--border);"></div>
       </div>
-      <div id="dtChartsRow2" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;min-height:30px;"></div>
+      <div id="dtChartsRow2" style="display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0;align-items:stretch;min-height:30px;"></div>
+      <div id="dtChartsRow3Wrap" style="display:none;">
+        <div style="display:flex;align-items:center;gap:8px;padding:4px 0;margin:6px 0;user-select:none;">
+          <div style="flex:1;height:1px;background:var(--border);"></div>
+          <span style="font-size:9px;color:var(--text-muted);letter-spacing:.5px;white-space:nowrap;">── แถวที่ 3 ──</span>
+          <div style="flex:1;height:1px;background:var(--border);"></div>
+        </div>
+        <div id="dtChartsRow3" style="display:flex;flex-wrap:nowrap;overflow-x:auto;gap:0;align-items:stretch;min-height:30px;"></div>
+      </div>
+      <div id="dtChartsDropZone3" style="margin-top:8px;border:2px dashed var(--border);border-radius:var(--radius);padding:10px;text-align:center;font-size:10px;color:var(--text-muted);transition:all .2s;display:none;">+ ลากมาวางที่นี่เพื่อสร้างแถวที่ 3</div>
     </div>
 
     <!-- Table -->
@@ -7768,30 +7777,95 @@ function dtGetChartRows(){
   try{return JSON.parse(localStorage.getItem('dt_chart_rows')||'null');}catch(e){return null;}
 }
 function dtSaveChartRows(){
-  var r1=[],r2=[];
+  var r1=[],r2=[],r3=[];
   var el1=document.getElementById('dtChartsRow');
   var el2=document.getElementById('dtChartsRow2');
+  var el3=document.getElementById('dtChartsRow3');
   if(el1)el1.querySelectorAll('.bc-card').forEach(function(c){if(c.dataset.ckey)r1.push(c.dataset.ckey);});
   if(el2)el2.querySelectorAll('.bc-card').forEach(function(c){if(c.dataset.ckey)r2.push(c.dataset.ckey);});
-  try{localStorage.setItem('dt_chart_rows',JSON.stringify({r1:r1,r2:r2}));}catch(e){}
+  if(el3)el3.querySelectorAll('.bc-card').forEach(function(c){if(c.dataset.ckey)r3.push(c.dataset.ckey);});
+  try{localStorage.setItem('dt_chart_rows',JSON.stringify({r1:r1,r2:r2,r3:r3}));}catch(e){}
 }
 
 // ── Drag-and-drop: ลากข้ามแถวได้ ──
 function dtSetupChartDrag(rowEl){
   // no-op per-row; global setup done after both rows rendered
 }
+function dtSetupResizeHandles(){
+  ['dtChartsRow','dtChartsRow2','dtChartsRow3'].forEach(function(rowId){
+    var row=document.getElementById(rowId);
+    if(!row) return;
+    row.querySelectorAll('.bc-resize-handle').forEach(function(h){h.remove();});
+    var cards=Array.from(row.querySelectorAll(':scope > .bc-card'));
+    cards.forEach(function(card,i){
+      if(i===cards.length-1) return;
+      var handle=document.createElement('div');
+      handle.className='bc-resize-handle';
+      handle.style.cssText='width:10px;flex-shrink:0;cursor:col-resize;display:flex;align-items:stretch;justify-content:center;z-index:10;align-self:stretch;';
+      handle.innerHTML='<div style="width:3px;border-radius:2px;background:var(--border);transition:background .15s;align-self:stretch;"></div>';
+      handle.addEventListener('mouseenter',function(){handle.querySelector('div').style.background='var(--accent)';});
+      handle.addEventListener('mouseleave',function(){if(!handle._dragging)handle.querySelector('div').style.background='var(--border)';});
+      handle.addEventListener('mousedown',function(e){
+        e.preventDefault();
+        handle._dragging=true;
+        handle.querySelector('div').style.background='var(--accent)';
+        var leftCard=card;
+        var rightCard=handle.nextElementSibling;
+        while(rightCard&&rightCard.classList.contains('bc-resize-handle')) rightCard=rightCard.nextElementSibling;
+        if(!leftCard||!rightCard) return;
+        var startX=e.clientX;
+        var leftW=leftCard.getBoundingClientRect().width;
+        var rightW=rightCard.getBoundingClientRect().width;
+        var totalW=leftW+rightW;
+        var minW=120;
+        document.body.style.cursor='col-resize';
+        document.body.style.userSelect='none';
+        function onMove(ev){
+          var dx=ev.clientX-startX;
+          var newLeft=Math.max(minW,Math.min(totalW-minW,leftW+dx));
+          var newRight=totalW-newLeft;
+          leftCard.style.flexBasis=newLeft+'px';
+          leftCard.style.flexGrow='0';
+          rightCard.style.flexBasis=newRight+'px';
+          rightCard.style.flexGrow='0';
+        }
+        function onUp(){
+          handle._dragging=false;
+          handle.querySelector('div').style.background='var(--border)';
+          document.body.style.cursor='';
+          document.body.style.userSelect='';
+          document.removeEventListener('mousemove',onMove);
+          document.removeEventListener('mouseup',onUp);
+        }
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+      });
+      card.after(handle);
+    });
+  });
+}
+
+function dtCheckRow3Empty(){
+  var cr3=document.getElementById('dtChartsRow3');
+  var cr3Wrap=document.getElementById('dtChartsRow3Wrap');
+  if(!cr3||!cr3Wrap) return;
+  var hasCards=cr3.querySelectorAll('.bc-card').length>0;
+  cr3Wrap.style.display=hasCards?'block':'none';
+}
+
 function dtSetupAllChartDrag(){
   var cr1=document.getElementById('dtChartsRow');
   var cr2=document.getElementById('dtChartsRow2');
   if(!cr1||!cr2) return;
   var dragging=null;
 
-  // make both rows drop targets
-  [cr1,cr2].forEach(function(cr){
+  // helper: setup a row as drop target
+  function setupRowDrop(cr){
+    if(cr._dropSetup) return;
+    cr._dropSetup=true;
     cr.addEventListener('dragover',function(e){
       e.preventDefault();
       e.dataTransfer.dropEffect='move';
-      // highlight row
       cr.style.outline='1px dashed var(--accent)';
     });
     cr.addEventListener('dragleave',function(e){
@@ -7802,7 +7876,6 @@ function dtSetupAllChartDrag(){
       cr.style.outline='';
       document.querySelectorAll('.bc-card').forEach(function(c){c.style.outline='';c.style.boxShadow='';});
       if(!dragging) return;
-      // find card under cursor
       var target=null;
       cr.querySelectorAll('.bc-card').forEach(function(c){
         if(c===dragging) return;
@@ -7815,17 +7888,62 @@ function dtSetupAllChartDrag(){
       } else {
         cr.appendChild(dragging);
       }
+      dtCheckRow3Empty();
       dtSaveChartRows();
+      dtSetupResizeHandles();
     });
-  });
+  }
+
+  // Drop zone below row2 → creates row3
+  var dz3=document.getElementById('dtChartsDropZone3');
+  if(dz3&&!dz3._dropSetup){
+    dz3._dropSetup=true;
+    dz3.addEventListener('dragover',function(e){
+      e.preventDefault();
+      dz3.style.borderColor='var(--accent)';
+      dz3.style.color='var(--accent)';
+      dz3.style.background='var(--accent-dim)';
+    });
+    dz3.addEventListener('dragleave',function(){
+      dz3.style.borderColor='var(--border)';
+      dz3.style.color='var(--text-muted)';
+      dz3.style.background='';
+    });
+    dz3.addEventListener('drop',function(e){
+      e.preventDefault();
+      dz3.style.borderColor='var(--border)';
+      dz3.style.color='var(--text-muted)';
+      dz3.style.background='';
+      if(!dragging) return;
+      var cr3=document.getElementById('dtChartsRow3');
+      var cr3Wrap=document.getElementById('dtChartsRow3Wrap');
+      if(!cr3||!cr3Wrap) return;
+      cr3.style.display='flex';cr3.style.flexWrap='nowrap';cr3.style.overflowX='auto';cr3.style.gap='0';cr3.style.alignItems='stretch';
+      cr3Wrap.style.display='block';
+      cr3.appendChild(dragging);
+      setupRowDrop(cr3);
+      dtSaveChartRows();
+      dtSetupResizeHandles();
+    });
+  }
+
+  setupRowDrop(cr1);
+  setupRowDrop(cr2);
+  // If row3 already has cards, setup its drop too
+  var cr3=document.getElementById('dtChartsRow3');
+  if(cr3&&cr3.querySelectorAll('.bc-card').length>0) setupRowDrop(cr3);
 
   document.querySelectorAll('.bc-card').forEach(function(card){
     card.addEventListener('mousedown',function(e){
+      if(e.target.closest('.bc-resize-handle')) return;
       card.draggable=!!e.target.closest('.bc-drag-handle');
     });
     card.addEventListener('dragstart',function(e){
       if(!card.draggable) return;
       dragging=card;
+      // show drop zone
+      var dz=document.getElementById('dtChartsDropZone3');
+      if(dz) dz.style.display='block';
       setTimeout(function(){card.style.opacity='0.4';},0);
       e.dataTransfer.effectAllowed='move';
       e.dataTransfer.setData('text/plain',card.dataset.ckey||'');
@@ -7835,8 +7953,16 @@ function dtSetupAllChartDrag(){
       card.draggable=false;
       dragging=null;
       cr1.style.outline='';cr2.style.outline='';
+      var cr3b=document.getElementById('dtChartsRow3');
+      if(cr3b) cr3b.style.outline='';
+      // hide drop zone unless row3 is empty
+      var dz=document.getElementById('dtChartsDropZone3');
+      var cr3c=document.getElementById('dtChartsRow3');
+      if(dz) dz.style.display=(cr3c&&cr3c.querySelectorAll('.bc-card').length>0)?'none':'none';
       document.querySelectorAll('.bc-card').forEach(function(c){c.style.outline='';c.style.boxShadow='';});
+      dtCheckRow3Empty();
       dtSaveChartRows();
+      dtSetupResizeHandles();
     });
     card.addEventListener('dragover',function(e){
       e.preventDefault();
@@ -7878,7 +8004,7 @@ function dtRenderCharts(rows){
     var barMaxW=isDuration?Math.max(10,Math.min(34,Math.floor(560/keys.length)))+'px':'34px';
     var bars=keys.map(function(k,idx){
       var g=groups[k];var pnl=g.pnl;var cnt=g.count;
-      var h=Math.max(Math.abs(pnl)/maxAbs*90,3);
+      var h=Math.max(Math.abs(pnl)/maxAbs*80,3);
       var col=barColor(idx,pnl,colorFn,k);
       var wr=cnt?Math.round((g.wins||0)/cnt*100):0;
       var pct=totalPnl?Math.round(Math.abs(pnl)/totalPnl*100):0;
@@ -7898,10 +8024,18 @@ function dtRenderCharts(rows){
       +'var card=el.closest(\'.bc-card\');'
       +'var cr1=document.getElementById(\'dtChartsRow\');'
       +'var cr2=document.getElementById(\'dtChartsRow2\');'
+      +'var cr3=document.getElementById(\'dtChartsRow3\');'
+      +'var cr3Wrap=document.getElementById(\'dtChartsRow3Wrap\');'
       +'if(!cr1||!cr2)return;'
-      +'var inRow1=cr1.contains(card);'
-      +'if(inRow1){cr2.appendChild(card);}else{cr1.appendChild(card);}'
-      +'dtSaveChartRows();'
+      +'var inRow1=cr1.contains(card);var inRow2=cr2.contains(card);'
+      +'if(inRow1){cr2.appendChild(card);}'
+      +'else if(inRow2){'
+      +'  if(cr3&&cr3Wrap){cr3.style.display=\'flex\';cr3.style.flexWrap=\'nowrap\';cr3.style.overflowX=\'auto\';cr3.style.alignItems=\'flex-start\';cr3Wrap.style.display=\'block\';cr3.appendChild(card);}else{cr1.appendChild(card);}'
+      +'} else {'
+      +'  cr1.appendChild(card);'
+      +'  if(cr3&&cr3.querySelectorAll(\'.bc-card\').length===0&&cr3Wrap)cr3Wrap.style.display=\'none\';'
+      +'}'
+      +'dtSaveChartRows();dtSetupResizeHandles();'
       +'})(this)" style="font-size:11px;color:var(--text-muted);flex-shrink:0;cursor:pointer;padding:0 2px;line-height:1;transition:color .15s;" onmouseover="this.style.color=\'var(--teal)\'" onmouseout="this.style.color=\'var(--text-muted)\'">⇅</span>';
     return '<div id="'+cid+'" class="bc-card" data-ckey="'+ckey+'" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:opacity .15s,box-shadow .15s,flex-basis .25s,min-width .25s;'+cardFlex+'box-sizing:border-box;">'
       +'<div style="display:flex;align-items:center;padding:7px 10px;user-select:none;white-space:nowrap;gap:4px;">'
@@ -7911,7 +8045,7 @@ function dtRenderCharts(rows){
       +'<span class="bc-chev" style="font-size:9px;color:var(--text-secondary);flex-shrink:0;cursor:pointer;" onclick="(function(el){var card=el.closest(\'.bc-card\');var body=card.querySelector(\'.bc-body\');var lbl=card.querySelector(\'.bc-lbl\');var chev=card.querySelector(\'.bc-chev\');var drag=card.querySelector(\'.bc-drag-handle\');var mv=card.querySelector(\'.bc-move-row\');var isOpen=body.style.display!==\'none\';body.style.display=isOpen?\'none\':\'flex\';lbl.style.display=isOpen?\'flex\':\'none\';chev.style.display=isOpen?\'none\':\'inline\';drag.style.display=isOpen?\'none\':\'inline\';if(mv)mv.style.display=isOpen?\'none\':\'inline\';card.style.flexBasis=isOpen?\'36px\':\'260px\';card.style.flexGrow=isOpen?\'0\':\'1\';card.style.minWidth=isOpen?\'36px\':\'260px\';})(this)">◀</span>'
       +'</div>'
       +'<div class="bc-lbl" style="display:none;writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);padding:10px 8px;font-size:10px;font-weight:700;color:var(--text-secondary);letter-spacing:.4px;text-transform:uppercase;align-items:center;justify-content:center;min-height:80px;cursor:pointer;" onclick="(function(el){var card=el.closest(\'.bc-card\');var body=card.querySelector(\'.bc-body\');var lbl=card.querySelector(\'.bc-lbl\');var chev=card.querySelector(\'.bc-chev\');var drag=card.querySelector(\'.bc-drag-handle\');var mv=card.querySelector(\'.bc-move-row\');body.style.display=\'flex\';lbl.style.display=\'none\';chev.style.display=\'inline\';drag.style.display=\'inline\';if(mv)mv.style.display=\'inline\';card.style.flexBasis=\'260px\';card.style.flexGrow=\'1\';card.style.minWidth=\'260px\';})(this)">'+title+'</div>'
-      +'<div class="bc-body" style="display:flex;gap:'+(isDuration?'2px':'6px')+';align-items:flex-end;min-height:90px;overflow:hidden;padding:6px 8px 10px;">'+bars+'</div>'
+      +'<div class="bc-body" style="display:flex;gap:'+(isDuration?'2px':'6px')+';align-items:flex-end;height:110px;min-height:110px;overflow:hidden;padding:6px 8px 10px;">'+bars+'</div>'
       +'</div>';
   }
 
@@ -8014,13 +8148,14 @@ function dtRenderCharts(rows){
 
   // Apply saved row assignment
   var savedRows=dtGetChartRows();
-  var r1Keys=[], r2Keys=[];
+  var r1Keys=[], r2Keys=[], r3Keys=[];
   if(savedRows&&savedRows.r1&&savedRows.r2){
     r1Keys=savedRows.r1.filter(function(k){return chartMap[k];});
     r2Keys=savedRows.r2.filter(function(k){return chartMap[k];});
+    r3Keys=(savedRows.r3||[]).filter(function(k){return chartMap[k];});
     // Any new charts not in saved rows → append to row1
     ALL_CHARTS.forEach(function(c){
-      if(chartMap[c.key]&&r1Keys.indexOf(c.key)<0&&r2Keys.indexOf(c.key)<0) r1Keys.push(c.key);
+      if(chartMap[c.key]&&r1Keys.indexOf(c.key)<0&&r2Keys.indexOf(c.key)<0&&r3Keys.indexOf(c.key)<0) r1Keys.push(c.key);
     });
   } else {
     // Default: split roughly half-half
@@ -8030,15 +8165,29 @@ function dtRenderCharts(rows){
     r2Keys=allKeys.slice(mid);
   }
 
-  cr.style.display='flex';cr.style.flexWrap='wrap';cr.style.alignItems='flex-start';
+  cr.style.display='flex';cr.style.flexWrap='nowrap';cr.style.overflowX='auto';cr.style.gap='0';cr.style.alignItems='stretch';
   cr.innerHTML=r1Keys.map(function(k){return chartMap[k];}).join('');
   if(cr2){
-    cr2.style.display='flex';cr2.style.flexWrap='wrap';cr2.style.alignItems='flex-start';
+    cr2.style.display='flex';cr2.style.flexWrap='nowrap';cr2.style.overflowX='auto';cr2.style.gap='0';cr2.style.alignItems='stretch';
     cr2.innerHTML=r2Keys.map(function(k){return chartMap[k];}).join('');
+  }
+  // Row 3 — only show if there are cards saved there
+  var cr3=document.getElementById('dtChartsRow3');
+  var cr3Wrap=document.getElementById('dtChartsRow3Wrap');
+  if(cr3&&cr3Wrap){
+    if(r3Keys.length>0){
+      cr3.style.display='flex';cr3.style.flexWrap='nowrap';cr3.style.overflowX='auto';cr3.style.gap='0';cr3.style.alignItems='stretch';
+      cr3.innerHTML=r3Keys.map(function(k){return chartMap[k];}).join('');
+      cr3Wrap.style.display='block';
+    } else {
+      cr3.innerHTML='';
+      cr3Wrap.style.display='none';
+    }
   }
 
   // Activate cross-row drag-and-drop
   dtSetupAllChartDrag();
+  dtSetupResizeHandles();
 }
 
 function dtExportCSV(){
