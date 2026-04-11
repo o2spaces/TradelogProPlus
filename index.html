@@ -1396,14 +1396,16 @@ function loadAll(){
     function _cv(v){
       if(v===null||v===undefined) return '';
       if(v instanceof Date){
-        var _y=v.getFullYear();
-        // Time-only cell in Google Sheets uses epoch 1899-12-30 as base date
-        if(_y<=1900) return Utilities.formatDate(v,'Asia/Bangkok','HH:mm');
-        // Full datetime: include time only if non-midnight
-        // Use Utilities.formatDate for midnight check (timezone-safe, avoids getHours() UTC mismatch)
-        var _hm=Utilities.formatDate(v,'Asia/Bangkok','HH:mm');
-        if(_hm==='00:00') return Utilities.formatDate(v,'Asia/Bangkok','yyyy-MM-dd');
-        return Utilities.formatDate(v,'Asia/Bangkok','yyyy-MM-dd HH:mm');
+        try{
+          // Always format with full datetime, then decide: if time=00:00 assume date-only cell
+          var _fmt=Utilities.formatDate(v,'Asia/Bangkok','yyyy-MM-dd HH:mm');
+          // Date-only cells (no time) end with 00:00 → return date only
+          if(_fmt.slice(-5)==='00:00') return _fmt.slice(0,10);
+          // Time-only cells (Google epoch 1899-12-30) begin with 1899 → return time only
+          if(_fmt.slice(0,4)==='1899') return _fmt.slice(11);
+          // Full datetime → return as-is
+          return _fmt;
+        }catch(ex){ return String(v); }
       }
       if(typeof v==='number') return v;
       if(typeof v==='boolean') return v?'true':'false';
@@ -2376,7 +2378,7 @@ function syncFromSheet(onDone){
           //   EntryDateTime,CloseDateTime,SetupClass,Candle,Code,Mode,Timeframe,
           //   Trend,Zone,Confirm,Sessions,Emotion,Discipline,Note,ImageLink,UpdatedAt
           var port = gs(t,['Portfolio','portfolio']) || 'default';
-          var date = gs(t,['Date','date']) || '';
+          var date = (gs(t,['Date','date'])||'').replace(/\s.*$/,'').trim(); // strip time part if _cv included it
           if(!date) return;
           if(!byPort[port]) byPort[port] = {};
           if(!byPort[port][date]) byPort[port][date] = [];
@@ -2405,22 +2407,20 @@ function syncFromSheet(onDone){
             timeInPos:   gs(t,['TimeInPos','timeinpos','timeInPos']),
             entryDate: (function(raw){
               if(!raw) return '';
-              // Date object — extract time portion as string first to avoid timezone issues
-              var s=(raw instanceof Date)?String(raw):String(raw);
               if(raw instanceof Date){
-                // Try to extract HH:mm from ISO string (UTC) then convert via offset, or just use toLocaleTimeString
-                // Simplest safe approach: format manually
-                var _iso=raw.toISOString(); // always UTC "2026-04-01T17:52:00.000Z"
+                var _iso=raw.toISOString();
                 var _utcH=parseInt(_iso.substr(11,2)),_utcM=parseInt(_iso.substr(14,2));
-                // Add UTC+7 offset
-                var _totMin=_utcH*60+_utcM+420; // +7h
-                _totMin=_totMin%(24*60); if(_totMin<0)_totMin+=1440;
-                var _h=Math.floor(_totMin/60),_m=_totMin%60;
+                var _tot=_utcH*60+_utcM+420; _tot=_tot%(24*60); if(_tot<0)_tot+=1440;
+                var _h=Math.floor(_tot/60),_m=_tot%60;
                 return (_h<10?'0':'')+_h+':'+(_m<10?'0':'')+_m;
               }
-              s=String(raw);
-              var m=s.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/)||s.match(/^(\d{1,2}:\d{2})(?::\d{2})?$/);
-              return m?m[1]:'';
+              var s=String(raw);
+              // time-only "HH:mm"
+              if(/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) return s.substr(0,5);
+              // datetime "yyyy-MM-dd HH:mm" or "...THH:mm"
+              var m=s.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/);
+              if(m) return m[1];
+              return '';
             })(gv(t,['EntryDateTime','entrydatetime','entryDate'])),
             closeDate:   gs(t,['CloseDateTime','closedatetime','closeDate']),
             setupClass:  gs(t,['SetupClass','setupclass','setupClass']),
