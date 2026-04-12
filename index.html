@@ -1106,11 +1106,9 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
             <div class="form-field"><label>P&L ($) <span style="font-size:9px;color:var(--amber)">(auto)</span></label><input class="form-input" id="oPnl" type="number" step="any" placeholder="0.00" oninput="updateResult()"></div>
           </div>
           <div class="fg2">
-            <div class="form-field"><label>Result</label>
+            <div class="form-field"><label style="display:flex;justify-content:space-between;align-items:center;">Result <button onclick="openDropEdit('oResultSel','Result')" style="font-size:9px;background:none;border:none;color:var(--accent);cursor:pointer;padding:0;">✎ Edit</button></label>
               <select class="form-input" id="oResultSel" onchange="setResult(this.value)" style="font-family:var(--font-main);">
                 <option value="BE">— BE (Break Even)</option>
-                <option value="Win">✓ Win</option>
-                <option value="Loss">✗ Loss</option>
               </select>
             </div>
             <div class="form-field"><label>Max RR</label><input class="form-input" id="oMaxRR" type="number" step="0.1" placeholder="e.g. 3.0"></div>
@@ -1128,20 +1126,14 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
             </div>
           </div>
           <div class="fg2">
-            <div class="form-field"><label>Candle Pattern</label>
+            <div class="form-field"><label style="display:flex;justify-content:space-between;align-items:center;">Candle Pattern <button onclick="openDropEdit('oCandle','Candle Pattern')" style="font-size:9px;background:none;border:none;color:var(--accent);cursor:pointer;padding:0;">✎ Edit</button></label>
               <select class="form-input" id="oCandle" style="font-family:var(--font-main);">
                 <option value="">— Select</option>
-                <option value="RBR">RBR</option>
-                <option value="RBD">RBD</option>
-                <option value="DBD">DBD</option>
-                <option value="DBR">DBR</option>
               </select>
             </div>
-            <div class="form-field"><label>Code</label>
+            <div class="form-field"><label style="display:flex;justify-content:space-between;align-items:center;">Code <button onclick="openDropEdit('oCode','Code')" style="font-size:9px;background:none;border:none;color:var(--accent);cursor:pointer;padding:0;">✎ Edit</button></label>
               <select class="form-input" id="oCode" style="font-family:var(--font-main);">
                 <option value="">— Select</option>
-                <option value="Code1">Code1</option>
-                <option value="Code2">Code2</option>
               </select>
             </div>
           </div>
@@ -3091,6 +3083,9 @@ var DROP_DEFAULTS = {
   rConfirm: ['M1','M5','M15','M30','H1','H4','SMC','Price Action','FIBO'],
   oAsset:   ['MNQ1','NQ1','MGC1','GC1','XAU/USD','EURUSD','GBPUSD','USDJPY','BTCUSD'],
   oSetupClass: ['A+','A','B','C'],
+  oCandle:  ['RBD','RBR','DBR','DBD'],
+  oCode:    ['Code1','Code2'],
+  oResultSel: ['BE','Win','Loss','Miss'],
   oTrend:   ['BMS+FVG','Bos1','Bos1-ย้าย','Bos2','FVG'],
   oZone:    ['Demand','Supply','FVG','iFVG','IDM','OB','POI'],
   oConfirm: ['M1','M5','M15','M30','H1','H4','SMC','Price Action','FIBO'],
@@ -3180,6 +3175,17 @@ function loadDropOptions(){
     if(!sel) return;
     // Filter dropdowns need "All" as first option
     var isFilter = (id==='dtfSession'||id==='dtfCode'||id==='dtfMode'||id==='dtfModel'||id==='dtfResult'||id==='dtfAsset'||id==='dtfDay'||id==='dtfClass');
+    // oResultSel has a special placeholder with value="BE" — clear ALL and rebuild
+    if(id==='oResultSel'){
+      sel.innerHTML='';
+      opts.forEach(function(v){
+        var o=document.createElement('option');
+        o.value=v;
+        o.textContent = v==='BE' ? '— BE (Break Even)' : v==='Win' ? '✓ Win' : v==='Loss' ? '✗ Loss' : v;
+        sel.appendChild(o);
+      });
+      return;
+    }
     Array.from(sel.options).forEach(function(o){ if(o.value!=='') o.remove(); });
     if(isFilter && sel.options.length===0){
       var allOpt=document.createElement('option'); allOpt.value=''; allOpt.textContent='All'; sel.appendChild(allOpt);
@@ -3233,6 +3239,19 @@ function saveDropOptions(selectId){
       Array.from(otherSel.options).forEach(function(o){if(o.value!=='')o.remove();});
       opts.forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v;otherSel.appendChild(o);});
       otherSel.value=curV;
+    }
+  }
+  // Sync oCandle <-> dtCandle and oCode <-> dtCode bidirectionally
+  var orderDataSync = {oCandle:'dtCandle', dtCandle:'oCandle', oCode:'dtCode', dtCode:'oCode', oResultSel:'dtResult', dtResult:'oResultSel'};
+  if(orderDataSync[selectId]){
+    var syncId=orderDataSync[selectId];
+    localStorage.setItem('tj_drop_'+syncId, JSON.stringify(opts));
+    var syncSel=document.getElementById(syncId);
+    if(syncSel){
+      var curSV=syncSel.value;
+      Array.from(syncSel.options).forEach(function(o){if(o.value!=='')o.remove();});
+      opts.forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v;syncSel.appendChild(o);});
+      syncSel.value=curSV;
     }
   }
   // Sync dtSetupClass <-> dtfClass filter
