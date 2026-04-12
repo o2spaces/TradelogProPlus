@@ -6912,29 +6912,59 @@ async function dtDoScan(){
   var btn=document.getElementById('dtScanBtn');
   if(btn){btn.disabled=true;btn.textContent='⏳ กำลัง Scan...';}
   var res=document.getElementById('dtScanResult');
-  if(res){res.style.display='block';res.textContent='กำลังวิเคราะห์ด้วย '+S.prov.toUpperCase()+'...';}
+  if(res){res.style.display='block';res.innerHTML='<span style="color:var(--text-muted);">🔍 กำลังวิเคราะห์ด้วย '+S.prov.toUpperCase()+'...</span>';}
   var prompt='อ่านข้อมูล trade จากรูปนี้ แล้วตอบเป็น JSON แบบนี้: {"asset":"","side":"Long","entry":0,"tp":0,"sl":0,"pnl":0,"result":"","entryTime":"HH:MM","closeTime":"HH:MM"} ถ้าไม่เห็นค่าไหนให้ใส่ null';
   try{
     var text=await callVision(prompt, DT._upB64);
     var match=text.match(/\{[\s\S]*\}/);
     if(match){
       var d=JSON.parse(match[0]);
+      var filled=[];
+      // Asset
       if(d.asset&&document.getElementById('dtAsset')){
         var sel=document.getElementById('dtAsset');
-        for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===d.asset)sel.selectedIndex=i;}
+        var raw=(d.asset+'').replace('!','').trim().toUpperCase();
+        if(!Array.from(sel.options).find(function(o){return o.value===raw;})){
+          var opt=document.createElement('option');opt.value=raw;opt.text=raw;sel.appendChild(opt);
+        }
+        sel.value=raw;
+        filled.push({k:'Asset',v:raw});
       }
-      if(d.side) dtSetSide(d.side);
-      if(d.entry) document.getElementById('dtEntry').value=d.entry;
-      if(d.tp) document.getElementById('dtTP').value=d.tp;
-      if(d.sl) document.getElementById('dtSL2').value=d.sl;
-      if(d.pnl) document.getElementById('dtPnl').value=d.pnl;
-      if(d.result) document.getElementById('dtResult').value=d.result;
+      // Side
+      if(d.side){
+        var isLong=(d.side.toLowerCase()==='long'||d.side.toLowerCase()==='buy');
+        dtSetSide(isLong?'Long':'Short');
+        filled.push({k:'Side',v:isLong?'Long':'Short'});
+      }
+      // Entry
+      if(d.entry!=null&&d.entry!==''){var ev=parseFloat(d.entry);if(!isNaN(ev)){document.getElementById('dtEntry').value=ev;filled.push({k:'Entry',v:ev});}}
+      // TP
+      if(d.tp!=null&&d.tp!==''){var tv=parseFloat(d.tp);if(!isNaN(tv)){document.getElementById('dtTP').value=tv;filled.push({k:'TP',v:tv});}}
+      // SL
+      if(d.sl!=null&&d.sl!==''){var sv=parseFloat(d.sl);if(!isNaN(sv)){document.getElementById('dtSL2').value=sv;filled.push({k:'SL',v:sv});}}
+      // P&L
+      if(d.pnl!=null&&d.pnl!==''){var pv2=parseFloat(d.pnl);if(!isNaN(pv2)){document.getElementById('dtPnl').value=pv2;filled.push({k:'P&L',v:pv2});}}
+      // Result
+      if(d.result&&d.result!==''){var rSel=document.getElementById('dtResult');if(rSel){rSel.value=d.result;filled.push({k:'Result',v:d.result});}}
+      // Entry/Close Time
+      if(d.entryTime&&d.entryTime!=='') filled.push({k:'Entry Time',v:d.entryTime});
+      if(d.closeTime&&d.closeTime!=='') filled.push({k:'Close Time',v:d.closeTime});
       dtCalcAll();
-      if(res)res.innerHTML='<span style="color:var(--green);">✓ Scan สำเร็จ — ตรวจสอบค่าที่กรอกด้านล่าง</span>';
+      // Build pill display
+      var pills=filled.map(function(f){
+        return '<span style="display:inline-flex;align-items:center;gap:3px;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:2px 8px;font-size:10px;white-space:nowrap;">'
+          +'<span style="color:var(--text-muted);">'+f.k+'</span>'
+          +'<span style="color:var(--accent);font-family:var(--font-mono);font-weight:600;">'+f.v+'</span>'
+          +'</span>';
+      }).join('');
+      if(res) res.innerHTML=
+        '<div style="margin-bottom:7px;font-size:11px;">✅ <strong>Scan สำเร็จ!</strong> กรอก <strong style="color:var(--green);">'+filled.length+'</strong> ช่อง</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:4px;line-height:1.8;">'+pills+'</div>';
+      showToast('✅ AI สแกน '+filled.length+' ช่องสำเร็จ','success');
     } else {
-      if(res)res.textContent='ไม่พบข้อมูล trade ในรูป: '+text.substring(0,100);
+      if(res) res.innerHTML='<span style="color:var(--amber);">⚠ ไม่พบข้อมูล trade ในรูป</span>';
     }
-  }catch(e){if(res)res.textContent='Error: '+e.message;}
+  }catch(e){if(res) res.innerHTML='<span style="color:var(--red);">❌ Error: '+e.message+'</span>';}
   if(btn){btn.disabled=false;btn.textContent='🤖 Scan with AI';}
 }
 
