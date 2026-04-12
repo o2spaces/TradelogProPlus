@@ -4105,13 +4105,7 @@ function _parseEntryTime(t){
 function _fmtEntryTime(t){
   var timeStr=_parseEntryTime(t);
   if(!timeStr) return '-';
-  // Try to get date part for small display below time
-  var raw=t.entryDateRaw||t.entryDate||'';
-  var dateShort='';
-  var dp=(raw||'').substring(0,10).split('-');
-  if(dp.length===3&&dp[0].length===4) dateShort=dp[2]+'/'+dp[1];
-  return '<span style="font-size:11px;font-weight:600;font-family:var(--font-mono);">'+timeStr+'</span>'
-    +(dateShort?'<br><span style="font-size:8px;color:var(--text-muted);">'+dateShort+'</span>':'');
+  return '<span style="font-size:11px;font-weight:600;font-family:var(--font-mono);">'+timeStr+'</span>';
 }
 function renderTT(){
   var em=document.getElementById('emptyTr'),tb=document.getElementById('trTable'),pr=document.getElementById('dayPnlRow');
@@ -7479,10 +7473,8 @@ function dtRender(){
         // Extract date part from entryDateRaw or entryDate for small display
         var _raw=t.entryDateRaw||t.entryDate||'';
         var _dp=(_raw||'').substring(0,10).split('-');
-        var _ds=_dp.length===3&&_dp[0].length===4?_dp[2]+'/'+_dp[1]:'';
-        return '<td style="padding:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);line-height:1.3;">'
+        return '<td style="padding:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);">'
           +'<span style="font-size:11px;font-weight:600;">'+_et+'</span>'
-          +(_ds?'<br><span style="font-size:8px;color:var(--text-muted);">'+_ds+'</span>':'')
           +'</td>';
       })()
       +'<td style="padding:6px;font-size:10px;color:var(--text-muted);">'+(t.setupDuration||'-')+'</td>'
@@ -8392,13 +8384,17 @@ function dtRenderCharts(rows){
     return ordered;
   }
 
-  function groupByEntryHour(){
+  function groupByEntryTime(){
     var g={};
     rows.forEach(function(t){
-      var et=t.entryTime||'';var m=et.match(/(\d+):/);
+      // try entryTime first (DataTrades), then entryDate/entryDateRaw (Portfolio)
+      var et=t.entryTime||'';
+      if(!et&&t.entryDate){var _m=String(t.entryDate).match(/(\d{1,2}):\d{2}/);if(_m)et=_m[0];}
+      if(!et&&t.entryDateRaw){var _m=String(t.entryDateRaw).match(/[T ]\s*(\d{1,2}:\d{2})/);if(_m)et=_m[1];}
+      var m=et.match(/(\d+):/);
       var hr=m?parseInt(m[1]):null;
       if(hr===null) return;
-      var key=hr+'h';
+      var key=(hr<10?'0':'')+hr+':00';
       if(!g[key]) g[key]={pnl:0,count:0,wins:0};
       g[key].pnl+=parseFloat(t.pnl)||0;
       g[key].count++;
@@ -8429,40 +8425,46 @@ function dtRenderCharts(rows){
     {key:'Day',       fn:function(){return groupByDay();},              title:'📅 Day'},
     {key:'Session',   fn:function(){return groupBy('session');},        title:'🕐 Session',    colorFn:function(k){return getSessionColor(k);}},
     {key:'Asset',     fn:function(){return groupBy('asset');},          title:'💱 Asset'},
-    {key:'EntryHour', fn:function(){return groupByEntryHour();},        title:'📈 Entry Hour'},
-    {key:'Duration',  fn:function(){
-      // group duration into 3-minute buckets
-      var g={};
-      rows.forEach(function(t){
-        var raw=t.setupDuration||'-';
-        var totalMin=0;
-        var mM=raw.match(/(\d+)\s*m/);var mS=raw.match(/(\d+)\s*s/);
-        if(mM) totalMin+=parseInt(mM[1]);
-        if(mS) totalMin+=Math.round(parseInt(mS[1])/60);
-        var k;
-        if(mM||mS){
-          var bucket=Math.floor(totalMin/3)*3;
-          k=bucket+'-'+(bucket+2)+'m';
-        } else {
-          k=raw;
-        }
-        if(!g[k])g[k]={pnl:0,count:0,wins:0,_sort:mM||mS?Math.floor(totalMin/3)*3:9999};
-        g[k].pnl+=parseFloat(t.pnl)||0;g[k].count++;
-        if(parseFloat(t.pnl)>0)g[k].wins++;
-      });
-      // sort by bucket start minute
-      var sorted={};
-      Object.keys(g).sort(function(a,b){return (g[a]._sort||0)-(g[b]._sort||0);}).forEach(function(k){sorted[k]=g[k];});
-      return sorted;
-    }, title:'⏱ Setup Dur', isDuration:true},
+    {key:'EntryTime', fn:function(){return groupByEntryTime();},        title:'⏰ Entry Time'},
+    {key:'Zone',      fn:function(){return groupBy('zone');},           title:'📦 Zone'},
     {key:'Mode',      fn:function(){return groupBy('mode');},           title:'🎭 Mode'},
     {key:'Code',      fn:function(){return groupBy('code');},           title:'🔑 Code'},
     {key:'TF',        fn:function(){return groupBy('tf');},             title:'📐 TF'},
     {key:'Class',     fn:function(){return groupBy('setupClass');},     title:'🏆 Class'},
     {key:'Candle',    fn:function(){return groupBy('candle');},         title:'🕯 Candle'},
-    {key:'Zone',      fn:function(){return groupBy('zone');},           title:'📦 Zone'},
     {key:'Confirm',   fn:function(){return groupBy('confirm');},        title:'✅ Confirm'},
-    {key:'SetupDur',  fn:function(){return groupBy('setupDuration');},  title:'⏱ Setup Dur'},
+    {key:'SetupDur',  fn:function(){
+      // Parse setupDuration string to total minutes
+      function parseMins(v){
+        if(!v) return null;
+        v=String(v).trim();
+        // pure number => minutes
+        if(/^\d+(\.\d+)?$/.test(v)) return parseFloat(v);
+        var total=0;
+        var h=v.match(/(\d+)\s*h/i); if(h) total+=parseInt(h[1])*60;
+        var m=v.match(/(\d+)\s*m/i); if(m) total+=parseInt(m[1]);
+        var s=v.match(/(\d+)\s*s/i); if(s) total+=parseInt(s[1])/60;
+        return total||null;
+      }
+      var BUCKET=3; // minutes per bucket
+      var g={};
+      rows.forEach(function(t){
+        var mins=parseMins(t.setupDuration);
+        if(mins===null){ var k='-'; if(!g[k])g[k]={pnl:0,count:0,wins:0}; g[k].pnl+=parseFloat(t.pnl)||0; g[k].count++; if(parseFloat(t.pnl)>0)g[k].wins++; return; }
+        var lo=Math.floor(mins/BUCKET)*BUCKET;
+        var hi=lo+BUCKET-1;
+        var k=lo+'-'+hi+'m';
+        if(!g[k]) g[k]={pnl:0,count:0,wins:0,_lo:lo};
+        g[k].pnl+=parseFloat(t.pnl)||0;
+        g[k].count++;
+        if(parseFloat(t.pnl)>0) g[k].wins++;
+      });
+      // Sort by bucket start
+      var sorted={};
+      Object.keys(g).filter(function(k){return k!=='-';}).sort(function(a,b){return g[a]._lo-g[b]._lo;}).forEach(function(k){sorted[k]=g[k];});
+      if(g['-']) sorted['-']=g['-'];
+      return sorted;
+    },  title:'⏱ Setup Dur', isDuration:true},
   ];
 
   // Build all chart HTML
@@ -8475,6 +8477,19 @@ function dtRenderCharts(rows){
   // Apply saved row assignment
   var savedRows=dtGetChartRows();
   var r1Keys=[], r2Keys=[], r3Keys=[];
+  // Migrate old key names in saved rows
+  if(savedRows){
+    function _migrateKey(arr){
+      return (arr||[]).map(function(k){
+        if(k==='EntryHour') return 'EntryTime';
+        if(k==='Duration') return 'Zone';
+        return k;
+      }).filter(function(k,i,a){return a.indexOf(k)===i;}); // dedupe
+    }
+    if(savedRows.r1) savedRows.r1=_migrateKey(savedRows.r1);
+    if(savedRows.r2) savedRows.r2=_migrateKey(savedRows.r2);
+    if(savedRows.r3) savedRows.r3=_migrateKey(savedRows.r3);
+  }
   if(savedRows&&savedRows.r1&&savedRows.r2){
     r1Keys=savedRows.r1.filter(function(k){return chartMap[k];});
     r2Keys=savedRows.r2.filter(function(k){return chartMap[k];});
