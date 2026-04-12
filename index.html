@@ -4457,7 +4457,29 @@ function onDrop(e){e.preventDefault();document.getElementById('uploadArea').clas
 function onFileChange(ev){var f=ev.target.files[0];if(f)procFile(f);}
 function onPasteImg(e){var items=e.clipboardData&&e.clipboardData.items;if(!items)return;for(var i=0;i<items.length;i++){if(items[i].type.startsWith('image/')){e.preventDefault();var f=items[i].getAsFile();if(f)procFile(f);return;}}}
 // Global paste listener — ทำงานเมื่อ scanSection เปิดอยู่
-document.addEventListener('paste',function(e){var sec=document.getElementById('scanSection');if(!sec||!sec.open)return;var items=e.clipboardData&&e.clipboardData.items;if(!items)return;for(var i=0;i<items.length;i++){if(items[i].type.startsWith('image/')){e.preventDefault();var f=items[i].getAsFile();if(f){procFile(f);showToast('📋 วางรูปจาก Clipboard แล้ว!','success');}return;}}});
+// Global paste listener — ทำงานเมื่อ scanSection หรือ dtScanSection เปิดอยู่
+document.addEventListener('paste',function(e){
+  var items=e.clipboardData&&e.clipboardData.items;
+  if(!items)return;
+  var hasImg=false;
+  for(var i=0;i<items.length;i++){if(items[i].type.startsWith('image/')){hasImg=true;break;}}
+  if(!hasImg)return;
+  // Add Order scan section
+  var sec=document.getElementById('scanSection');
+  if(sec&&sec.open){
+    for(var i=0;i<items.length;i++){if(items[i].type.startsWith('image/')){e.preventDefault();var f=items[i].getAsFile();if(f){procFile(f);showToast('📋 วางรูปจาก Clipboard แล้ว!','success');}return;}}
+  }
+  // Data Mode scan section
+  var dtSec=document.getElementById('dtScanSection');
+  if(dtSec&&dtSec.open){
+    for(var i=0;i<items.length;i++){if(items[i].type.startsWith('image/')){e.preventDefault();var f=items[i].getAsFile();if(f){dtSetImg(f);showToast('📋 วางรูปจาก Clipboard แล้ว!','success');}return;}}
+  }
+  // Data Mode modal open (dtScanSection may not be <details>) — check if modal is open
+  var dtModal=document.getElementById('mDataTrade');
+  if(dtModal&&dtModal.classList.contains('open')){
+    for(var i=0;i<items.length;i++){if(items[i].type.startsWith('image/')){e.preventDefault();var f=items[i].getAsFile();if(f){dtSetImg(f);showToast('📋 วางรูปจาก Clipboard แล้ว!','success');}return;}}
+  }
+});;
 function procFile(file){var r=new FileReader();r.onload=function(e){S.upB64=e.target.result.split(',')[1];document.getElementById('upPreview').src=e.target.result;document.getElementById('upPreview').style.display='block';document.getElementById('upPrompt').style.display='none';var ua=document.getElementById('uploadArea');ua.classList.add('pasted');setTimeout(function(){ua.classList.remove('pasted');},700);};r.readAsDataURL(file);}
 async function doScan(){
   if(!S.upB64){showToast('กรุณาอัปโหลดรูปก่อน','error');return;}
@@ -6890,20 +6912,10 @@ async function dtDoScan(){
   var btn=document.getElementById('dtScanBtn');
   if(btn){btn.disabled=true;btn.textContent='⏳ กำลัง Scan...';}
   var res=document.getElementById('dtScanResult');
-  if(res){res.style.display='block';res.textContent='กำลังวิเคราะห์...';}
+  if(res){res.style.display='block';res.textContent='กำลังวิเคราะห์ด้วย '+S.prov.toUpperCase()+'...';}
   var prompt='อ่านข้อมูล trade จากรูปนี้ แล้วตอบเป็น JSON แบบนี้: {"asset":"","side":"Long","entry":0,"tp":0,"sl":0,"pnl":0,"result":"","entryTime":"HH:MM","closeTime":"HH:MM"} ถ้าไม่เห็นค่าไหนให้ใส่ null';
   try{
-    var key=S.mKey||(S.keys&&(S.prov==='gemini'?S.keys.mGem:S.keys.mGroq))||'';
-    var text='';
-    if(S.prov==='gemini'&&key){
-      var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+key,
-        {method:'POST',headers:{'Content-Type':'application/json'},
-         body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:DT._upB64}}]}]})});
-      var j=await r.json();text=(j.candidates&&j.candidates[0].content.parts[0].text)||'';
-    } else {
-      if(res)res.textContent='ต้องการ Gemini API Key สำหรับ Scan รูป';
-      if(btn){btn.disabled=false;btn.textContent='🤖 Scan with AI';}return;
-    }
+    var text=await callVision(prompt, DT._upB64);
     var match=text.match(/\{[\s\S]*\}/);
     if(match){
       var d=JSON.parse(match[0]);
