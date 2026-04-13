@@ -6828,6 +6828,12 @@ function dtCalcTimeInPos(){
 }
 
 // ── Main Calc ──
+function dtIgnoreSLWarn(){
+  window._dtSLIgnored=true;
+  var warnBox=document.getElementById('dtSLWarnBox');
+  if(warnBox) warnBox.style.display='none';
+}
+
 function dtCalcAll(){
   var entry=parseFloat(document.getElementById('dtEntry').value)||0;
   var tp=parseFloat(document.getElementById('dtTP').value)||0;
@@ -6848,19 +6854,42 @@ function dtCalcAll(){
     if(s!==DT.side) dtSetSide(s);
   }
 
-  // Lots from Risk
+  // Lots from Risk — จำนวนเต็มเท่านั้น (floor)
   var lots=0;
+  var _dtSLIgnored=window._dtSLIgnored||false;
   if(risk&&entry&&sl&&pv){
     var slDist=Math.abs(entry-sl);
-    if(slDist>0) lots=risk/(slDist*pv);
+    if(slDist>0){
+      var lotsRaw=risk/(slDist*pv);
+      lots=Math.floor(lotsRaw); // จำนวนเต็ม
+      if(lots<1) lots=1;        // ขั้นต่ำ 1
+    }
     var lotsEl=document.getElementById('dtLots');
-    if(lotsEl&&!lotsEl._manualEdit) lotsEl.value=lots>0?lots.toFixed(2):'';
+    if(lotsEl&&!lotsEl._manualEdit) lotsEl.value=lots>0?lots:'';
+    // ── ตรวจ SL กว้างเกินไป ──
+    var actualLoss=slDist*pv*lots;
+    var warnBox=document.getElementById('dtSLWarnBox');
+    var warnMsg=document.getElementById('dtSLWarnMsg');
+    if(warnBox){
+      if(!_dtSLIgnored&&actualLoss>risk*1.05){
+        var overPct=Math.round((actualLoss/risk-1)*100);
+        if(warnMsg) warnMsg.innerHTML='⚠ SL กว้างเกินไป — P&amp;L ติดลบได้ถึง <b>$'+actualLoss.toFixed(0)+'</b> (เกิน Risk $'+risk+' อยู่ '+overPct+'%)';
+        warnBox.style.display='flex';
+      } else {
+        warnBox.style.display='none';
+      }
+    }
   } else {
     lots=parseFloat((document.getElementById('dtLots')||{}).value)||0;
+    lots=Math.floor(lots)||0;
+    var warnBox2=document.getElementById('dtSLWarnBox');
+    if(warnBox2) warnBox2.style.display='none';
   }
 
   // P&L from result
   var pnl=0;
+  var pnlEl=document.getElementById('dtPnl');
+  var existingPnl=pnlEl?parseFloat(pnlEl.value)||0:0;
   if(result==='TP'&&entry&&tp&&lots&&pv){
     pnl=(DT.side==='Long'?1:-1)*(tp-entry)*pv*lots;
   } else if((result==='SL'||result==='X Loss')&&entry&&sl&&lots&&pv){
@@ -6868,8 +6897,20 @@ function dtCalcAll(){
     if(result==='SL') pnl=-Math.abs(pnl);
   } else if(result==='BE'){
     pnl=0;
+  } else if(result==='Win'&&entry&&tp&&lots&&pv){
+    // Win = คำนวณจาก TP เหมือน TP result
+    pnl=(DT.side==='Long'?1:-1)*(tp-entry)*pv*lots;
+    // ถ้ามี pnl อยู่แล้ว (import มา) ให้ใช้ค่าเดิม
+    if(existingPnl>0) pnl=existingPnl;
+  } else if(result==='Loss'&&entry&&sl&&lots&&pv){
+    // Loss = คำนวณจาก SL เหมือน SL result
+    pnl=-Math.abs((DT.side==='Long'?-1:1)*(entry-sl)*pv*lots);
+    // ถ้ามี pnl อยู่แล้ว (import มา) ให้ใช้ค่าเดิม
+    if(existingPnl<0) pnl=existingPnl;
+  } else if((result==='Win'||result==='Loss'||result==='Miss')&&existingPnl!==0){
+    // fallback: ถ้าคำนวณไม่ได้ให้ใช้ค่าที่มีอยู่
+    pnl=existingPnl;
   }
-  var pnlEl=document.getElementById('dtPnl');
   if(pnlEl&&result&&pnl!==0) pnlEl.value=pnl.toFixed(2);
   else if(pnlEl&&result==='BE') pnlEl.value='0.00';
 
@@ -6971,6 +7012,7 @@ async function dtDoScan(){
 // ── Open Add/Edit ──
 function dtOpenAdd(){
   DT.editIdx=-1;DT.side='Long';DT.emo=5;DT.disc=5;DT.sessions=[];DT._upB64=null;
+  window._dtSLIgnored=false;
   var dtSessEl=document.getElementById('dtSession');if(dtSessEl)dtSessEl.value='';
   document.getElementById('mDataTradeTitle').textContent='＋ เพิ่ม Trade (Data Mode)';
   document.getElementById('dtSaveBtn').textContent='✓ บันทึก Trade';
@@ -7003,6 +7045,7 @@ function dtOpenAdd(){
 }
 function dtOpenEdit(visIdx){
   dtLoad();
+  window._dtSLIgnored=false;
   // Re-load dropdown options from localStorage
   loadDropOptions();
   var rows=dtFiltered();
@@ -9012,7 +9055,7 @@ if(document.readyState==='loading'){
         </div>
         <div class="form-field">
           <label>SL <span id="dtSLPoint" style="font-size:10px;color:var(--amber);font-family:var(--font-mono);"></span></label>
-          <input class="form-input" id="dtSL2" type="number" step="any" placeholder="24980.00" oninput="dtCalcAll()">
+          <input class="form-input" id="dtSL2" type="number" step="any" placeholder="24980.00" oninput="window._dtSLIgnored=false;dtCalcAll()">
         </div>
       </div>
 
@@ -9020,7 +9063,7 @@ if(document.readyState==='loading'){
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
         <div class="form-field">
           <label>Risk ($)</label>
-          <input class="form-input" id="dtRisk" type="number" step="any" placeholder="50" oninput="dtCalcAll()">
+          <input class="form-input" id="dtRisk" type="number" step="any" placeholder="50" oninput="window._dtSLIgnored=false;dtCalcAll()">
         </div>
         <div class="form-field">
           <label>Lots <span style="font-size:9px;color:var(--amber)">(auto)</span></label>
@@ -9030,6 +9073,12 @@ if(document.readyState==='loading'){
           <label>P&amp;L ($) <span style="font-size:9px;color:var(--amber)">(auto)</span></label>
           <input class="form-input" id="dtPnl" type="number" step="any" placeholder="auto" style="font-weight:600;">
         </div>
+      </div>
+
+      <!-- SL Risk Warning -->
+      <div id="dtSLWarnBox" style="display:none;background:rgba(255,77,106,0.1);border:1px solid var(--red);border-radius:var(--radius-sm);padding:7px 10px;margin-bottom:8px;font-size:11px;color:var(--red);align-items:center;justify-content:space-between;gap:8px;">
+        <span id="dtSLWarnMsg">⚠ SL กว้างเกินไป — P&amp;L ติดลบเกิน Risk ที่ตั้ง</span>
+        <button onclick="dtIgnoreSLWarn()" style="background:rgba(255,255,255,0.08);border:1px solid var(--red);color:var(--red);border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;white-space:nowrap;flex-shrink:0;">เพิกเฉย</button>
       </div>
 
       <!-- Row: Result + Max RR -->
