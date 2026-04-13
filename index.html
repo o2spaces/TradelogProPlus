@@ -2461,13 +2461,23 @@ function syncFromSheet(onDone){
         var bySess = {};
         d.sessions.forEach(function(s){
           var port = s.portfolio||s.Portfolio||'default';
-          var date = s.date||s.Date||'';
+          var date = (s.date||s.Date||'').trim().substring(0,10);
+          if(!date) return;
           if(!bySess[port]) bySess[port] = {};
-          // parse notesHistory จาก Sheet (เก็บเป็น JSON string)
+          // parse notesHistory — ลอง key ทุกรูปแบบที่ GAS อาจส่งมา
           var nh=null;
-          var nhRaw=s.notesHistory||s.NotesHistory||'';
-          if(nhRaw && typeof nhRaw==='string' && nhRaw.trim().startsWith('[')){
-            try{ nh=JSON.parse(nhRaw); }catch(e){ nh=null; }
+          var nhRaw=s['NotesHistory']||s['notesHistory']||s['Noteshistory']||s['notes_history']||'';
+          // ถ้ายังไม่เจอ ลอง scan ทุก key ใน object
+          if(!nhRaw){
+            Object.keys(s).forEach(function(k){
+              if(k.toLowerCase()==='noteshistory' && s[k]) nhRaw=s[k];
+            });
+          }
+          if(nhRaw && typeof nhRaw==='string'){
+            var trimmed=nhRaw.trim();
+            if(trimmed.startsWith('[')){
+              try{ nh=JSON.parse(trimmed); }catch(e){ nh=null; }
+            }
           } else if(Array.isArray(nhRaw)){
             nh=nhRaw;
           }
@@ -2484,13 +2494,12 @@ function syncFromSheet(onDone){
         Object.keys(bySess).forEach(function(port){
           var existing = {};
           try{ existing = JSON.parse(localStorage.getItem('port_'+port+'_s')||'{}'); }catch(e){}
-          // merge: ใช้ notesHistory จาก Sheet ถ้า Sheet มีมากกว่า local
           Object.keys(bySess[port]).forEach(function(date){
             var sheetSess=bySess[port][date];
             var localSess=existing[date]||{};
             var sheetNH=sheetSess.notesHistory||[];
             var localNH=localSess.notesHistory||[];
-            // ใช้ whichever has more entries (Sheet อาจเก่ากว่า local ถ้ายังไม่ได้ save)
+            // ใช้ตัวที่มี entry มากกว่า
             sheetSess.notesHistory = sheetNH.length >= localNH.length ? sheetNH : localNH;
             existing[date] = sheetSess;
           });
@@ -4443,22 +4452,32 @@ function renderCommentHistory(dateKey){
   var wrap=document.getElementById('commentHistoryWrap');
   var list=document.getElementById('commentHistoryList');
   if(!wrap||!list) return;
-  // ดึงจาก S.sessions ก่อน ถ้าไม่มีลอง localStorage โดยตรง
-  var se=S.sessions[dateKey]||{};
-  var hist=se.notesHistory||[];
-  // fallback: ดึงจาก localStorage port_X_s ถ้า S.sessions ไม่มี notesHistory
+
+  // ── หา notesHistory จากทุก source ──
+  var hist=[];
+
+  // 1. ลอง localStorage โดยตรงก่อนเสมอ (source of truth)
+  try{
+    var raw=localStorage.getItem('port_'+S.currentPortfolio+'_s');
+    if(raw){
+      var allSess=JSON.parse(raw);
+      var ls=allSess[dateKey]||{};
+      if(ls.notesHistory&&ls.notesHistory.length) hist=ls.notesHistory;
+    }
+  }catch(e){}
+
+  // 2. fallback S.sessions ถ้า localStorage ไม่มี
   if(!hist.length){
-    try{
-      var raw=localStorage.getItem('port_'+S.currentPortfolio+'_s');
-      if(raw){
-        var allSess=JSON.parse(raw);
-        var ls=allSess[dateKey]||{};
-        hist=ls.notesHistory||[];
-        // sync กลับเข้า S.sessions ด้วย
-        if(hist.length){ se.notesHistory=hist; S.sessions[dateKey]=se; }
-      }
-    }catch(e){}
+    var se=S.sessions[dateKey]||{};
+    hist=se.notesHistory||[];
   }
+
+  // 3. sync กลับเข้า S.sessions ให้ consistent
+  if(hist.length){
+    if(!S.sessions[dateKey]) S.sessions[dateKey]={};
+    S.sessions[dateKey].notesHistory=hist;
+  }
+
   if(!hist.length){wrap.style.display='none';return;}
   wrap.style.display='block';
   var MABBR2=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
@@ -4512,12 +4531,24 @@ function editNoteHistory(dateKey,idx){
   showToast('✎ โหลดโน้ตแล้ว แก้ไขและกด Save Comment','success');
 }
 function deleteNoteHistory(dateKey,idx){
-  var se=S.sessions[dateKey]||{};
-  if(!se.notesHistory) return;
+  // update S.sessions
+  if(!S.sessions[dateKey]) S.sessions[dateKey]={};
+  var se=S.sessions[dateKey];
+  if(!se.notesHistory) se.notesHistory=[];
+  // ดึงจาก localStorage ก่อนเสมอ
+  try{
+    var raw=localStorage.getItem('port_'+S.currentPortfolio+'_s');
+    if(raw){
+      var allSess=JSON.parse(raw);
+      if(allSess[dateKey]&&allSess[dateKey].notesHistory){
+        se.notesHistory=allSess[dateKey].notesHistory;
+      }
+    }
+  }catch(e){}
+  if(!se.notesHistory[idx]) return;
   se.notesHistory.splice(idx,1);
   S.sessions[dateKey]=se;
   persistPort();
-  // sync session กลับ Sheet ด้วย
   if(S.scriptUrl) sendSheet('saveSession',Object.assign({date:dateKey},se));
   renderCommentHistory(dateKey);
   showToast('🗑 ลบโน้ตแล้ว','success');
