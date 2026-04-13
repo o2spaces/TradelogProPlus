@@ -1457,6 +1457,20 @@ function loadAll(){
     }
 
     _log('loadAll','trades='+result.trades.length+' sessions='+result.sessions.length+' dataTrades='+result.dataTrades.length+' portfolios='+Object.keys(result.portfolios).length,'','system','ok');
+    // ── Journal (Note of Day) ──
+    result.journal=[];
+    var jSh=ss.getSheetByName(SHEET.JOURNAL);
+    if(jSh&amp;&amp;jSh.getLastRow()&gt;1){
+      var jHdr=jSh.getRange(1,1,1,jSh.getLastColumn()).getValues()[0];
+      var jRows=jSh.getRange(2,1,jSh.getLastRow()-1,jSh.getLastColumn()).getValues();
+      jRows.forEach(function(r){
+        var obj=_row2obj(jHdr,r);
+        var date=String(obj['Date']||obj['date']||'').trim().substring(0,10);
+        var port=String(obj['Portfolio']||obj['portfolio']||'default').trim();
+        var html=String(obj['NoteHTML']||obj['noteHTML']||'').trim();
+        if(date&amp;&amp;html) result.journal.push({date:date,portfolio:port,noteHTML:html});
+      });
+    }
     return result;
   }catch(e){
     _log('loadAll','error='+e.toString(),'','system','error');
@@ -2561,6 +2575,16 @@ function syncFromSheet(onDone){
       // ── Reload current portfolio data ──
       S.sessions = getPortSessions();
       S.trades   = getPortTrades();
+      // ── Journal: sync Note of Day จาก Sheet → localStorage ──
+      if(d.journal && d.journal.length){
+        d.journal.forEach(function(j){
+          if(j.date && j.noteHTML){
+            var key='tj_noteday_'+(j.portfolio||'default')+'_'+j.date;
+            // ใช้ข้อมูลจาก Sheet ถ้า localStorage ว่างอยู่ หรือ Sheet ใหม่กว่า (overwrite เสมอ)
+            localStorage.setItem(key, j.noteHTML);
+          }
+        });
+      }
       renderPortfolioBar();
       updateStats(); renderCal(); updateRecent(); renderTodayOrders();
       var cnt = (d.trades||[]).length + (d.dataTrades||[]).length;
@@ -4443,7 +4467,16 @@ function deleteNoteHistory(dateKey,idx){
 }
 function deleteDay(){if(_isReadOnly){showToast('🔒 โหมดดูเท่านั้น — ไม่สามารถแก้ไขได้','error');return;}
   showConfirm('ลบข้อมูลวันนี้ทั้งหมดใช่ไหม?', function(){
+    // ลบ session + trades
     delete S.sessions[S.mKey];delete S.trades[S.mKey];
+    // ── reset Emotional State slider กลับเป็น default ──
+    mEmoSetByIdx(4); setEmoByIdx(4); // Calm
+    // ── ลบ Note of Day ออกจาก localStorage ด้วย ──
+    localStorage.removeItem('tj_noteday_'+S.currentPortfolio+'_'+S.mKey);
+    var ndEditor=document.getElementById('noteDayEditor');
+    if(ndEditor) ndEditor.innerHTML='';
+    var ndLbl=document.getElementById('ndAutoSaveLabel');
+    if(ndLbl) ndLbl.textContent='';
     persistPort();updateStats();renderCal();updateRecent();renderTodayOrders();closeM('mDay');
     if(S.scriptUrl) sendSheet('deleteDay',{date:S.mKey,portfolio:S.currentPortfolio});
     showToast('🗑 ลบแล้ว','success');
