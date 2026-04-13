@@ -14,7 +14,7 @@
 [data-theme="light"]{--bg-primary:#f0f2f7;--bg-secondary:#e4e7f0;--bg-card:#fff;--bg-input:#f5f7fc;--border:#d0d5e8;--border-hover:#a0a8c8;--text-primary:#1a1e2a;--text-secondary:#4a5068;--text-muted:#8b90a0;--accent:#3b6aee;--accent-hover:#2a55dd;--accent-dim:rgba(59,106,238,.1);--green:#14a064;--green-dim:rgba(20,160,100,.1);--red:#c8283c;--red-dim:rgba(200,40,60,.1);}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:var(--font-main);background:var(--bg-primary);color:var(--text-primary);min-height:100vh;}
-.topbar{background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:0 14px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.topbar{background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:0 14px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
 .logo{font-weight:600;font-size:15px;display:flex;align-items:center;gap:7px;}
 .logo-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
 .topbar-center{display:flex;gap:0px;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:3px;}
@@ -490,7 +490,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
           <div style="height:1px;background:var(--border);margin:3px 0;"></div>
           <div class="drop-cat">ทั่วไป</div>
           <div class="drop-item" onclick="openShareDashboard();closeMenu()">🔗 Share Dashboard</div>
-          <div class="drop-item" onclick="openFeesConfig();closeMenu()">💰 Fees &amp; Commission</div>
+          <div class="drop-item" onclick="closeMenu();setTimeout(openFeesConfig,80)">💰 Fees &amp; Commission</div>
           <div class="drop-item" onclick="openSheet();closeMenu()">🔗 Google Sheet URL</div>
           <div class="drop-item" onclick="showToast('กำลังพัฒนา...','success');closeMenu()">❓ Help & Tutorials</div>
         </div>
@@ -3894,8 +3894,8 @@ function calcAll(){
   var fees=(lots*feeRate).toFixed(2);
   document.getElementById('oFees').value=fees;
   if(document.getElementById('cFees')) document.getElementById('cFees').textContent='$'+fees;
-  // Commission = platform fee per entry/round trip (fixed per trade, not per lot)
-  var rate=getCommForAsset(asset),comm=(rate).toFixed(2);
+  // Commission = platform fee per entry/round trip (per lot)
+  var rate=getCommForAsset(asset),comm=(rate*lots).toFixed(2);
   document.getElementById('oComm').value=comm;
   if(document.getElementById('cComm')) document.getElementById('cComm').textContent='$'+comm;
   var en=parseFloat(document.getElementById('oEntry').value)||0,sl=parseFloat(document.getElementById('oSL').value)||0,tp=parseFloat(document.getElementById('oTP').value)||0;
