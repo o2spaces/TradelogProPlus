@@ -1308,7 +1308,7 @@ var HDR={
     'Date','Portfolio','Emotion','Trend','Confirm',
     'Sessions','Strategies','Notes',
     'NetPnL($)','TotalTrades','WinRate(%)','GrossProfit($)','GrossLoss($)',
-    'AvgWin($)','AvgLoss($)','ProfitFactor','MaxDD($)','SavedAt'
+    'AvgWin($)','AvgLoss($)','ProfitFactor','MaxDD($)','NotesHistory','SavedAt'
   ],
   SUMMARY:[
     'Date','Portfolio','NetPnL($)','GrossProfit($)','GrossLoss($)',
@@ -1738,7 +1738,9 @@ function saveSession(d){
     d.sessions||'', d.strategies||'', d.notes||'',
     +pnl.toFixed(2), total, wr,
     +gp.toFixed(2), +gl.toFixed(2),
-    avgW, avgL, pf, +dd.toFixed(2), _now()
+    avgW, avgL, pf, +dd.toFixed(2),
+    d.notesHistory?JSON.stringify(d.notesHistory):'',
+    _now()
   ];
   var existing=_findRow2(sh,1,d.date,2,portfolio);
   if(existing&gt;0) sh.getRange(existing,1,1,row.length).setValues([row]);
@@ -2461,19 +2463,37 @@ function syncFromSheet(onDone){
           var port = s.portfolio||s.Portfolio||'default';
           var date = s.date||s.Date||'';
           if(!bySess[port]) bySess[port] = {};
+          // parse notesHistory จาก Sheet (เก็บเป็น JSON string)
+          var nh=null;
+          var nhRaw=s.notesHistory||s.NotesHistory||'';
+          if(nhRaw && typeof nhRaw==='string' && nhRaw.trim().startsWith('[')){
+            try{ nh=JSON.parse(nhRaw); }catch(e){ nh=null; }
+          } else if(Array.isArray(nhRaw)){
+            nh=nhRaw;
+          }
           bySess[port][date] = {
             emotion: s.emotion||s.Emotion||'',
             trend: s.trend||s.Trend||'',
             confirm: s.confirm||s.Confirm||'',
             sessions: s.sessions||s.Sessions||'',
             strategies: s.strategies||s.Strategies||'',
-            notes: s.notes||s.Notes||''
+            notes: s.notes||s.Notes||'',
+            notesHistory: nh||[]
           };
         });
         Object.keys(bySess).forEach(function(port){
           var existing = {};
           try{ existing = JSON.parse(localStorage.getItem('port_'+port+'_s')||'{}'); }catch(e){}
-          Object.assign(existing, bySess[port]);
+          // merge: ใช้ notesHistory จาก Sheet ถ้า Sheet มีมากกว่า local
+          Object.keys(bySess[port]).forEach(function(date){
+            var sheetSess=bySess[port][date];
+            var localSess=existing[date]||{};
+            var sheetNH=sheetSess.notesHistory||[];
+            var localNH=localSess.notesHistory||[];
+            // ใช้ whichever has more entries (Sheet อาจเก่ากว่า local ถ้ายังไม่ได้ save)
+            sheetSess.notesHistory = sheetNH.length >= localNH.length ? sheetNH : localNH;
+            existing[date] = sheetSess;
+          });
           localStorage.setItem('port_'+port+'_s', JSON.stringify(existing));
         });
       }
