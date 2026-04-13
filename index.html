@@ -3700,27 +3700,35 @@ function saveEntry(){if(_isReadOnly){showToast('🔒 โหมดดูเท่
   // Load existing session to preserve notesHistory
   var existing=S.sessions[k]||{};
   if(!existing.notesHistory) existing.notesHistory=[];
-  // Push to history only if note is non-empty and changed from last entry
-  if(newNote){
-    var last=existing.notesHistory[existing.notesHistory.length-1];
-    if(!last||last.text!==newNote){
-      existing.notesHistory.push({
-        text:newNote,
-        ts:new Date().toISOString(),
-        emotion:S.emo,
-        trend:document.getElementById('rTrend').value,
-        confirm:document.getElementById('rConfirm').value,
-        sessions:sess.join(', '),
-        strategies:strats.join(', ')
-      });
-      if(existing.notesHistory.length>10) existing.notesHistory.shift();
-    }
+  // Push to history if note OR emo/session/strategy has changed (or first entry)
+  var newEntry={
+    text:newNote,
+    ts:new Date().toISOString(),
+    emotion:S.emo,
+    trend:document.getElementById('rTrend').value,
+    confirm:document.getElementById('rConfirm').value,
+    sessions:sess.join(', '),
+    strategies:strats.join(', ')
+  };
+  var last=existing.notesHistory[existing.notesHistory.length-1];
+  var changed=!last
+    || last.text!==newEntry.text
+    || last.emotion!==newEntry.emotion
+    || last.sessions!==newEntry.sessions
+    || last.strategies!==newEntry.strategies
+    || last.trend!==newEntry.trend
+    || last.confirm!==newEntry.confirm;
+  if(changed){
+    existing.notesHistory.push(newEntry);
+    if(existing.notesHistory.length>20) existing.notesHistory.shift();
   }
   var sessObj={emotion:S.emo,trend:document.getElementById('rTrend').value,confirm:document.getElementById('rConfirm').value,sessions:sess.join(', '),strategies:strats.join(', '),notes:newNote,netPnl:pnl,trades:tr.length,wins:wins,notesHistory:existing.notesHistory};
   S.sessions[k]=sessObj;
   persistPort();updateStats();renderCal();updateRecent();renderTodayOrders();
   if(S.scriptUrl) sendSheet('saveSession',Object.assign({date:k},sessObj));
   showToast('✅ บันทึกแล้ว'+(S.scriptUrl?' → Sheet':' (local)'),'success');
+  // refresh Comment history ถ้า modal วันนั้นเปิดอยู่
+  if(S.mKey===k) renderCommentHistory(k);
 }
 
 var _mEmoIdx=0;
@@ -4411,39 +4419,38 @@ function renderCommentHistory(dateKey){
   if(!hist.length){wrap.style.display='none';return;}
   wrap.style.display='block';
   var MABBR2=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  // replace table with rows — keep using tbody for layout
   list.innerHTML=hist.slice().reverse().map(function(h,revIdx){
     var idx=hist.length-1-revIdx;
     var dt=h.ts?new Date(h.ts):null;
     var timeStr=dt?(dt.getDate()+' '+MABBR2[dt.getMonth()]+' '+pad(dt.getHours())+':'+pad(dt.getMinutes())):'';
-    var preview=h.text.replace(/\n/g,' ');
+    var preview=(h.text||'').replace(/\n/g,' ');
     var short=preview.length>70?preview.substring(0,70)+'…':preview;
-    // Build tag pills for sessions & strategies
     function pills(str,col){
       if(!str) return '';
       return str.split(',').map(function(s){s=s.trim();return s?'<span style="background:'+col+'22;border:1px solid '+col+'55;color:'+col+';border-radius:10px;padding:1px 6px;font-size:9px;white-space:nowrap;">'+escHtml(s)+'</span>':'';}).join('');
     }
     var sessPills=pills(h.sessions,'var(--accent)');
     var stratPills=pills(h.strategies,'var(--purple)');
-    var emoStr=h.emotion?'<span style="font-size:13px;" title="Emotional">'+h.emotion+'</span>':'';
+    var emoStr=h.emotion?'<span style="font-size:14px;" title="Emotional State">'+h.emotion+'</span>':'';
     var trendStr=h.trend?'<span style="font-size:9px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--amber);">'+escHtml(h.trend)+'</span>':'';
     var confStr=h.confirm?'<span style="font-size:9px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--teal);">'+escHtml(h.confirm)+'</span>':'';
-    return '<tr style="border-bottom:1px solid var(--border);vertical-align:top;transition:background .1s;" onmouseover="this.style.background=\'var(--bg-card)\'" onmouseout="this.style.background=\'\'">'
-      // time col
+    // ถ้าไม่มี note text แสดง placeholder จาง
+    var noteHtml=short
+      ?'<div style="font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px;" title="'+escHtml(h.text||'')+'">'+escHtml(short)+'</div>'
+      :'<div style="font-size:10px;color:var(--text-muted);font-style:italic;">— บันทึก Emotional State เท่านั้น —</div>';
+    // ถ้า row นี้มีแค่ emo (ไม่มีอะไรเลยนอกจาก emo) แสดง row สีต่างออกไปนิด
+    var rowBg=(h.text||h.sessions||h.strategies||h.trend||h.confirm)?'':'rgba(255,255,255,0.02)';
+    return '<tr style="border-bottom:1px solid var(--border);vertical-align:top;transition:background .1s;background:'+rowBg+';" onmouseover="this.style.background=\'var(--bg-card)\'" onmouseout="this.style.background=\''+rowBg+'\'">'
       +'<td style="padding:6px 6px;white-space:nowrap;font-family:var(--font-mono);font-size:10px;color:var(--text-muted);vertical-align:top;">'+timeStr+'</td>'
-      // main content col
       +'<td style="padding:6px 6px;vertical-align:top;min-width:0;">'
-        // row 1: emo + trend + confirm + sessions + strategies
         +'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-bottom:3px;">'
           +emoStr+trendStr+confStr+sessPills+stratPills
         +'</div>'
-        // row 2: note text
-        +'<div style="font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px;" title="'+escHtml(h.text)+'">'+escHtml(short)+'</div>'
+        +noteHtml
       +'</td>'
-      // action col
       +'<td style="padding:6px 6px;white-space:nowrap;text-align:right;vertical-align:top;">'
-        +'<button onclick="editNoteHistory(\''+dateKey+'\','+idx+')" title="แก้ไข" style="background:none;border:1px solid var(--border);color:var(--text-muted);width:22px;height:22px;border-radius:4px;font-size:11px;cursor:pointer;margin-right:3px;transition:all .12s;" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✎</button>'
-        +'<button onclick="deleteNoteHistory(\''+dateKey+'\','+idx+')" title="ลบ" style="background:none;border:1px solid var(--border);color:var(--text-muted);width:22px;height:22px;border-radius:4px;font-size:11px;cursor:pointer;transition:all .12s;" onmouseover="this.style.borderColor=\'var(--red)\';this.style.color=\'var(--red)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✕</button>'
+        +'<button onclick="editNoteHistory(\''+escHtml(dateKey)+'\','+idx+')" title="แก้ไข" style="background:none;border:1px solid var(--border);color:var(--text-muted);width:22px;height:22px;border-radius:4px;font-size:11px;cursor:pointer;margin-right:3px;transition:all .12s;" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✎</button>'
+        +'<button onclick="deleteNoteHistory(\''+escHtml(dateKey)+'\','+idx+')" title="ลบ" style="background:none;border:1px solid var(--border);color:var(--text-muted);width:22px;height:22px;border-radius:4px;font-size:11px;cursor:pointer;transition:all .12s;" onmouseover="this.style.borderColor=\'var(--red)\';this.style.color=\'var(--red)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✕</button>'
       +'</td>'
       +'</tr>';
   }).join('');
@@ -4452,8 +4459,14 @@ function editNoteHistory(dateKey,idx){
   var se=S.sessions[dateKey]||{};
   var hist=se.notesHistory||[];
   if(!hist[idx]) return;
-  document.getElementById('dComment').value=hist[idx].text;
+  var h=hist[idx];
+  document.getElementById('dComment').value=h.text||'';
   document.getElementById('dComment').focus();
+  // restore emo ถ้ามี
+  if(h.emotion){
+    var ei=EMO_LIST.indexOf(h.emotion);
+    if(ei>=0){ setEmoByIdx(ei); }
+  }
   showToast('✎ โหลดโน้ตแล้ว แก้ไขและกด Save Comment','success');
 }
 function deleteNoteHistory(dateKey,idx){
@@ -4462,6 +4475,8 @@ function deleteNoteHistory(dateKey,idx){
   se.notesHistory.splice(idx,1);
   S.sessions[dateKey]=se;
   persistPort();
+  // sync session กลับ Sheet ด้วย
+  if(S.scriptUrl) sendSheet('saveSession',Object.assign({date:dateKey},se));
   renderCommentHistory(dateKey);
   showToast('🗑 ลบโน้ตแล้ว','success');
 }
