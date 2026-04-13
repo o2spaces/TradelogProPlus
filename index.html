@@ -7746,6 +7746,17 @@ function dtDeleteRow(visIdx){
     var realIdx=DT.trades.findIndex(function(x){return x._id===t._id;});
     if(realIdx>=0) DT.trades.splice(realIdx,1);
     dtSave();dtRender();showToast('ลบแล้ว','success');
+    // ── ลบออกจาก Google Sheet (DataTrades) ด้วย ──
+    if(S.scriptUrl && t._id){
+      fetch(S.scriptUrl,{
+        method:'POST',
+        mode:'no-cors',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'deleteDataTrade', _id:t._id, portfolio:S.currentPortfolio})
+      }).catch(function(err){
+        showToast('⚠ Sheet sync error: '+err.message,'error');
+      });
+    }
   });
 }
 
