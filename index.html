@@ -2261,7 +2261,10 @@ var TICK_SIZE={MNQ1:0.25,NQ1:0.25,MGC1:0.1,GC1:0.1,'XAU/USD':0.01,EURUSD:0.00001
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var MABBR=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 var _syncBlocked=false; // FIX: prevents auto-sync from overwriting local trades during batch import
-var _deletedDays={}; // FIX: tracks days deleted locally so sync won't restore them
+// FIX: persist _deletedDays to localStorage so it survives page reload/sync
+function _loadDeletedDays(){try{return JSON.parse(localStorage.getItem('tj_deleted_days')||'{}');}catch(e){return {};}}
+function _saveDeletedDays(){try{localStorage.setItem('tj_deleted_days',JSON.stringify(_deletedDays));}catch(e){}}
+var _deletedDays=_loadDeletedDays(); // FIX: load from localStorage so deletions survive reload
 var S={sessions:{},trades:{},scriptUrl:'',keys:{mGem:'gemini-2.5-flash-preview-05-20',mGroq:'llama-4-scout-17b-16e-instruct'},prov:'gemini',provBackup:'groq',viewMonth:new Date(),viewYear:new Date().getFullYear(),emo:'😡',side:'Long',mKey:'',mTrades:[],upB64:null,eqChart:null,eqChartW:null,currentPortfolio:'default',portfolios:{}};
 
 // ── สั่ง GAS ล้าง duplicate rows ใน Sheet ──
@@ -2573,7 +2576,9 @@ function syncFromSheet(onDone){
             if(_deletedDays&&_deletedDays[delKey]) return;
             var sheetSess = bySess[port][date];
             var localSess = existing[date] || {};
-            existing[date] = Object.assign({}, localSess, sheetSess, {
+            // FIX: local wins over Sheet for emotion/trend/confirm/strategies/notes
+            // (Sheet is source of truth ONLY for fields not yet saved locally)
+            existing[date] = Object.assign({}, sheetSess, localSess, {
               notesHistory: localSess.notesHistory || [],
               netPnl: localSess.netPnl !== undefined ? localSess.netPnl : (sheetSess.netPnl || 0),
               trades: localSess.trades !== undefined ? localSess.trades : (sheetSess.trades || 0),
@@ -4339,6 +4344,7 @@ function delTr(i){if(_isReadOnly){showToast('🔒 โหมดดูเท่า
     _deletedDays=_deletedDays||{};
     if(_delCK) _deletedDays['trade|ck|'+_delCK]=Date.now();
     if(_delID) _deletedDays['trade|id|'+_delID]=Date.now();
+    _saveDeletedDays(); // FIX: persist so sync won't restore deleted trade after reload
     S.mTrades.splice(i,1);
     renderTT();
     S.trades[S.mKey]=S.mTrades;
@@ -4613,6 +4619,10 @@ function deleteDay(){if(_isReadOnly){showToast('🔒 โหมดดูเท่
   showConfirm('ลบข้อมูลวันนี้ทั้งหมดใช่ไหม?', function(){
     var delKey=S.mKey;
     delete S.sessions[delKey];delete S.trades[delKey];
+    // FIX: mark as deleted immediately (before fetch) so sync never restores it — even after reload
+    _deletedDays=_deletedDays||{};
+    _deletedDays[S.currentPortfolio+'|'+delKey]=Date.now();
+    _saveDeletedDays();
     persistPort();updateStats();renderCal();updateRecent();renderTodayOrders();closeM('mDay');
     showToast('🗑 ลบแล้ว','success');
     if(S.scriptUrl){
@@ -4624,9 +4634,6 @@ function deleteDay(){if(_isReadOnly){showToast('🔒 โหมดดูเท่
         body:JSON.stringify({action:'deleteDay',date:delKey,portfolio:S.currentPortfolio})
       }).then(function(){
         // Wait for Sheet to finish deleting, then re-sync
-        // But first mark this date as locally-deleted so sync won't restore it
-        _deletedDays=_deletedDays||{};
-        _deletedDays[S.currentPortfolio+'|'+delKey]=Date.now();
         setTimeout(function(){
           _syncBlocked=false;
           syncFromSheet();
