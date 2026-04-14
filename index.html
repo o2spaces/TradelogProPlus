@@ -7072,17 +7072,29 @@ function dtCalcAll(){
 
   // P&L from result
   var pnl=0;
-  if(result==='TP'&&entry&&tp&&lots&&pv){
+  var pnlEl=document.getElementById('dtPnl');
+  var existingPnl=parseFloat(pnlEl?pnlEl.value:0)||0;
+  var pnlCalculated=false;
+  if((result==='TP'||result==='Win')&&entry&&tp&&lots&&pv){
     pnl=(DT.side==='Long'?1:-1)*(tp-entry)*pv*lots;
-  } else if((result==='SL'||result==='X Loss')&&entry&&sl&&lots&&pv){
+    pnlCalculated=true;
+  } else if((result==='SL'||result==='Loss'||result==='X Loss')&&entry&&sl&&lots&&pv){
     pnl=(DT.side==='Long'?-1:1)*(entry-sl)*pv*lots;
-    if(result==='SL') pnl=-Math.abs(pnl);
+    pnl=-Math.abs(pnl);
+    pnlCalculated=true;
   } else if(result==='BE'){
     pnl=0;
+    pnlCalculated=true;
   }
-  var pnlEl=document.getElementById('dtPnl');
-  if(pnlEl&&result&&pnl!==0) pnlEl.value=pnl.toFixed(2);
-  else if(pnlEl&&result==='BE') pnlEl.value='0.00';
+  // Only overwrite P&L field if we actually calculated a new value
+  // When editing, preserve the saved P&L if calculation has no reference price
+  if(pnlEl&&pnlCalculated){
+    if(pnl!==0) pnlEl.value=pnl.toFixed(2);
+    else if(result==='BE') pnlEl.value='0.00';
+  } else if(pnlEl&&DT.editIdx>=0&&existingPnl!==0&&!pnlCalculated){
+    // Preserve existing P&L when editing and calculation can't determine a new value
+    pnlEl.value=existingPnl.toFixed(2);
+  }
 
   // R:R
   var rr=0;
