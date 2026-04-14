@@ -2261,6 +2261,7 @@ var TICK_SIZE={MNQ1:0.25,NQ1:0.25,MGC1:0.1,GC1:0.1,'XAU/USD':0.01,EURUSD:0.00001
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var MABBR=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 var _syncBlocked=false; // FIX: prevents auto-sync from overwriting local trades during batch import
+var _deletedDays={}; // FIX: tracks days deleted locally so sync won't restore them
 var S={sessions:{},trades:{},scriptUrl:'',keys:{mGem:'gemini-2.5-flash-preview-05-20',mGroq:'llama-4-scout-17b-16e-instruct'},prov:'gemini',provBackup:'groq',viewMonth:new Date(),viewYear:new Date().getFullYear(),emo:'😡',side:'Long',mKey:'',mTrades:[],upB64:null,eqChart:null,eqChartW:null,currentPortfolio:'default',portfolios:{}};
 
 // ── สั่ง GAS ล้าง duplicate rows ใน Sheet ──
@@ -2508,22 +2509,40 @@ function syncFromSheet(onDone){
             imgLink:     gs(t,['ImageLink','imagelink','imgLink'])
           });
         });
-        // FIX: Smart merge — Sheet is source of truth for dates it knows about,
-        // but preserve local-only trades (recently imported, not yet in Sheet)
+        // FIX: Smart merge v2 — Sheet is source of truth with these rules:
+        // 1. Deleted days (_deletedDays) → always skip, never restore from Sheet
+        // 2. Sheet has date → Sheet wins (handles clean-dups-in-sheet case)
+        // 3. Local has date not in Sheet → keep local (recently imported, not yet in Sheet)
         var portsFromSheet = Object.keys(byPort);
         portsFromSheet.forEach(function(port){
-          // Load what's currently in local for this portfolio
           var localByDate = {};
           try{ localByDate=JSON.parse(localStorage.getItem('port_'+port+'_t')||'{}'); }catch(e){}
-          // Build merged: start with Sheet data (authoritative for dates in Sheet)
-          var merged = Object.assign({}, byPort[port]);
-          // For dates that are ONLY in local (not in Sheet yet), keep them
+          // Start with Sheet data — dedup by content key while building
+          var merged = {};
+          Object.keys(byPort[port]).forEach(function(date){
+            // RULE 1: Skip dates that were deleted locally
+            var delKey=port+'|'+date;
+            if(_deletedDays&&_deletedDays[delKey]) return;
+            // Sheet is authoritative for this date (handles clean-dub-in-sheet)
+            // Also run content dedup AND filter out individually deleted trades
+            var sheetArr=byPort[port][date]||[];
+            var seenC={};var cleanArr=[];
+            sheetArr.forEach(function(t){
+              var ck=typeof _tradeContentKey==='function'?_tradeContentKey(t):[t.asset,t.side,t.entry,t.close,t.pnl].join('|');
+              var idKey=t.id?String(t.id):null;
+              // Skip if this trade was individually deleted
+              var wasDeleted=(_deletedDays&&_deletedDays['trade|ck|'+ck]) ||
+                             (idKey&&_deletedDays&&_deletedDays['trade|id|'+idKey]);
+              if(!seenC[ck]&&!wasDeleted){seenC[ck]=true;cleanArr.push(t);}
+            });
+            merged[date]=cleanArr;
+          });
+          // RULE 3: Preserve local-only dates (not yet in Sheet)
           Object.keys(localByDate).forEach(function(date){
-            if(!merged[date]){
-              // This date has local trades not yet in Sheet — preserve them
-              merged[date] = localByDate[date];
-            }
-            // Dates in Sheet already: Sheet wins (already set in merged above)
+            if(merged[date]) return; // Sheet already has this date
+            var delKey=port+'|'+date;
+            if(_deletedDays&&_deletedDays[delKey]) return; // deleted — don't restore
+            merged[date]=localByDate[date];
           });
           localStorage.setItem('port_'+port+'_t', JSON.stringify(merged));
         });
@@ -2548,14 +2567,12 @@ function syncFromSheet(onDone){
         Object.keys(bySess).forEach(function(port){
           var existing = {};
           try{ existing = JSON.parse(localStorage.getItem('port_'+port+'_s')||'{}'); }catch(e){}
-          // FIX: merge per-date, preserving local-only fields (notesHistory, netPnl, etc.)
-          // Sheet only knows: emotion, trend, confirm, sessions, strategies, notes
-          // Local knows: notesHistory, netPnl, trades, wins (calculated client-side)
           Object.keys(bySess[port]).forEach(function(date){
+            // FIX: skip dates that were deleted locally — don't restore emotion/session from Sheet
+            var delKey=port+'|'+date;
+            if(_deletedDays&&_deletedDays[delKey]) return;
             var sheetSess = bySess[port][date];
             var localSess = existing[date] || {};
-            // Sheet fields override local (user may have edited in app)
-            // But preserve local-only fields that Sheet doesn't store
             existing[date] = Object.assign({}, localSess, sheetSess, {
               notesHistory: localSess.notesHistory || [],
               netPnl: localSess.netPnl !== undefined ? localSess.netPnl : (sheetSess.netPnl || 0),
@@ -4316,12 +4333,27 @@ function delTr(i){if(_isReadOnly){showToast('🔒 โหมดดูเท่า
   if(!t) return;
   var label=(t.asset||'')+(t.entry?' @ '+t.entry:'');
   showConfirm('ลบออเดอร์ '+label+' ใช่ไหม?', function(){
+    // FIX: track content key of deleted trade so sync won't restore it
+    var _delCK=typeof _tradeContentKey==='function'?_tradeContentKey(t):null;
+    var _delID=t.id?String(t.id):null;
+    _deletedDays=_deletedDays||{};
+    if(_delCK) _deletedDays['trade|ck|'+_delCK]=Date.now();
+    if(_delID) _deletedDays['trade|id|'+_delID]=Date.now();
     S.mTrades.splice(i,1);
     renderTT();
     S.trades[S.mKey]=S.mTrades;
     persistPort();
     updateStats();renderCal();updateRecent();renderTodayOrders();
-    if(S.scriptUrl&&t&&t.id) sendSheet('deleteTrade',{id:t.id,date:S.mKey,portfolio:S.currentPortfolio});
+    if(S.scriptUrl&&t&&t.id){
+      _syncBlocked=true;
+      fetch(S.scriptUrl,{
+        method:'POST',mode:'no-cors',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'deleteTrade',id:t.id,date:S.mKey,portfolio:S.currentPortfolio})
+      }).then(function(){
+        setTimeout(function(){ _syncBlocked=false; syncFromSheet(); }, 2000);
+      }).catch(function(){ _syncBlocked=false; });
+    }
     showToast('🗑 ลบออเดอร์แล้ว','success');
   });
 }
@@ -4579,10 +4611,30 @@ function deleteNoteHistory(dateKey,idx){
 }
 function deleteDay(){if(_isReadOnly){showToast('🔒 โหมดดูเท่านั้น — ไม่สามารถแก้ไขได้','error');return;}
   showConfirm('ลบข้อมูลวันนี้ทั้งหมดใช่ไหม?', function(){
-    delete S.sessions[S.mKey];delete S.trades[S.mKey];
+    var delKey=S.mKey;
+    delete S.sessions[delKey];delete S.trades[delKey];
     persistPort();updateStats();renderCal();updateRecent();renderTodayOrders();closeM('mDay');
-    if(S.scriptUrl) sendSheet('deleteDay',{date:S.mKey,portfolio:S.currentPortfolio});
     showToast('🗑 ลบแล้ว','success');
+    if(S.scriptUrl){
+      // FIX: block sync while Sheet processes delete, then re-sync to confirm
+      _syncBlocked=true;
+      fetch(S.scriptUrl,{
+        method:'POST',mode:'no-cors',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'deleteDay',date:delKey,portfolio:S.currentPortfolio})
+      }).then(function(){
+        // Wait for Sheet to finish deleting, then re-sync
+        // But first mark this date as locally-deleted so sync won't restore it
+        _deletedDays=_deletedDays||{};
+        _deletedDays[S.currentPortfolio+'|'+delKey]=Date.now();
+        setTimeout(function(){
+          _syncBlocked=false;
+          syncFromSheet();
+        },3000);
+      }).catch(function(){
+        _syncBlocked=false;
+      });
+    }
   });
 }
 
