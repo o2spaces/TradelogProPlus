@@ -2357,13 +2357,16 @@ function syncFromSheet(onDone){
 
       // ── 1. Portfolios ──
       if(d.portfolios && Object.keys(d.portfolios).length){
-        // FIX: ล้าง trade/session data ของทุก portfolio ที่มีอยู่ก่อน
-        // เพื่อป้องกัน stale data เก่ารวมกับ Sheet แล้ว duplicate
+        // FIX: snapshot local trades ก่อนลบ — เพื่อ merge กลับ pending trades ที่ยังไม่ sync ขึ้น Sheet
+        // (เช่น Topstep import ที่ใช้ no-cors บันทึกลง localStorage แล้วแต่ Sheet ยังไม่รับ)
         var allKnownPorts = Object.keys(S.portfolios).concat(Object.keys(d.portfolios));
         var seenPorts = {};
+        var _localTradesSnapshot = {}; // เก็บ local trades ก่อนลบ
         allKnownPorts.forEach(function(pid){
           if(!seenPorts[pid]){
             seenPorts[pid]=1;
+            // เก็บ snapshot ก่อน remove
+            try{ _localTradesSnapshot[pid] = JSON.parse(localStorage.getItem('port_'+pid+'_t')||'{}'); }catch(e){ _localTradesSnapshot[pid]={}; }
             localStorage.removeItem('port_'+pid+'_t');
             localStorage.removeItem('port_'+pid+'_s');
           }
@@ -2493,8 +2496,9 @@ function syncFromSheet(onDone){
           // เหตุผล: Topstep import / manual add อาจยังไม่ sync ขึ้น Sheet ทัน
           // Strategy: Sheet เป็น source of truth ต่อ trade ID — ถ้า Sheet มี ID นั้น ใช้ของ Sheet
           //           ถ้า local มี trade ที่ Sheet ไม่มี → เก็บไว้ (pending sync)
-          var localRaw = {};
-          try{ localRaw = JSON.parse(localStorage.getItem('port_'+port+'_t')||'{}'); }catch(e){}
+          // ใช้ snapshot ที่เก็บไว้ก่อนทำ removeItem เพื่อให้ pending trades ไม่หาย
+          var localRaw = _localTradesSnapshot[port] || {};
+          try{ var _lsCheck = localStorage.getItem('port_'+port+'_t'); if(_lsCheck) localRaw = JSON.parse(_lsCheck); }catch(e){}
           // สร้าง set ของ IDs ที่มีใน Sheet (filtered)
           var sheetIds = {};
           Object.keys(filtered).forEach(function(date){
@@ -8624,43 +8628,56 @@ function dtClearAllFromSheet(trades){
   var cnt=trades?trades.length:0;
   showToast('📤 กำลังลบ '+cnt+' rows จาก Google Sheet...','success');
 
-  // ใช้ GET request ซึ่ง reliable กว่า POST no-cors กับ GAS
-  // เพราะ GAS Web App ตอบ redirect แต่ GET ผ่าน follow redirect ได้
+  // ── ตั้ง safety timeout: clear tombstone อัตโนมัติใน 30 วิ ──
+  // ป้องกัน tombstone ค้างถ้า network error ทุกทาง
+  var _safetyTimer = setTimeout(function(){
+    localStorage.removeItem('dt_data_cleared');
+  }, 30000);
+
+  function _onSuccess(deleted){
+    clearTimeout(_safetyTimer);
+    localStorage.removeItem('dt_data_cleared');
+    showToast('✅ ลบออกจาก Sheet เสร็จ ('+(deleted||cnt)+' rows)','success');
+  }
+
+  // GAS Web App ตอบ redirect → ใช้ fetch แบบ follow redirect (default)
+  // แต่บาง deploy อาจ strip JSON → ลอง parse ส่วนที่เป็น JSON ใน text
   fetch(S.scriptUrl+'?action=clearAllDataTrades&portfolio='+encodeURIComponent(S.currentPortfolio))
     .then(function(r){ return r.text(); })
     .then(function(txt){
+      // หา JSON ที่ฝังใน text (กรณี GAS ใส่ prefix/suffix)
+      var jsonStart = txt.search(/[\x7b]/);
+      var jsonStr = jsonStart >= 0 ? txt.slice(jsonStart) : txt;
       try{
-        var d=JSON.parse(txt);
+        var d = JSON.parse(jsonStr);
         if(d.status==='ok'){
-          localStorage.removeItem('dt_data_cleared'); // clear tombstone
-          showToast('✅ ลบออกจาก Sheet เสร็จ ('+d.deleted+' rows)','success');
+          _onSuccess(d.deleted);
         } else {
           throw new Error(d.msg||'Sheet error');
         }
       }catch(e){
-        // ถ้า parse ไม่ได้ (redirect HTML) → ลอง POST fallback
-        _dtClearSheetFallback(cnt);
+        // ถ้า parse ไม่ได้ → ลอง POST fallback
+        _dtClearSheetFallback(cnt, _safetyTimer, _onSuccess);
       }
     })
     .catch(function(){
-      _dtClearSheetFallback(cnt);
+      _dtClearSheetFallback(cnt, _safetyTimer, _onSuccess);
     });
 }
 
-function _dtClearSheetFallback(cnt){
+function _dtClearSheetFallback(cnt, safetyTimer, onSuccess){
   // POST no-cors fallback — ส่งได้แต่อ่าน response ไม่ได้
-  // tombstone จะค้างไว้ 30 วิ แล้ว clear เอง (assume success)
   fetch(S.scriptUrl,{
     method:'POST',
     mode:'no-cors',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({action:'clearAllDataTrades',portfolio:S.currentPortfolio})
   }).catch(function(){});
-  // ล้าง tombstone หลัง 5 วิ (GAS ควรลบเสร็จแล้ว)
+  // GAS ควรลบเสร็จภายใน 10 วิ → clear tombstone
   setTimeout(function(){
-    localStorage.removeItem('dt_data_cleared');
-    showToast('✅ ส่งคำสั่งลบ Sheet แล้ว ('+cnt+' rows)','success');
-  }, 5000);
+    if(safetyTimer) clearTimeout(safetyTimer);
+    if(onSuccess) onSuccess(cnt);
+  }, 10000);
 }
 
 function dtSetupResizeHandles(){
