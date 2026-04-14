@@ -1327,6 +1327,7 @@ function doGet(e){
   if(p&amp;&amp;p.action==='loadPortfolios') return _json(loadPortfolios());
   if(p&amp;&amp;p.action==='loadAll')           return _json(loadAll());
   if(p&amp;&amp;p.action==='cleanDuplicates')   return _json(cleanDuplicates());
+  if(p&amp;&amp;p.action==='clearAllDataTrades')  return _json(clearAllDataTrades(p));
   return _json({status:'ready',version:'5.0',time:new Date().toISOString()});
 }
 function loadAll(){
@@ -2672,8 +2673,16 @@ function syncFromSheet(onDone){
           };
           newDT.push(tradeObj);
         });
-        // Replace ข้อมูล DataTrades ทั้งหมดด้วยข้อมูลจาก Sheet
-        localStorage.setItem('dt_trades', JSON.stringify(newDT));
+        // ── ตรวจ tombstone: ถ้าผู้ใช้เพิ่งกด "ลบทั้งหมด" → ห้าม restore จาก Sheet ──
+        var _dtCleared = localStorage.getItem('dt_data_cleared');
+        if(_dtCleared){
+          // Sheet ยังมีข้อมูลอยู่ (GAS กำลังลบอยู่) → ไม่ overwrite local
+          // tombstone จะถูกลบเมื่อ Sheet confirm ลบสำเร็จ
+          console.log('[sync] dt_data_cleared tombstone active — skip DataTrades restore');
+        } else {
+          // Replace ข้อมูล DataTrades ทั้งหมดด้วยข้อมูลจาก Sheet
+          localStorage.setItem('dt_trades', JSON.stringify(newDT));
+        }
       }
 
       // ── Reload current portfolio data ──
@@ -8592,6 +8601,8 @@ function dtConfirmClearAll(){
     if(btn.disabled) return;
     dtLoad();
     var toDelete=DT.trades.slice();
+    // ── ตั้ง tombstone ก่อน clear — ป้องกัน syncFromSheet ดึงกลับมา ──
+    try{localStorage.setItem('dt_data_cleared','1');}catch(e){}
     try{localStorage.removeItem('dt_trades');}catch(e){}
     DT.trades=[];
     modal.remove();
@@ -8607,21 +8618,49 @@ function dtConfirmClearAll(){
   modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
 }
 
-// ── Sync ลบ Data ทั้งหมดออกจาก Google Sheet (single request) ──
+// ── Sync ลบ Data ทั้งหมดออกจาก Google Sheet ──
 function dtClearAllFromSheet(trades){
-  if(!S.scriptUrl) return;
+  if(!S.scriptUrl){ localStorage.removeItem('dt_data_cleared'); return; }
   var cnt=trades?trades.length:0;
   showToast('📤 กำลังลบ '+cnt+' rows จาก Google Sheet...','success');
+
+  // ใช้ GET request ซึ่ง reliable กว่า POST no-cors กับ GAS
+  // เพราะ GAS Web App ตอบ redirect แต่ GET ผ่าน follow redirect ได้
+  fetch(S.scriptUrl+'?action=clearAllDataTrades&portfolio='+encodeURIComponent(S.currentPortfolio))
+    .then(function(r){ return r.text(); })
+    .then(function(txt){
+      try{
+        var d=JSON.parse(txt);
+        if(d.status==='ok'){
+          localStorage.removeItem('dt_data_cleared'); // clear tombstone
+          showToast('✅ ลบออกจาก Sheet เสร็จ ('+d.deleted+' rows)','success');
+        } else {
+          throw new Error(d.msg||'Sheet error');
+        }
+      }catch(e){
+        // ถ้า parse ไม่ได้ (redirect HTML) → ลอง POST fallback
+        _dtClearSheetFallback(cnt);
+      }
+    })
+    .catch(function(){
+      _dtClearSheetFallback(cnt);
+    });
+}
+
+function _dtClearSheetFallback(cnt){
+  // POST no-cors fallback — ส่งได้แต่อ่าน response ไม่ได้
+  // tombstone จะค้างไว้ 30 วิ แล้ว clear เอง (assume success)
   fetch(S.scriptUrl,{
     method:'POST',
     mode:'no-cors',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({action:'clearAllDataTrades',portfolio:S.currentPortfolio})
-  }).then(function(){
-    showToast('✅ ลบออกจาก Sheet เสร็จ ('+cnt+' rows)','success');
-  }).catch(function(err){
-    showToast('⚠ Sheet error: '+err.message,'error');
-  });
+  }).catch(function(){});
+  // ล้าง tombstone หลัง 5 วิ (GAS ควรลบเสร็จแล้ว)
+  setTimeout(function(){
+    localStorage.removeItem('dt_data_cleared');
+    showToast('✅ ส่งคำสั่งลบ Sheet แล้ว ('+cnt+' rows)','success');
+  }, 5000);
 }
 
 function dtSetupResizeHandles(){
