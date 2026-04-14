@@ -14,7 +14,7 @@
 [data-theme="light"]{--bg-primary:#f0f2f7;--bg-secondary:#e4e7f0;--bg-card:#fff;--bg-input:#f5f7fc;--border:#d0d5e8;--border-hover:#a0a8c8;--text-primary:#1a1e2a;--text-secondary:#4a5068;--text-muted:#8b90a0;--accent:#3b6aee;--accent-hover:#2a55dd;--accent-dim:rgba(59,106,238,.1);--green:#14a064;--green-dim:rgba(20,160,100,.1);--red:#c8283c;--red-dim:rgba(200,40,60,.1);}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:var(--font-main);background:var(--bg-primary);color:var(--text-primary);min-height:100vh;}
-.topbar{background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:0 14px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.topbar{background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:0 14px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
 .logo{font-weight:600;font-size:15px;display:flex;align-items:center;gap:7px;}
 .logo-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
 .topbar-center{display:flex;gap:0px;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:3px;}
@@ -1308,7 +1308,7 @@ var HDR={
     'Date','Portfolio','Emotion','Trend','Confirm',
     'Sessions','Strategies','Notes',
     'NetPnL($)','TotalTrades','WinRate(%)','GrossProfit($)','GrossLoss($)',
-    'AvgWin($)','AvgLoss($)','ProfitFactor','MaxDD($)','SavedAt'
+    'AvgWin($)','AvgLoss($)','ProfitFactor','MaxDD($)','NotesHistory','SavedAt'
   ],
   SUMMARY:[
     'Date','Portfolio','NetPnL($)','GrossProfit($)','GrossLoss($)',
@@ -1457,6 +1457,20 @@ function loadAll(){
     }
 
     _log('loadAll','trades='+result.trades.length+' sessions='+result.sessions.length+' dataTrades='+result.dataTrades.length+' portfolios='+Object.keys(result.portfolios).length,'','system','ok');
+    // ── Journal (Note of Day) ──
+    result.journal=[];
+    var jSh=ss.getSheetByName(SHEET.JOURNAL);
+    if(jSh&amp;&amp;jSh.getLastRow()&gt;1){
+      var jHdr=jSh.getRange(1,1,1,jSh.getLastColumn()).getValues()[0];
+      var jRows=jSh.getRange(2,1,jSh.getLastRow()-1,jSh.getLastColumn()).getValues();
+      jRows.forEach(function(r){
+        var obj=_row2obj(jHdr,r);
+        var date=String(obj['Date']||obj['date']||'').trim().substring(0,10);
+        var port=String(obj['Portfolio']||obj['portfolio']||'default').trim();
+        var html=String(obj['NoteHTML']||obj['noteHTML']||'').trim();
+        if(date&amp;&amp;html) result.journal.push({date:date,portfolio:port,noteHTML:html});
+      });
+    }
     return result;
   }catch(e){
     _log('loadAll','error='+e.toString(),'','system','error');
@@ -1512,7 +1526,6 @@ function doPost(e){
     else if(d.action==='batchSaveDataTrades')res=batchSaveDataTrades(d);
     else if(d.action==='clearAllDataTrades')   res=clearAllDataTrades(d);
     else if(d.action==='saveNoteDay')         res=saveNoteDay(d);
-    else if(d.action==='cleanDuplicates')    res=cleanDuplicates();
     else res={status:'error',msg:'unknown action: '+d.action};
     return _json(res);
   }catch(err){
@@ -1725,7 +1738,9 @@ function saveSession(d){
     d.sessions||'', d.strategies||'', d.notes||'',
     +pnl.toFixed(2), total, wr,
     +gp.toFixed(2), +gl.toFixed(2),
-    avgW, avgL, pf, +dd.toFixed(2), _now()
+    avgW, avgL, pf, +dd.toFixed(2),
+    d.notesHistory?JSON.stringify(d.notesHistory):'',
+    _now()
   ];
   var existing=_findRow2(sh,1,d.date,2,portfolio);
   if(existing&gt;0) sh.getRange(existing,1,1,row.length).setValues([row]);
@@ -1870,18 +1885,15 @@ function _findRow(sh,col,val){
   if(sh.getLastRow()&lt;2) return -1;
   var data=sh.getDataRange().getValues();
   var sVal=String(val).trim();
-  // FIX: collect ALL matching rows first, then delete dups bottom-up
-  // (bottom-up delete avoids row-index shift bugs; handles 3+ duplicates correctly)
-  var found=[];
+  var firstFound=-1;
   for(var i=1;i&lt;data.length;i++){
-    if(String(data[i][col-1]).trim()===sVal) found.push(i+1);
+    var cell=String(data[i][col-1]).trim();
+    if(cell===sVal){
+      if(firstFound===-1){ firstFound=i+1; }
+      // ถ้าเจอซ้ำ ไม่ต้องลบที่นี่ — ให้ cleanDuplicates จัดการ
+    }
   }
-  if(found.length===0) return -1;
-  // Delete duplicate rows from bottom to top (keep first occurrence)
-  for(var j=found.length-1;j&gt;=1;j--){
-    sh.deleteRow(found[j]);
-  }
-  return found[0];
+  return firstFound;
 }
 function _findRow2(sh,col1,val1,col2,val2){
   if(sh.getLastRow()&lt;2) return -1;
@@ -1909,25 +1921,15 @@ function cleanDuplicates(){
   var ss=SpreadsheetApp.getActiveSpreadsheet();
   var report=[];
 
-  // Clean Trades — dedup by content key (Date+Portfolio+Asset+Side+Lots+Entry+Close+PnL)
-  // Using content instead of ID because import-twice creates different IDs for same trade
+  // Clean Trades (dedup by ID col 1)
   var tSh=ss.getSheetByName(SHEET.TRADES);
   if(tSh&amp;&amp;tSh.getLastRow()&gt;1){
     var tData=tSh.getDataRange().getValues();
-    var tSeenId={}; var tSeenContent={}; var tDel=[];
+    var tSeen={}; var tDel=[];
     for(var i=tData.length-1;i&gt;=1;i--){
       var tid=String(tData[i][0]).trim();
-      // content key: Date|Portfolio|Asset|Side|Lots|Entry|Close|PnL
-      var tck=[
-        String(tData[i][1]).trim(), String(tData[i][2]||'default').trim(),
-        String(tData[i][3]).trim(), String(tData[i][4]).trim(),
-        String(parseFloat(tData[i][5])||0), String(parseFloat(tData[i][6])||0),
-        String(parseFloat(tData[i][7])||0), String(parseFloat(tData[i][10])||0)
-      ].join('|');
-      if(!String(tData[i][1]).trim()){ tDel.push(i+1); continue; }
-      var isDup = (tid &amp;&amp; tSeenId[tid]) || tSeenContent[tck];
-      if(isDup){ tDel.push(i+1); }
-      else { if(tid) tSeenId[tid]=true; tSeenContent[tck]=true; }
+      if(!tid){ tDel.push(i+1); continue; }
+      if(tSeen[tid]){ tDel.push(i+1); } else { tSeen[tid]=true; }
     }
     tDel.sort(function(a,b){return b-a;}).forEach(function(r){tSh.deleteRow(r);});
     report.push('Trades: removed '+tDel.length+' duplicates');
@@ -1966,7 +1968,7 @@ function cleanDuplicates(){
 
   var msg=report.join('\n');
   _log('cleanDuplicates',msg,'','system','ok');
-  try{ SpreadsheetApp.getUi().alert('✅ Clean เสร็จ!\n\n'+msg); }catch(e){} // skip alert when called via web
+  SpreadsheetApp.getUi().alert('✅ Clean เสร็จ!\n\n'+msg);
   return {status:'ok',report:report};
 }
 
@@ -2017,7 +2019,7 @@ function clearLog(){
         <button class="btn-sm" onclick="testSheet()">🔗 ทดสอบ URL</button>
         <button class="btn-sm" onclick="clearAndResync()" style="border-color:var(--amber);color:var(--amber);" title="ล้างข้อมูล Browser แล้วดึงใหม่ทั้งหมด">🧹 Clear &amp; Re-sync</button>
         <button class="btn-sm" onclick="cleanSheetDuplicates()" style="border-color:var(--red);color:var(--red);" title="ลบ Duplicate Rows ใน Sheet ถาวร">🔧 Clean Dupes</button>
-        <button class="btn-sm" onclick="cleanLocalDuplicates()" style="border-color:var(--purple);color:var(--purple);" title="ลบ Duplicate Trades ใน Browser Local ทันที (ไม่ต้องรอ Sheet)">🧬 Clean Local Dups</button>
+        <button class="btn-sm" onclick="cleanLocalDuplicates()" style="border-color:var(--purple);color:var(--purple);" title="ลบออเดอร์ซ้ำใน Browser (localStorage) ทุกพอร์ต">🧹 Clean Local Dupes</button>
       </div>
     </div>
     <div id="sheetRes" style="margin-top:8px;font-size:11px;padding:6px 8px;border-radius:6px;background:var(--bg-input);min-height:24px;"></div>
@@ -2260,102 +2262,60 @@ var COMM={NQ1:1.00,GC1:1.00,MNQ1:0.50,MGC1:0.50,'XAU/USD':0,EURUSD:0,GBPUSD:0,US
 var TICK_SIZE={MNQ1:0.25,NQ1:0.25,MGC1:0.1,GC1:0.1,'XAU/USD':0.01,EURUSD:0.00001,GBPUSD:0.00001,USDJPY:0.001,BTCUSD:1};
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var MABBR=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-var _syncBlocked=false; // FIX: prevents auto-sync from overwriting local trades during batch import
-// FIX: persist _deletedDays to localStorage so it survives page reload/sync
-function _loadDeletedDays(){try{return JSON.parse(localStorage.getItem('tj_deleted_days')||'{}');}catch(e){return {};}}
-function _saveDeletedDays(){try{localStorage.setItem('tj_deleted_days',JSON.stringify(_deletedDays));}catch(e){}}
-var _deletedDays=_loadDeletedDays(); // FIX: load from localStorage so deletions survive reload
 var S={sessions:{},trades:{},scriptUrl:'',keys:{mGem:'gemini-2.5-flash-preview-05-20',mGroq:'llama-4-scout-17b-16e-instruct'},prov:'gemini',provBackup:'groq',viewMonth:new Date(),viewYear:new Date().getFullYear(),emo:'😡',side:'Long',mKey:'',mTrades:[],upB64:null,eqChart:null,eqChartW:null,currentPortfolio:'default',portfolios:{}};
 
 // ── สั่ง GAS ล้าง duplicate rows ใน Sheet ──
 function cleanSheetDuplicates(){
-  // Step 1: always clean local first (works offline, no Sheet needed)
-  var localRemoved = cleanLocalDuplicates();
-  // Step 2: send to Sheet via POST (same method as sendSheet — avoids CORS issues with GET)
-  if(!S.scriptUrl){
-    showToast('🧹 Clean Local เสร็จ ('+localRemoved+' รายการ) — ไม่มี Sheet URL','success');
-    return;
-  }
+  if(!S.scriptUrl){ showToast('ยังไม่ได้ตั้งค่า Sheet URL','error'); return; }
+  if(!confirm('🔧 จะสั่งให้ Google Sheet ลบ Duplicate Rows ออกถาวร\n(Trades, Sessions, DataTrades)\n\nดำเนินการต่อ?')) return;
   showToast('🔧 กำลัง Clean Sheet Duplicates...','success');
-  fetch(S.scriptUrl, {
-    method:'POST', mode:'no-cors',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({action:'cleanDuplicates', portfolio:S.currentPortfolio})
-  })
-  .then(function(){
-    // no-cors ไม่อ่าน response ได้ — แค่รู้ว่าส่งไปแล้ว
-    showToast('✅ ส่งคำสั่ง Clean ไปที่ Sheet แล้ว — กำลัง Re-sync...','success');
-    // รอ Sheet process แล้ว sync กลับ
-    setTimeout(function(){ syncFromSheet(); }, 4000);
-  })
-  .catch(function(err){
-    showToast('⚠ Sheet Clean error: '+err.message+' (Local cleaned OK)','error');
-  });
+  fetch(S.scriptUrl+'?action=cleanDuplicates')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.status==='ok'){
+        var rpt=(d.report||[]).join(', ');
+        showToast('✅ Clean เสร็จ! '+rpt,'success');
+        // หลัง clean แล้ว re-sync ดึงข้อมูลที่สะอาดกลับมา
+        setTimeout(function(){ clearAndResync(); }, 1000);
+      } else {
+        showToast('⚠ Clean error: '+(d.msg||'unknown'),'error');
+      }
+    })
+    .catch(function(err){ showToast('❌ Clean failed: '+err.message,'error'); });
 }
 
-// ── Clean Duplicate Trades ใน Local Browser (ไม่ต้องรอ Sheet) ──
-function _tradeContentKey(t){
-  // Content-based dedup key — ใช้ข้อมูลจริงของ trade ไม่ใช่ id
-  // เพราะ import ซ้ำจะสร้าง id ใหม่ทุกครั้ง แต่ข้อมูลเหมือนกัน
-  var entry=String(t.entry||'').trim();
-  var close=String(t.close||'').trim();
-  var pnl=parseFloat(t.pnl||0).toFixed(2);
-  var side=String(t.side||'').trim();
-  var lots=String(t.lots||'').trim();
-  var asset=String(t.asset||'').trim();
-  var entryDate=String(t.entryDate||t.entryDateRaw||'').substring(0,16).trim();
-  var closeDate=String(t.closeDate||'').substring(0,16).trim();
-  return [asset,side,lots,entry,close,pnl,entryDate,closeDate].join('|');
-}
+// ── ลบ Duplicate Trades ออกจาก localStorage ทุก Portfolio ──
 function cleanLocalDuplicates(){
   var totalRemoved=0;
-  Object.keys(S.portfolios).forEach(function(pid){
+  var portsToClean=Object.keys(S.portfolios);
+  portsToClean.forEach(function(pid){
     var key='port_'+pid+'_t';
-    var byDate={};
-    try{ byDate=JSON.parse(localStorage.getItem(key)||'{}'); }catch(e){ return; }
-    var changed=false;
-    Object.keys(byDate).forEach(function(date){
-      var arr=byDate[date];
-      if(!Array.isArray(arr)) return;
-      var seenId={};var seenContent={};var deduped=[];
-      arr.forEach(function(t){
-        // Check by content first (catches import-twice duplicates with different ids)
-        var ck=_tradeContentKey(t);
-        // Also check by id as fallback
-        var idKey=t.id?String(t.id):null;
-        var isDup=(seenContent[ck]) || (idKey&&seenId[idKey]);
-        if(!isDup){
-          seenContent[ck]=true;
-          if(idKey) seenId[idKey]=true;
-          deduped.push(t);
-        } else {
-          totalRemoved++;
-        }
-      });
-      if(deduped.length!==arr.length){ byDate[date]=deduped; changed=true; }
+    var raw={};
+    try{ raw=JSON.parse(localStorage.getItem(key)||'{}'); }catch(e){}
+    var cleaned={};
+    Object.keys(raw).forEach(function(date){
+      var before=(raw[date]||[]).length;
+      cleaned[date]=_dedupTrades(raw[date]||[]);
+      totalRemoved+=(before-cleaned[date].length);
     });
-    if(changed) localStorage.setItem(key,JSON.stringify(byDate));
+    localStorage.setItem(key, JSON.stringify(cleaned));
+    // อัปเดต S.trades ถ้าเป็น current portfolio
+    if(pid===S.currentPortfolio){
+      var popupOpen=document.getElementById('mDay')&&document.getElementById('mDay').classList.contains('open');
+      Object.keys(cleaned).forEach(function(date){
+        if(popupOpen&&S.mKey&&date===S.mKey) return;
+        S.trades[date]=cleaned[date];
+      });
+    }
   });
-  // reload current portfolio
-  S.sessions=getPortSessions(); S.trades=getPortTrades();
-  // sync mTrades ถ้า modal เปิดอยู่
-  if(S.mKey && S.trades[S.mKey]) S.mTrades=JSON.parse(JSON.stringify(S.trades[S.mKey]));
-  // recalc session PnL for all affected days
-  Object.keys(S.trades).forEach(function(date){
-    var tr=S.trades[date]||[];
-    if(!S.sessions[date]) S.sessions[date]={};
-    S.sessions[date].netPnl=tr.reduce(function(s,t){return s+(parseFloat(t.pnl)||0);},0);
-    S.sessions[date].trades=tr.length;
-    S.sessions[date].wins=tr.filter(function(t){return parseFloat(t.pnl)>0;}).length;
-  });
-  persistPort(); updateStats(); renderCal(); updateRecent(); renderTodayOrders();
-  if(typeof renderTT==='function') renderTT();
-  if(totalRemoved>0){
-    showToast('🧹 ลบ Duplicate '+totalRemoved+' รายการแล้ว!','success');
-  } else {
-    showToast('✅ ไม่พบ Duplicate ในระบบ','success');
+  // อัปเดต mTrades ถ้า popup เปิดอยู่
+  if(document.getElementById('mDay')&&document.getElementById('mDay').classList.contains('open')){
+    S.mTrades=_dedupTrades(S.mTrades);
+    renderTT();
   }
-  return totalRemoved;
+  persistPort();
+  updateStats();renderCal();updateRecent();renderTodayOrders();
+  showToast('✅ ลบ duplicate ใน Browser แล้ว '+totalRemoved+' รายการ','success');
 }
 
 // ── ล้างข้อมูล Browser ทั้งหมดแล้วดึงจาก Sheet ใหม่ ──
@@ -2380,12 +2340,6 @@ function clearAndResync(){
 // ── ดึงข้อมูลทั้งหมดจาก Sheet มาอัพเดต Browser ──
 function syncFromSheet(onDone){
   if(!S.scriptUrl) return;
-  // FIX: skip auto-sync if a batch import is in progress (prevents overwriting local trades)
-  if(_syncBlocked){
-    showToast('⏳ รอ batch import เสร็จก่อน sync...','success');
-    setTimeout(function(){ syncFromSheet(onDone); }, 2000);
-    return;
-  }
   showToast('🔄 กำลังดึงข้อมูลจาก Sheet...','success');
   var sheetRes=document.getElementById('sheetRes');
   if(sheetRes){sheetRes.style.color='var(--text-muted)';sheetRes.textContent='🔄 กำลัง Sync...';}
@@ -2402,9 +2356,18 @@ function syncFromSheet(onDone){
 
       // ── 1. Portfolios ──
       if(d.portfolios && Object.keys(d.portfolios).length){
-        // FIX: ไม่ล้าง localStorage ก่อน sync แล้ว — เพราะ batch import อาจยังไม่ถึง Sheet
-        // ให้ Sheet data override local เฉพาะ portfolios ที่ Sheet ส่งมาเท่านั้น
-        // dt_trades จะถูก replace ตอน dataTrades section ด้านล่าง
+        // FIX: ล้าง trade/session data ของทุก portfolio ที่มีอยู่ก่อน
+        // เพื่อป้องกัน stale data เก่ารวมกับ Sheet แล้ว duplicate
+        var allKnownPorts = Object.keys(S.portfolios).concat(Object.keys(d.portfolios));
+        var seenPorts = {};
+        allKnownPorts.forEach(function(pid){
+          if(!seenPorts[pid]){
+            seenPorts[pid]=1;
+            localStorage.removeItem('port_'+pid+'_t');
+            localStorage.removeItem('port_'+pid+'_s');
+          }
+        });
+        // ล้าง dt_trades เก่าด้วยเพราะ DataTrades จะ replace ใหม่จาก Sheet
         localStorage.removeItem('dt_trades');
 
         var merged = {};
@@ -2512,42 +2475,32 @@ function syncFromSheet(onDone){
             imgLink:     gs(t,['ImageLink','imagelink','imgLink'])
           });
         });
-        // FIX: Smart merge v2 — Sheet is source of truth with these rules:
-        // 1. Deleted days (_deletedDays) → always skip, never restore from Sheet
-        // 2. Sheet has date → Sheet wins (handles clean-dups-in-sheet case)
-        // 3. Local has date not in Sheet → keep local (recently imported, not yet in Sheet)
+        // Save each portfolio's trades to localStorage
+        // FIX: ใช้ข้อมูลจาก Sheet เป็น source of truth ต่อ portfolio
+        // เก็บเฉพาะวันที่มาจาก Sheet แทนที่ (replace) ไม่ใช่ merge กับของเก่า
+        // เพื่อป้องกัน duplicate orders จากการ merge ซ้ำหลายรอบ
         var portsFromSheet = Object.keys(byPort);
         portsFromSheet.forEach(function(port){
-          var localByDate = {};
-          try{ localByDate=JSON.parse(localStorage.getItem('port_'+port+'_t')||'{}'); }catch(e){}
-          // Start with Sheet data — dedup by content key while building
-          var merged = {};
+          // กรองวันที่ถูกลบ (tombstone) ออกก่อน save
+          var tombstone = {};
+          try{ tombstone = JSON.parse(localStorage.getItem('tj_deleted_'+port)||'{}'); }catch(e){}
+          var filtered = {};
           Object.keys(byPort[port]).forEach(function(date){
-            // RULE 1: Skip dates that were deleted locally
-            var delKey=port+'|'+date;
-            if(_deletedDays&&_deletedDays[delKey]) return;
-            // Sheet is authoritative for this date (handles clean-dub-in-sheet)
-            // Also run content dedup AND filter out individually deleted trades
-            var sheetArr=byPort[port][date]||[];
-            var seenC={};var cleanArr=[];
-            sheetArr.forEach(function(t){
-              var ck=typeof _tradeContentKey==='function'?_tradeContentKey(t):[t.asset,t.side,t.entry,t.close,t.pnl].join('|');
-              var idKey=t.id?String(t.id):null;
-              // Skip if this trade was individually deleted
-              var wasDeleted=(_deletedDays&&_deletedDays['trade|ck|'+ck]) ||
-                             (idKey&&_deletedDays&&_deletedDays['trade|id|'+idKey]);
-              if(!seenC[ck]&&!wasDeleted){seenC[ck]=true;cleanArr.push(t);}
+            if(!tombstone[date]) filtered[date] = byPort[port][date];
+          });
+          localStorage.setItem('port_'+port+'_t', JSON.stringify(filtered));
+          // ── FIX: อัปเดต S.trades ใน memory ด้วย (ไม่ใช่แค่ localStorage) ──
+          if(port === S.currentPortfolio){
+            var popupOpen = document.getElementById('mDay') && document.getElementById('mDay').classList.contains('open');
+            Object.keys(filtered).forEach(function(date){
+              if(popupOpen && S.mKey && date === S.mKey) return;
+              S.trades[date] = filtered[date];
             });
-            merged[date]=cleanArr;
-          });
-          // RULE 3: Preserve local-only dates (not yet in Sheet)
-          Object.keys(localByDate).forEach(function(date){
-            if(merged[date]) return; // Sheet already has this date
-            var delKey=port+'|'+date;
-            if(_deletedDays&&_deletedDays[delKey]) return; // deleted — don't restore
-            merged[date]=localByDate[date];
-          });
-          localStorage.setItem('port_'+port+'_t', JSON.stringify(merged));
+            Object.keys(S.trades).forEach(function(date){
+              if(popupOpen && S.mKey && date === S.mKey) return;
+              if(!filtered[date]) delete S.trades[date];
+            });
+          }
         });
       }
 
@@ -2556,36 +2509,53 @@ function syncFromSheet(onDone){
         var bySess = {};
         d.sessions.forEach(function(s){
           var port = s.portfolio||s.Portfolio||'default';
-          var date = s.date||s.Date||'';
+          var date = (s.date||s.Date||'').trim().substring(0,10);
+          if(!date) return;
           if(!bySess[port]) bySess[port] = {};
+          // parse notesHistory — ลอง key ทุกรูปแบบที่ GAS อาจส่งมา
+          var nh=null;
+          var nhRaw=s['NotesHistory']||s['notesHistory']||s['Noteshistory']||s['notes_history']||'';
+          // ถ้ายังไม่เจอ ลอง scan ทุก key ใน object
+          if(!nhRaw){
+            Object.keys(s).forEach(function(k){
+              if(k.toLowerCase()==='noteshistory' && s[k]) nhRaw=s[k];
+            });
+          }
+          if(nhRaw && typeof nhRaw==='string'){
+            var trimmed=nhRaw.trim();
+            if(trimmed.startsWith('[')){
+              try{ nh=JSON.parse(trimmed); }catch(e){ nh=null; }
+            }
+          } else if(Array.isArray(nhRaw)){
+            nh=nhRaw;
+          }
           bySess[port][date] = {
             emotion: s.emotion||s.Emotion||'',
             trend: s.trend||s.Trend||'',
             confirm: s.confirm||s.Confirm||'',
             sessions: s.sessions||s.Sessions||'',
             strategies: s.strategies||s.Strategies||'',
-            notes: s.notes||s.Notes||''
+            notes: s.notes||s.Notes||'',
+            notesHistory: nh||[]
           };
         });
         Object.keys(bySess).forEach(function(port){
           var existing = {};
           try{ existing = JSON.parse(localStorage.getItem('port_'+port+'_s')||'{}'); }catch(e){}
+          // โหลด tombstone (วันที่ถูกลบ) เพื่อป้องกัน sheet ดึงกลับมา
+          var tombstone = {};
+          try{ tombstone = JSON.parse(localStorage.getItem('tj_deleted_'+port)||'{}'); }catch(e){}
           Object.keys(bySess[port]).forEach(function(date){
-            // FIX: skip dates that were deleted locally — don't restore emotion/session from Sheet
-            var delKey=port+'|'+date;
-            if(_deletedDays&&_deletedDays[delKey]) return;
-            var sheetSess = bySess[port][date];
-            var localSess = existing[date] || {};
-            // FIX: local wins over Sheet for emotion/trend/confirm/strategies/notes
-            // (Sheet is source of truth ONLY for fields not yet saved locally)
-            existing[date] = Object.assign({}, sheetSess, localSess, {
-              notesHistory: localSess.notesHistory || [],
-              netPnl: localSess.netPnl !== undefined ? localSess.netPnl : (sheetSess.netPnl || 0),
-              trades: localSess.trades !== undefined ? localSess.trades : (sheetSess.trades || 0),
-              wins:   localSess.wins   !== undefined ? localSess.wins   : (sheetSess.wins   || 0)
-            });
+            // ถ้าวันนี้ถูกลบ (tombstone) → ข้ามไม่นำ sheet data มาแทน
+            if(tombstone[date]) return;
+            var sheetSess=bySess[port][date];
+            var localSess=existing[date]||{};
+            var sheetNH=sheetSess.notesHistory||[];
+            var localNH=localSess.notesHistory||[];
+            // ใช้ตัวที่มี entry มากกว่า
+            sheetSess.notesHistory = sheetNH.length >= localNH.length ? sheetNH : localNH;
+            existing[date] = sheetSess;
           });
-          // Preserve dates that are ONLY in local (not yet in Sheet)
           localStorage.setItem('port_'+port+'_s', JSON.stringify(existing));
         });
       }
@@ -2687,6 +2657,16 @@ function syncFromSheet(onDone){
       // ── Reload current portfolio data ──
       S.sessions = getPortSessions();
       S.trades   = getPortTrades();
+      // ── Journal: sync Note of Day จาก Sheet → localStorage ──
+      if(d.journal && d.journal.length){
+        d.journal.forEach(function(j){
+          if(j.date && j.noteHTML){
+            var key='tj_noteday_'+(j.portfolio||'default')+'_'+j.date;
+            // ใช้ข้อมูลจาก Sheet ถ้า localStorage ว่างอยู่ หรือ Sheet ใหม่กว่า (overwrite เสมอ)
+            localStorage.setItem(key, j.noteHTML);
+          }
+        });
+      }
       renderPortfolioBar();
       updateStats(); renderCal(); updateRecent(); renderTodayOrders();
       var cnt = (d.trades||[]).length + (d.dataTrades||[]).length;
@@ -2776,23 +2756,16 @@ function getPortfolioKey(dateKey){return S.currentPortfolio+'__'+dateKey;}
 function getCurrentSessions(){return S.sessions[getPortfolioKey]||S.sessions;}
 // Portfolio data are stored with prefix: port_ID_sessions / port_ID_trades
 function getPortSessions(){var k='port_'+S.currentPortfolio+'_s';try{return JSON.parse(localStorage.getItem(k)||'{}');}catch(e){return {};}}
-function getPortTrades(){var k='port_'+S.currentPortfolio+'_t';try{return JSON.parse(localStorage.getItem(k)||'{}');}catch(e){return {};}}
+function getPortTrades(){
+  var k='port_'+S.currentPortfolio+'_t';
+  try{
+    var raw=JSON.parse(localStorage.getItem(k)||'{}');
+    // dedup ทุกวันก่อน return
+    Object.keys(raw).forEach(function(date){ raw[date]=_dedupTrades(raw[date]||[]); });
+    return raw;
+  }catch(e){return {};}
+}
 function persistPort(){
-  // FIX: auto-dedup S.trades before persisting — content-based key catches import-twice dups
-  var dedupedTrades={};
-  Object.keys(S.trades).forEach(function(date){
-    var arr=S.trades[date];
-    if(!Array.isArray(arr)){dedupedTrades[date]=arr;return;}
-    var seenId={};var seenContent={};var clean=[];
-    arr.forEach(function(t){
-      var ck=typeof _tradeContentKey==='function'?_tradeContentKey(t):[t.entry,t.close,t.pnl,t.side,t.lots,t.asset].join('|');
-      var idKey=t.id?String(t.id):null;
-      var isDup=seenContent[ck]||(idKey&&seenId[idKey]);
-      if(!isDup){seenContent[ck]=true;if(idKey)seenId[idKey]=true;clean.push(t);}
-    });
-    dedupedTrades[date]=clean;
-  });
-  S.trades=dedupedTrades;
   localStorage.setItem('port_'+S.currentPortfolio+'_s',JSON.stringify(S.sessions));
   localStorage.setItem('port_'+S.currentPortfolio+'_t',JSON.stringify(S.trades));
   localStorage.setItem('tj_ports',JSON.stringify(S.portfolios));
@@ -3810,37 +3783,42 @@ function saveEntry(){if(_isReadOnly){showToast('🔒 โหมดดูเท่
   var sess=[],strats=[];
   sess=getSidebarActiveSessions();
   document.querySelectorAll('#stratRow .tag.active').forEach(function(t){strats.push(t.textContent);});
-  // FIX: always read freshest trades from localStorage (not stale S.trades)
-  var _freshT=getPortTrades();
-  var tr=_freshT[k]||S.trades[k]||[];
+  var tr=S.trades[k]||[];
   var pnl=tr.reduce(function(s,t){return s+(parseFloat(t.pnl)||0);},0);
   var wins=tr.filter(function(t){return parseFloat(t.pnl)>0;}).length;
   var newNote=document.getElementById('rNotes').value.trim();
-  // FIX: read freshest session from localStorage to preserve notesHistory
-  var _freshS=getPortSessions();
-  var existing=_freshS[k]||S.sessions[k]||{};
+  // Load existing session to preserve notesHistory
+  var existing=S.sessions[k]||{};
   if(!existing.notesHistory) existing.notesHistory=[];
-  // Push to history only if note is non-empty and changed from last entry
-  if(newNote){
-    var last=existing.notesHistory[existing.notesHistory.length-1];
-    if(!last||last.text!==newNote){
-      existing.notesHistory.push({
-        text:newNote,
-        ts:new Date().toISOString(),
-        emotion:S.emo,
-        trend:document.getElementById('rTrend').value,
-        confirm:document.getElementById('rConfirm').value,
-        sessions:sess.join(', '),
-        strategies:strats.join(', ')
-      });
-      if(existing.notesHistory.length>10) existing.notesHistory.shift();
-    }
+  // Push to history if note OR emo/session/strategy has changed (or first entry)
+  var newEntry={
+    text:newNote,
+    ts:new Date().toISOString(),
+    emotion:S.emo,
+    trend:document.getElementById('rTrend').value,
+    confirm:document.getElementById('rConfirm').value,
+    sessions:sess.join(', '),
+    strategies:strats.join(', ')
+  };
+  var last=existing.notesHistory[existing.notesHistory.length-1];
+  var changed=!last
+    || last.text!==newEntry.text
+    || last.emotion!==newEntry.emotion
+    || last.sessions!==newEntry.sessions
+    || last.strategies!==newEntry.strategies
+    || last.trend!==newEntry.trend
+    || last.confirm!==newEntry.confirm;
+  if(changed){
+    existing.notesHistory.push(newEntry);
+    if(existing.notesHistory.length>20) existing.notesHistory.shift();
   }
   var sessObj={emotion:S.emo,trend:document.getElementById('rTrend').value,confirm:document.getElementById('rConfirm').value,sessions:sess.join(', '),strategies:strats.join(', '),notes:newNote,netPnl:pnl,trades:tr.length,wins:wins,notesHistory:existing.notesHistory};
   S.sessions[k]=sessObj;
   persistPort();updateStats();renderCal();updateRecent();renderTodayOrders();
   if(S.scriptUrl) sendSheet('saveSession',Object.assign({date:k},sessObj));
   showToast('✅ บันทึกแล้ว'+(S.scriptUrl?' → Sheet':' (local)'),'success');
+  // refresh Comment history ถ้า modal วันนั้นเปิดอยู่
+  if(S.mKey===k) renderCommentHistory(k);
 }
 
 var _mEmoIdx=0;
@@ -3869,11 +3847,26 @@ function mEmoClick(e){
   mEmoSetByIdx(idx);
 }
 
+function _dedupTrades(arr){
+  // ลบ duplicate trades โดยเก็บ trade ล่าสุดของแต่ละ id
+  var seen={};
+  return arr.filter(function(t){
+    var key=String(t.id||'');
+    if(!key){
+      // ไม่มี id → ใช้ entry+side+lots เป็น key
+      key=(t.entry||'')+'_'+(t.side||'')+'_'+(t.lots||'')+'_'+(t.asset||'');
+    }
+    if(seen[key]) return false;
+    seen[key]=true;
+    return true;
+  });
+}
 function openDay(dt){
-  // FIX: reload latest data from localStorage every time before snapshot
-  // prevents stale S.trades causing duplicate entries on re-open
-  S.sessions=getPortSessions();S.trades=getPortTrades();
-  S.mKey=dk(dt);S.mTrades=JSON.parse(JSON.stringify(S.trades[S.mKey]||[]));
+  S.mKey=dk(dt);S.mTrades=_dedupTrades(JSON.parse(JSON.stringify(S.trades[S.mKey]||[])));
+  // sync cleaned list back
+  if(S.trades[S.mKey] && S.mTrades.length !== S.trades[S.mKey].length){
+    S.trades[S.mKey]=S.mTrades; persistPort();
+  }
   document.getElementById('mDayTitle').textContent=fmtD(dt);
   document.getElementById('dComment').value=(S.sessions[S.mKey]||{}).notes||'';
   var savedEmo=(S.sessions[S.mKey]||{}).emotion||'';
@@ -4050,9 +4043,11 @@ function calcAll(){
   var slPtEl=document.getElementById('oSLPoint');
   if(slPtEl&&en&&sl){
     var slDist=Math.abs(en-sl);
-    var tick=TICK_SIZE[asset]||0.01;
-    var slPts=(slDist/tick).toFixed(0);
-    slPtEl.textContent='('+slPts+' pts)';
+    var tick=TICK_SIZE[asset]||0.25;
+    var slTicks=slDist/tick;
+    var slTicksStr=slTicks%1===0?slTicks.toFixed(0):slTicks.toFixed(1);
+    var slPtsStr=slDist%1===0?slDist.toFixed(0):slDist.toFixed(2);
+    slPtEl.innerHTML='<span style="color:var(--amber)">'+slPtsStr+' pts</span> <span style="color:var(--text-muted);font-size:9px;">/</span> <span style="color:var(--teal)">'+slTicksStr+' ticks</span>';
   } else if(slPtEl) slPtEl.textContent='';
   var bar=document.getElementById('calcBar');
   if(en&&sl){
@@ -4090,8 +4085,6 @@ function previewImgLink(v){
   else{p.style.display='none';}
 }
 function addTrade(){if(_isReadOnly){showToast('🔒 โหมดดูเท่านั้น — ไม่สามารถแก้ไขได้','error');return;}
-  // FIX: guard against calling addTrade while in edit mode — should call updateTrade instead
-  if(S._editIdx!==undefined&&S._editIdx>=0){updateTrade();return;}
   var asset=document.getElementById('oAsset').value;if(!asset){showToast('กรุณาเลือก Asset','error');return;}
   var orderSessions=[];
   document.querySelectorAll('#oSessionTagRow .sess-wrap .tag.active').forEach(function(el){var sid=el.dataset.sid;var s=_customSessions.find(function(x){return x.id===sid;});orderSessions.push(s?s.label:el.textContent.trim());});
@@ -4128,12 +4121,7 @@ function addTrade(){if(_isReadOnly){showToast('🔒 โหมดดูเท่�
     id:Date.now()
   };
   showTradeConfirm(trade, function(){
-    // FIX: re-sync mTrades from latest localStorage before push (prevents stale snapshot dups)
-    var _lat=getPortTrades();
-    if(_lat[S.mKey]) S.mTrades=JSON.parse(JSON.stringify(_lat[S.mKey]));
-    // FIX: dedup guard — never push same id twice
-    var _dup=S.mTrades.some(function(x){return String(x.id)===String(trade.id);});
-    if(!_dup) S.mTrades.push(trade);
+    S.mTrades.push(trade);
     renderTT();
     document.getElementById('orderForm').style.display='none';
     S.trades[S.mKey]=S.mTrades;
@@ -4338,28 +4326,12 @@ function delTr(i){if(_isReadOnly){showToast('🔒 โหมดดูเท่า
   if(!t) return;
   var label=(t.asset||'')+(t.entry?' @ '+t.entry:'');
   showConfirm('ลบออเดอร์ '+label+' ใช่ไหม?', function(){
-    // FIX: track content key of deleted trade so sync won't restore it
-    var _delCK=typeof _tradeContentKey==='function'?_tradeContentKey(t):null;
-    var _delID=t.id?String(t.id):null;
-    _deletedDays=_deletedDays||{};
-    if(_delCK) _deletedDays['trade|ck|'+_delCK]=Date.now();
-    if(_delID) _deletedDays['trade|id|'+_delID]=Date.now();
-    _saveDeletedDays(); // FIX: persist so sync won't restore deleted trade after reload
     S.mTrades.splice(i,1);
     renderTT();
     S.trades[S.mKey]=S.mTrades;
     persistPort();
     updateStats();renderCal();updateRecent();renderTodayOrders();
-    if(S.scriptUrl&&t&&t.id){
-      _syncBlocked=true;
-      fetch(S.scriptUrl,{
-        method:'POST',mode:'no-cors',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({action:'deleteTrade',id:t.id,date:S.mKey,portfolio:S.currentPortfolio})
-      }).then(function(){
-        setTimeout(function(){ _syncBlocked=false; syncFromSheet(); }, 2000);
-      }).catch(function(){ _syncBlocked=false; });
-    }
+    if(S.scriptUrl&&t&&t.id) sendSheet('deleteTrade',{id:t.id,date:S.mKey,portfolio:S.currentPortfolio});
     showToast('🗑 ลบออเดอร์แล้ว','success');
   });
 }
@@ -4526,28 +4498,33 @@ function updateTrade(){if(_isReadOnly){showToast('🔒 โหมดดูเท�
   showToast('✅ อัปเดตออเดอร์แล้ว','success');
 }
 function saveDayM(){if(_isReadOnly){showToast('🔒 โหมดดูเท่านั้น — ไม่สามารถแก้ไขได้','error');return;}
-  // FIX: reload latest trades from localStorage before saving session
-  // prevents saving stale mTrades snapshot over fresh data
-  var _freshTrades=getPortTrades();
-  if(_freshTrades[S.mKey]) S.mTrades=JSON.parse(JSON.stringify(_freshTrades[S.mKey]));
   S.trades[S.mKey]=S.mTrades;var se=S.sessions[S.mKey]||{};
   var newNote=document.getElementById('dComment').value.trim();
-  // Save history of notes (keep up to 10 entries per day)
-  if(newNote){
-    if(!se.notesHistory) se.notesHistory=[];
-    var last=se.notesHistory[se.notesHistory.length-1];
-    if(!last||last.text!==newNote){
-      se.notesHistory.push({text:newNote,ts:new Date().toISOString()});
-      if(se.notesHistory.length>10) se.notesHistory.shift();
-    }
+  var curEmo=EMO_LIST[_mEmoIdx]||'';
+  if(!se.notesHistory) se.notesHistory=[];
+  var newEntry={
+    text:newNote,
+    ts:new Date().toISOString(),
+    emotion:curEmo,
+    trend:se.trend||'',
+    confirm:se.confirm||'',
+    sessions:se.sessions||'',
+    strategies:se.strategies||''
+  };
+  var last=se.notesHistory[se.notesHistory.length-1];
+  var changed=!last
+    ||last.text!==newEntry.text
+    ||last.emotion!==newEntry.emotion;
+  if(changed){
+    se.notesHistory.push(newEntry);
+    if(se.notesHistory.length>20) se.notesHistory.shift();
   }
   se.notes=newNote;
-  se.emotion=EMO_LIST[_mEmoIdx]||se.emotion||'';
+  se.emotion=curEmo||se.emotion||'';
   var pnl=S.mTrades.reduce(function(s,t){return s+(parseFloat(t.pnl)||0);},0);
   var wins=S.mTrades.filter(function(t){return parseFloat(t.pnl)>0;}).length;
   se.netPnl=pnl;se.trades=S.mTrades.length;se.wins=wins;S.sessions[S.mKey]=se;
   persistPort();updateStats();renderCal();updateRecent();renderTodayOrders();
-  // Render history in-place WITHOUT closing modal — user can see it immediately
   renderCommentHistory(S.mKey);
   if(S.scriptUrl) sendSheet('saveSession',Object.assign({date:S.mKey},se));
   showToast('✅ บันทึกแล้ว','success');
@@ -4556,44 +4533,67 @@ function renderCommentHistory(dateKey){
   var wrap=document.getElementById('commentHistoryWrap');
   var list=document.getElementById('commentHistoryList');
   if(!wrap||!list) return;
-  var se=S.sessions[dateKey]||{};
-  var hist=se.notesHistory||[];
+
+  // ── หา notesHistory จากทุก source ──
+  var hist=[];
+
+  // 1. ลอง localStorage โดยตรงก่อนเสมอ (source of truth)
+  try{
+    var raw=localStorage.getItem('port_'+S.currentPortfolio+'_s');
+    if(raw){
+      var allSess=JSON.parse(raw);
+      var ls=allSess[dateKey]||{};
+      if(ls.notesHistory&&ls.notesHistory.length) hist=ls.notesHistory;
+    }
+  }catch(e){}
+
+  // 2. fallback S.sessions ถ้า localStorage ไม่มี
+  if(!hist.length){
+    var se=S.sessions[dateKey]||{};
+    hist=se.notesHistory||[];
+  }
+
+  // 3. sync กลับเข้า S.sessions ให้ consistent
+  if(hist.length){
+    if(!S.sessions[dateKey]) S.sessions[dateKey]={};
+    S.sessions[dateKey].notesHistory=hist;
+  }
+
   if(!hist.length){wrap.style.display='none';return;}
   wrap.style.display='block';
   var MABBR2=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  // replace table with rows — keep using tbody for layout
   list.innerHTML=hist.slice().reverse().map(function(h,revIdx){
     var idx=hist.length-1-revIdx;
     var dt=h.ts?new Date(h.ts):null;
     var timeStr=dt?(dt.getDate()+' '+MABBR2[dt.getMonth()]+' '+pad(dt.getHours())+':'+pad(dt.getMinutes())):'';
-    var preview=h.text.replace(/\n/g,' ');
+    var preview=(h.text||'').replace(/\n/g,' ');
     var short=preview.length>70?preview.substring(0,70)+'…':preview;
-    // Build tag pills for sessions & strategies
     function pills(str,col){
       if(!str) return '';
       return str.split(',').map(function(s){s=s.trim();return s?'<span style="background:'+col+'22;border:1px solid '+col+'55;color:'+col+';border-radius:10px;padding:1px 6px;font-size:9px;white-space:nowrap;">'+escHtml(s)+'</span>':'';}).join('');
     }
     var sessPills=pills(h.sessions,'var(--accent)');
     var stratPills=pills(h.strategies,'var(--purple)');
-    var emoStr=h.emotion?'<span style="font-size:13px;" title="Emotional">'+h.emotion+'</span>':'';
+    var emoStr=h.emotion?'<span style="font-size:14px;" title="Emotional State">'+h.emotion+'</span>':'';
     var trendStr=h.trend?'<span style="font-size:9px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--amber);">'+escHtml(h.trend)+'</span>':'';
     var confStr=h.confirm?'<span style="font-size:9px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--teal);">'+escHtml(h.confirm)+'</span>':'';
-    return '<tr style="border-bottom:1px solid var(--border);vertical-align:top;transition:background .1s;" onmouseover="this.style.background=\'var(--bg-card)\'" onmouseout="this.style.background=\'\'">'
-      // time col
+    // ถ้าไม่มี note text แสดง placeholder จาง
+    var noteHtml=short
+      ?'<div style="font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px;" title="'+escHtml(h.text||'')+'">'+escHtml(short)+'</div>'
+      :'<div style="font-size:10px;color:var(--text-muted);font-style:italic;">— บันทึก Emotional State เท่านั้น —</div>';
+    // ถ้า row นี้มีแค่ emo (ไม่มีอะไรเลยนอกจาก emo) แสดง row สีต่างออกไปนิด
+    var rowBg=(h.text||h.sessions||h.strategies||h.trend||h.confirm)?'':'rgba(255,255,255,0.02)';
+    return '<tr style="border-bottom:1px solid var(--border);vertical-align:top;transition:background .1s;background:'+rowBg+';" onmouseover="this.style.background=\'var(--bg-card)\'" onmouseout="this.style.background=\''+rowBg+'\'">'
       +'<td style="padding:6px 6px;white-space:nowrap;font-family:var(--font-mono);font-size:10px;color:var(--text-muted);vertical-align:top;">'+timeStr+'</td>'
-      // main content col
       +'<td style="padding:6px 6px;vertical-align:top;min-width:0;">'
-        // row 1: emo + trend + confirm + sessions + strategies
         +'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-bottom:3px;">'
           +emoStr+trendStr+confStr+sessPills+stratPills
         +'</div>'
-        // row 2: note text
-        +'<div style="font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px;" title="'+escHtml(h.text)+'">'+escHtml(short)+'</div>'
+        +noteHtml
       +'</td>'
-      // action col
       +'<td style="padding:6px 6px;white-space:nowrap;text-align:right;vertical-align:top;">'
-        +'<button onclick="editNoteHistory(\''+dateKey+'\','+idx+')" title="แก้ไข" style="background:none;border:1px solid var(--border);color:var(--text-muted);width:22px;height:22px;border-radius:4px;font-size:11px;cursor:pointer;margin-right:3px;transition:all .12s;" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✎</button>'
-        +'<button onclick="deleteNoteHistory(\''+dateKey+'\','+idx+')" title="ลบ" style="background:none;border:1px solid var(--border);color:var(--text-muted);width:22px;height:22px;border-radius:4px;font-size:11px;cursor:pointer;transition:all .12s;" onmouseover="this.style.borderColor=\'var(--red)\';this.style.color=\'var(--red)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✕</button>'
+        +'<button onclick="editNoteHistory(\''+escHtml(dateKey)+'\','+idx+')" title="แก้ไข" style="background:none;border:1px solid var(--border);color:var(--text-muted);width:22px;height:22px;border-radius:4px;font-size:11px;cursor:pointer;margin-right:3px;transition:all .12s;" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✎</button>'
+        +'<button onclick="deleteNoteHistory(\''+escHtml(dateKey)+'\','+idx+')" title="ลบ" style="background:none;border:1px solid var(--border);color:var(--text-muted);width:22px;height:22px;border-radius:4px;font-size:11px;cursor:pointer;transition:all .12s;" onmouseover="this.style.borderColor=\'var(--red)\';this.style.color=\'var(--red)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--text-muted)\'">✕</button>'
       +'</td>'
       +'</tr>';
   }).join('');
@@ -4602,46 +4602,67 @@ function editNoteHistory(dateKey,idx){
   var se=S.sessions[dateKey]||{};
   var hist=se.notesHistory||[];
   if(!hist[idx]) return;
-  document.getElementById('dComment').value=hist[idx].text;
+  var h=hist[idx];
+  document.getElementById('dComment').value=h.text||'';
   document.getElementById('dComment').focus();
+  if(h.emotion){
+    var ei=EMO_LIST.indexOf(h.emotion);
+    if(ei>=0){ setEmoByIdx(ei); mEmoSetByIdx(ei); }
+  }
   showToast('✎ โหลดโน้ตแล้ว แก้ไขและกด Save Comment','success');
 }
 function deleteNoteHistory(dateKey,idx){
-  var se=S.sessions[dateKey]||{};
-  if(!se.notesHistory) return;
+  // update S.sessions
+  if(!S.sessions[dateKey]) S.sessions[dateKey]={};
+  var se=S.sessions[dateKey];
+  if(!se.notesHistory) se.notesHistory=[];
+  // ดึงจาก localStorage ก่อนเสมอ
+  try{
+    var raw=localStorage.getItem('port_'+S.currentPortfolio+'_s');
+    if(raw){
+      var allSess=JSON.parse(raw);
+      if(allSess[dateKey]){
+        // merge ทั้ง notesHistory และ fields สำคัญอื่นๆ (emotion, trend ฯลฯ)
+        var ls=allSess[dateKey];
+        if(ls.notesHistory) se.notesHistory=ls.notesHistory;
+        if(!se.emotion && ls.emotion) se.emotion=ls.emotion;
+        if(!se.trend && ls.trend) se.trend=ls.trend;
+        if(!se.confirm && ls.confirm) se.confirm=ls.confirm;
+        if(!se.sessions && ls.sessions) se.sessions=ls.sessions;
+        if(!se.strategies && ls.strategies) se.strategies=ls.strategies;
+      }
+    }
+  }catch(e){}
+  if(!se.notesHistory[idx]) return;
   se.notesHistory.splice(idx,1);
   S.sessions[dateKey]=se;
   persistPort();
+  if(S.scriptUrl) sendSheet('saveSession',Object.assign({date:dateKey},se));
   renderCommentHistory(dateKey);
   showToast('🗑 ลบโน้ตแล้ว','success');
 }
 function deleteDay(){if(_isReadOnly){showToast('🔒 โหมดดูเท่านั้น — ไม่สามารถแก้ไขได้','error');return;}
   showConfirm('ลบข้อมูลวันนี้ทั้งหมดใช่ไหม?', function(){
-    var delKey=S.mKey;
-    delete S.sessions[delKey];delete S.trades[delKey];
-    // FIX: mark as deleted immediately (before fetch) so sync never restores it — even after reload
-    _deletedDays=_deletedDays||{};
-    _deletedDays[S.currentPortfolio+'|'+delKey]=Date.now();
-    _saveDeletedDays();
+    // ลบ session + trades
+    delete S.sessions[S.mKey];delete S.trades[S.mKey];
+    // ── reset Emotional State slider กลับเป็น default ──
+    mEmoSetByIdx(4); setEmoByIdx(4); // Calm
+    // ── ลบ Note of Day ออกจาก localStorage ด้วย ──
+    localStorage.removeItem('tj_noteday_'+S.currentPortfolio+'_'+S.mKey);
+    var ndEditor=document.getElementById('noteDayEditor');
+    if(ndEditor) ndEditor.innerHTML='';
+    var ndLbl=document.getElementById('ndAutoSaveLabel');
+    if(ndLbl) ndLbl.textContent='';
+    // ── บันทึก tombstone เพื่อป้องกัน sheet ดึงข้อมูลกลับมาหลัง loadAll ──
+    try{
+      var tbKey='tj_deleted_'+S.currentPortfolio;
+      var tb=JSON.parse(localStorage.getItem(tbKey)||'{}');
+      tb[S.mKey]=Date.now();
+      localStorage.setItem(tbKey,JSON.stringify(tb));
+    }catch(e){}
     persistPort();updateStats();renderCal();updateRecent();renderTodayOrders();closeM('mDay');
+    if(S.scriptUrl) sendSheet('deleteDay',{date:S.mKey,portfolio:S.currentPortfolio});
     showToast('🗑 ลบแล้ว','success');
-    if(S.scriptUrl){
-      // FIX: block sync while Sheet processes delete, then re-sync to confirm
-      _syncBlocked=true;
-      fetch(S.scriptUrl,{
-        method:'POST',mode:'no-cors',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({action:'deleteDay',date:delKey,portfolio:S.currentPortfolio})
-      }).then(function(){
-        // Wait for Sheet to finish deleting, then re-sync
-        setTimeout(function(){
-          _syncBlocked=false;
-          syncFromSheet();
-        },3000);
-      }).catch(function(){
-        _syncBlocked=false;
-      });
-    }
   });
 }
 
@@ -6550,12 +6571,7 @@ function parseTopstepCSV(text){
       closeDate:exitedAt,
       timeInPos:formatTopstepDuration(col(parts,'TradeDuration')),
       note:'',imgLink:'',maxRR:'',setupClass:'',candle:'',code:'',mode:'',tf:'',trend:'',zone:'',confirm:'',sessions:'',emotion:5,discipline:5,
-      // FIX: use deterministic content-based ID (not Date.now) → same CSV = same IDs = no re-import duplicates
-      id:(function(){
-        var raw=[asset,col(parts,'Type')||'Long',entryPrice,exitPrice,col(parts,'Size'),col(parts,'PnL'),enteredAt,exitedAt].join('|');
-        var h=0;for(var ci=0;ci<raw.length;ci++){h=(Math.imul(31,h)+raw.charCodeAt(ci))|0;}
-        return Math.abs(h).toString()+i; // append i for uniqueness within same batch
-      })(),
+      id:Date.now()+i,
       _dateKey:dateKey
     };
     // Merge key: same asset + side + entryPrice + entryTime → รวมเป็น 1 ออเดอร์
@@ -6616,24 +6632,14 @@ function confirmTopstepImport(){if(_isReadOnly){showToast('🔒 โหมดด�
   if(!_topstepData.length){showToast('ไม่มีข้อมูลให้ import','error');return;}
   var count=0;
   var batchTrades=[];
-  var port=S.currentPortfolio;
-  var _alreadyImported=0;
   _topstepData.forEach(function(t){
     var dateKey=t._dateKey;
     if(!dateKey) return;
     if(!S.trades[dateKey]) S.trades[dateKey]=[];
-    // FIX: do NOT overwrite the deterministic id set in parseTopstepCSV
+    t.id=Date.now()+Math.random();
     var tradeObj=Object.assign({},t);
     delete tradeObj._dateKey;
     delete tradeObj._mergeKey;
-    // FIX: always stamp portfolio so Sheet and local key match
-    tradeObj.portfolio=port;
-    // FIX: content-based dedup — catches re-import even if id somehow differs
-    var ck=_tradeContentKey(tradeObj);
-    var _dup=S.trades[dateKey].some(function(x){
-      return String(x.id)===String(tradeObj.id) || _tradeContentKey(x)===ck;
-    });
-    if(_dup){_alreadyImported++;return;}
     S.trades[dateKey].push(tradeObj);
     if(!S.sessions[dateKey]) S.sessions[dateKey]={};
     var trades=S.trades[dateKey];
@@ -6642,32 +6648,24 @@ function confirmTopstepImport(){if(_isReadOnly){showToast('🔒 โหมดด�
     S.sessions[dateKey].netPnl=pnl;
     S.sessions[dateKey].trades=trades.length;
     S.sessions[dateKey].wins=wins;
-    batchTrades.push(Object.assign({date:dateKey,portfolio:port},tradeObj));
+    // สะสมไว้ใน batch — ไม่ส่งทีละอัน
+    batchTrades.push(Object.assign({date:dateKey,portfolio:S.currentPortfolio},tradeObj));
     count++;
   });
   persistPort();
   updateStats();renderCal();updateRecent();renderTodayOrders();
   document.getElementById('topstepImportModal').remove();
-  var skipMsg=_alreadyImported>0?' (ข้าม '+_alreadyImported+' ซ้ำ)':'';
-  showToast('\u2705 Import '+count+' trades จาก Topstep แล้ว'+skipMsg,'success');
+  showToast('\u2705 Import '+count+' trades จาก Topstep แล้ว','success');
   _topstepData=[];
-  // ── ส่ง Sheet แบบ batch แล้ว sync กลับ (ป้องกัน auto-sync ล้างทับ local) ──
+  // ── ส่ง Sheet แบบ batch ครั้งเดียว — ป้องกัน rate limit ──
   if(S.scriptUrl&&batchTrades.length){
-    // FIX: block auto-sync during batch send to prevent Sheet overwriting local trades
-    _syncBlocked=true;
     fetch(S.scriptUrl,{
       method:'POST',mode:'no-cors',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'batchSaveTrades',portfolio:port,trades:batchTrades})
+      body:JSON.stringify({action:'batchSaveTrades',portfolio:S.currentPortfolio,trades:batchTrades})
     }).then(function(){
       showToast('\ud83d\udcca Sheet: sync '+batchTrades.length+' trades OK','success');
-      // FIX: wait 3s for Sheet to finish writing, then do ONE clean sync back
-      setTimeout(function(){
-        _syncBlocked=false;
-        syncFromSheet();
-      }, 3000);
     }).catch(function(err){
-      _syncBlocked=false;
       showToast('\u26a0 Sheet batch error: '+err.message,'error');
     });
   }
@@ -7046,6 +7044,12 @@ function dtCalcTimeInPos(){
 }
 
 // ── Main Calc ──
+function dtIgnoreSLWarn(){
+  window._dtSLIgnored=true;
+  var warnBox=document.getElementById('dtSLWarnBox');
+  if(warnBox) warnBox.style.display='none';
+}
+
 function dtCalcAll(){
   var entry=parseFloat(document.getElementById('dtEntry').value)||0;
   var tp=parseFloat(document.getElementById('dtTP').value)||0;
@@ -7055,10 +7059,16 @@ function dtCalcAll(){
   var asset=(document.getElementById('dtAsset')||{}).value||'MNQ1';
   var pv=(DT_CONTRACT[asset]||{pts:2}).pts;
 
-  // SL pts label
+  // SL pts label — 0.25 = 1 pt (ใช้ TICK_SIZE)
   var slPtsEl=document.getElementById('dtSLPoint');
-  if(slPtsEl&&entry&&sl) slPtsEl.textContent='('+Math.abs(entry-sl).toFixed(1)+' pts)';
-  else if(slPtsEl) slPtsEl.textContent='';
+  if(slPtsEl&&entry&&sl){
+    var _slDist=Math.abs(entry-sl);
+    var _slTick=TICK_SIZE[asset]||0.25;
+    var _slTicks=_slDist/_slTick;
+    var _slTicksStr=_slTicks%1===0?_slTicks.toFixed(0):_slTicks.toFixed(1);
+    var _slPtsStr=_slDist%1===0?_slDist.toFixed(0):_slDist.toFixed(2);
+    slPtsEl.innerHTML='<span style="color:var(--amber)">'+_slPtsStr+' pts</span> <span style="color:var(--text-muted);font-size:9px;">/</span> <span style="color:var(--teal)">'+_slTicksStr+' ticks</span>';
+  } else if(slPtsEl) slPtsEl.textContent='';
 
   // Auto-detect side from Entry vs TP
   if(entry&&tp){
@@ -7066,42 +7076,65 @@ function dtCalcAll(){
     if(s!==DT.side) dtSetSide(s);
   }
 
-  // Lots from Risk
+  // Lots from Risk — จำนวนเต็มเท่านั้น (floor)
   var lots=0;
+  var _dtSLIgnored=window._dtSLIgnored||false;
   if(risk&&entry&&sl&&pv){
     var slDist=Math.abs(entry-sl);
-    if(slDist>0) lots=risk/(slDist*pv);
+    if(slDist>0){
+      var lotsRaw=risk/(slDist*pv);
+      lots=Math.floor(lotsRaw); // จำนวนเต็ม
+      if(lots<1) lots=1;        // ขั้นต่ำ 1
+    }
     var lotsEl=document.getElementById('dtLots');
-    if(lotsEl&&!lotsEl._manualEdit) lotsEl.value=lots>0?lots.toFixed(2):'';
+    if(lotsEl&&!lotsEl._manualEdit) lotsEl.value=lots>0?lots:'';
+    // ── ตรวจ SL กว้างเกินไป ──
+    var actualLoss=slDist*pv*lots;
+    var warnBox=document.getElementById('dtSLWarnBox');
+    var warnMsg=document.getElementById('dtSLWarnMsg');
+    if(warnBox){
+      if(!_dtSLIgnored&&actualLoss>risk*1.05){
+        var overPct=Math.round((actualLoss/risk-1)*100);
+        if(warnMsg) warnMsg.innerHTML='⚠ SL กว้างเกินไป — P&amp;L ติดลบได้ถึง <b>$'+actualLoss.toFixed(0)+'</b> (เกิน Risk $'+risk+' อยู่ '+overPct+'%)';
+        warnBox.style.display='flex';
+      } else {
+        warnBox.style.display='none';
+      }
+    }
   } else {
     lots=parseFloat((document.getElementById('dtLots')||{}).value)||0;
+    lots=Math.floor(lots)||0;
+    var warnBox2=document.getElementById('dtSLWarnBox');
+    if(warnBox2) warnBox2.style.display='none';
   }
 
   // P&L from result
   var pnl=0;
   var pnlEl=document.getElementById('dtPnl');
-  var existingPnl=parseFloat(pnlEl?pnlEl.value:0)||0;
-  var pnlCalculated=false;
-  if((result==='TP'||result==='Win')&&entry&&tp&&lots&&pv){
+  var existingPnl=pnlEl?parseFloat(pnlEl.value)||0:0;
+  if(result==='TP'&&entry&&tp&&lots&&pv){
     pnl=(DT.side==='Long'?1:-1)*(tp-entry)*pv*lots;
-    pnlCalculated=true;
-  } else if((result==='SL'||result==='Loss'||result==='X Loss')&&entry&&sl&&lots&&pv){
+  } else if((result==='SL'||result==='X Loss')&&entry&&sl&&lots&&pv){
     pnl=(DT.side==='Long'?-1:1)*(entry-sl)*pv*lots;
-    pnl=-Math.abs(pnl);
-    pnlCalculated=true;
+    if(result==='SL') pnl=-Math.abs(pnl);
   } else if(result==='BE'){
     pnl=0;
-    pnlCalculated=true;
+  } else if(result==='Win'&&entry&&tp&&lots&&pv){
+    // Win = คำนวณจาก TP เหมือน TP result
+    pnl=(DT.side==='Long'?1:-1)*(tp-entry)*pv*lots;
+    // ถ้ามี pnl อยู่แล้ว (import มา) ให้ใช้ค่าเดิม
+    if(existingPnl>0) pnl=existingPnl;
+  } else if(result==='Loss'&&entry&&sl&&lots&&pv){
+    // Loss = คำนวณจาก SL เหมือน SL result
+    pnl=-Math.abs((DT.side==='Long'?-1:1)*(entry-sl)*pv*lots);
+    // ถ้ามี pnl อยู่แล้ว (import มา) ให้ใช้ค่าเดิม
+    if(existingPnl<0) pnl=existingPnl;
+  } else if((result==='Win'||result==='Loss'||result==='Miss')&&existingPnl!==0){
+    // fallback: ถ้าคำนวณไม่ได้ให้ใช้ค่าที่มีอยู่
+    pnl=existingPnl;
   }
-  // Only overwrite P&L field if we actually calculated a new value
-  // When editing, preserve the saved P&L if calculation has no reference price
-  if(pnlEl&&pnlCalculated){
-    if(pnl!==0) pnlEl.value=pnl.toFixed(2);
-    else if(result==='BE') pnlEl.value='0.00';
-  } else if(pnlEl&&DT.editIdx>=0&&existingPnl!==0&&!pnlCalculated){
-    // Preserve existing P&L when editing and calculation can't determine a new value
-    pnlEl.value=existingPnl.toFixed(2);
-  }
+  if(pnlEl&&result&&pnl!==0) pnlEl.value=pnl.toFixed(2);
+  else if(pnlEl&&result==='BE') pnlEl.value='0.00';
 
   // R:R
   var rr=0;
@@ -7201,6 +7234,7 @@ async function dtDoScan(){
 // ── Open Add/Edit ──
 function dtOpenAdd(){
   DT.editIdx=-1;DT.side='Long';DT.emo=5;DT.disc=5;DT.sessions=[];DT._upB64=null;
+  window._dtSLIgnored=false;
   var dtSessEl=document.getElementById('dtSession');if(dtSessEl)dtSessEl.value='';
   document.getElementById('mDataTradeTitle').textContent='＋ เพิ่ม Trade (Data Mode)';
   document.getElementById('dtSaveBtn').textContent='✓ บันทึก Trade';
@@ -7233,6 +7267,7 @@ function dtOpenAdd(){
 }
 function dtOpenEdit(visIdx){
   dtLoad();
+  window._dtSLIgnored=false;
   // Re-load dropdown options from localStorage
   loadDropOptions();
   var rows=dtFiltered();
@@ -7976,6 +8011,17 @@ function dtDeleteRow(visIdx){
     var realIdx=DT.trades.findIndex(function(x){return x._id===t._id;});
     if(realIdx>=0) DT.trades.splice(realIdx,1);
     dtSave();dtRender();showToast('ลบแล้ว','success');
+    // ── ลบออกจาก Google Sheet (DataTrades) ด้วย ──
+    if(S.scriptUrl && t._id){
+      fetch(S.scriptUrl,{
+        method:'POST',
+        mode:'no-cors',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'deleteDataTrade', _id:t._id, portfolio:S.currentPortfolio})
+      }).catch(function(err){
+        showToast('⚠ Sheet sync error: '+err.message,'error');
+      });
+    }
   });
 }
 
@@ -9231,7 +9277,7 @@ if(document.readyState==='loading'){
         </div>
         <div class="form-field">
           <label>SL <span id="dtSLPoint" style="font-size:10px;color:var(--amber);font-family:var(--font-mono);"></span></label>
-          <input class="form-input" id="dtSL2" type="number" step="any" placeholder="24980.00" oninput="dtCalcAll()">
+          <input class="form-input" id="dtSL2" type="number" step="any" placeholder="24980.00" oninput="window._dtSLIgnored=false;dtCalcAll()">
         </div>
       </div>
 
@@ -9239,7 +9285,7 @@ if(document.readyState==='loading'){
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
         <div class="form-field">
           <label>Risk ($)</label>
-          <input class="form-input" id="dtRisk" type="number" step="any" placeholder="50" oninput="dtCalcAll()">
+          <input class="form-input" id="dtRisk" type="number" step="any" placeholder="50" oninput="window._dtSLIgnored=false;dtCalcAll()">
         </div>
         <div class="form-field">
           <label>Lots <span style="font-size:9px;color:var(--amber)">(auto)</span></label>
@@ -9249,6 +9295,12 @@ if(document.readyState==='loading'){
           <label>P&amp;L ($) <span style="font-size:9px;color:var(--amber)">(auto)</span></label>
           <input class="form-input" id="dtPnl" type="number" step="any" placeholder="auto" style="font-weight:600;">
         </div>
+      </div>
+
+      <!-- SL Risk Warning -->
+      <div id="dtSLWarnBox" style="display:none;background:rgba(255,77,106,0.1);border:1px solid var(--red);border-radius:var(--radius-sm);padding:7px 10px;margin-bottom:8px;font-size:11px;color:var(--red);align-items:center;justify-content:space-between;gap:8px;">
+        <span id="dtSLWarnMsg">⚠ SL กว้างเกินไป — P&amp;L ติดลบเกิน Risk ที่ตั้ง</span>
+        <button onclick="dtIgnoreSLWarn()" style="background:rgba(255,255,255,0.08);border:1px solid var(--red);color:var(--red);border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;white-space:nowrap;flex-shrink:0;">เพิกเฉย</button>
       </div>
 
       <!-- Row: Result + Max RR -->
