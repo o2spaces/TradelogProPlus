@@ -1636,10 +1636,21 @@ function deleteDataTrade(d){
 
 function clearAllDataTrades(d){
   var sh=_sheet(SHEET.DATA_TRADES,HDR.DATA_TRADES);
+  var portfolio=String(d.portfolio||'data');
   var last=sh.getLastRow();
   var deleted=0;
-  if(last&gt;1){ sh.deleteRows(2,last-1); deleted=last-1; }
-  _log('clearAllDataTrades','deleted='+deleted,d.portfolio||'data','data','ok');
+  if(last&gt;1){
+    // FIX: ลบเฉพาะ rows ของ portfolio นั้น (คอลัมน์ 4 = Portfolio)
+    // วนจากล่างขึ้นบนเพื่อไม่ให้ row index เลื่อน
+    var vals=sh.getRange(2,1,last-1,4).getValues();
+    for(var i=vals.length-1;i&gt;=0;i--){
+      if(String(vals[i][3])===portfolio){
+        sh.deleteRow(i+2); // +2 เพราะ header row + 0-index
+        deleted++;
+      }
+    }
+  }
+  _log('clearAllDataTrades','deleted='+deleted+' portfolio='+portfolio,portfolio,'data','ok');
   return {status:'ok',deleted:deleted};
 }
 
@@ -2588,7 +2599,9 @@ function syncFromSheet(onDone){
       }
 
       // ── 4. Data Trades ──
-      if(d.dataTrades && d.dataTrades.length){
+      // FIX: ตรวจ d.dataTrades !== undefined (ไม่ใช่แค่ .length)
+      // เพื่อให้ clear localStorage ได้แม้ Sheet จะว่างเปล่า (length=0)
+      if(d.dataTrades !== undefined){
         function gv2(obj,keys){
           for(var i=0;i<keys.length;i++){
             var v=obj[keys[i]];
@@ -2613,79 +2626,82 @@ function syncFromSheet(onDone){
           return s;
         }
 
-        // FIX: แทนที่จะ merge กับ existDT (ซึ่งทำให้ข้อมูลเพิ่มขึ้นทุกครั้งที่ Sync)
-        // ให้ใช้ข้อมูลจาก Sheet เป็น source of truth โดยตรง
-        // แปลง dataTrades ทั้งหมดจาก Sheet → array ใหม่
+        // ใช้ข้อมูลจาก Sheet เป็น source of truth
+        // ถ้า Sheet ว่าง → newDT = [] → localStorage ถูก clear ด้วย ✅
         var newDT = [];
-        d.dataTrades.forEach(function(t){
-          var id = gs2(t,['ID','id']);
-          if(!id) return;
-          var tradeObj={
-            _id:       id,
-            date:      gs2(t,['Date','date']),
-            day:       (function(){
-              var dayVal=gs2(t,['Day','day']);
-              if(dayVal) return dayVal;
-              var dateStr=gs2(t,['Date','date']);
-              if(!dateStr) return '';
-              try{var _d=new Date(dateStr);var _dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];return isNaN(_d)?'':_dn[_d.getDay()];}catch(e){return '';}
-            })(),
-            portfolio: gs2(t,['Portfolio','portfolio']) || 'data',
-            session:   gs2(t,['Session','session','Sessions']),
-            asset:     gs2(t,['Asset','asset']),
-            side:      gs2(t,['Side','side']) || 'Long',
-            entryTime: (function(raw){
-              if(!raw) return '';
-              if(raw instanceof Date){
-                // UTC+7 safe conversion
-                var _iso=raw.toISOString();
-                var _tot=parseInt(_iso.substr(11,2))*60+parseInt(_iso.substr(14,2))+420;
-                _tot=_tot%(24*60); if(_tot<0)_tot+=1440;
-                var _h=Math.floor(_tot/60),_m=_tot%60;
-                return (_h<10?'0':'')+_h+':'+(_m<10?'0':'')+_m;
-              }
-              var s=String(raw);
-              // time-only "HH:mm" or "H:mm"
-              if(/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) return s.substr(0,5);
-              // datetime "yyyy-MM-dd HH:mm" or with T
-              var m=s.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/);
-              if(m) return m[1];
-              return '';
-            })(gv2(t,['EntryTime','entrytime','entryTime'])),
-            duration:  gs2(t,['Duration','duration','TimeInPos','timeinpos']),
-            mode:      gs2(t,['Mode','mode']),
-            code:      gs2(t,['Code','code']),
-            tf:        gs2(t,['TF','tf','Timeframe','timeframe']),
-            setupClass:gs2(t,['SetupClass','setupclass','setupClass']),
-            candle:    gs2(t,['Candle','candle']),
-            zoneMit:   gs2(t,['ZoneMit','zonemet','zoneMit','ZoneMet']),
-            zone:      gs2(t,['Zone','zone']),
-            confirm:   gs2(t,['Confirm','confirm','Confirmed']),
-            entry:     gs2(t,['Entry','entry']),
-            tp:        gs2(t,['TP','tp']),
-            sl:        gs2(t,['SL','sl']),
-            risk:      gs2(t,['Risk','risk']),
-            lots:      gs2(t,['Lots','lots']),
-            pnl:       gn2(t,['PnL($)','pnl($)','pnl','PnL']),
-            result:    gs2(t,['Result','result']),
-            setupDuration: gs2(t,['SetupDuration','setupduration','setupDuration']),
-            maxRR:     gs2(t,['MaxRR','maxRR','maxrr']),
-            emo:       parseInt(gv2(t,['Emotion','emotion']))||5,
-            disc:      (function(){ var v=parseInt(gv2(t,['Discipline','discipline','Disc','disc'])); return (v&&v>0&&v<=10)?v:5; })(),
-            note:      gs2(t,['Note','note']),
-            imgLink:   gs2(t,['ImageLink','imagelink','imgLink'])
-          };
-          newDT.push(tradeObj);
-        });
+        if(d.dataTrades.length){
+          d.dataTrades.forEach(function(t){
+            var id = gs2(t,['ID','id']);
+            if(!id) return;
+            var tradeObj={
+              _id:       id,
+              date:      gs2(t,['Date','date']),
+              day:       (function(){
+                var dayVal=gs2(t,['Day','day']);
+                if(dayVal) return dayVal;
+                var dateStr=gs2(t,['Date','date']);
+                if(!dateStr) return '';
+                try{var _d=new Date(dateStr);var _dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];return isNaN(_d)?'':_dn[_d.getDay()];}catch(e){return '';}
+              })(),
+              portfolio: gs2(t,['Portfolio','portfolio']) || 'data',
+              session:   gs2(t,['Session','session','Sessions']),
+              asset:     gs2(t,['Asset','asset']),
+              side:      gs2(t,['Side','side']) || 'Long',
+              entryTime: (function(raw){
+                if(!raw) return '';
+                if(raw instanceof Date){
+                  // UTC+7 safe conversion
+                  var _iso=raw.toISOString();
+                  var _tot=parseInt(_iso.substr(11,2))*60+parseInt(_iso.substr(14,2))+420;
+                  _tot=_tot%(24*60); if(_tot<0)_tot+=1440;
+                  var _h=Math.floor(_tot/60),_m=_tot%60;
+                  return (_h<10?'0':'')+_h+':'+(_m<10?'0':'')+_m;
+                }
+                var s=String(raw);
+                // time-only "HH:mm" or "H:mm"
+                if(/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) return s.substr(0,5);
+                // datetime "yyyy-MM-dd HH:mm" or with T
+                var m=s.match(/[T ]\s*(\d{1,2}:\d{2})(?::\d{2})?/);
+                if(m) return m[1];
+                return '';
+              })(gv2(t,['EntryTime','entrytime','entryTime'])),
+              duration:  gs2(t,['Duration','duration','TimeInPos','timeinpos']),
+              mode:      gs2(t,['Mode','mode']),
+              code:      gs2(t,['Code','code']),
+              tf:        gs2(t,['TF','tf','Timeframe','timeframe']),
+              setupClass:gs2(t,['SetupClass','setupclass','setupClass']),
+              candle:    gs2(t,['Candle','candle']),
+              zoneMit:   gs2(t,['ZoneMit','zonemet','zoneMit','ZoneMet']),
+              zone:      gs2(t,['Zone','zone']),
+              confirm:   gs2(t,['Confirm','confirm','Confirmed']),
+              entry:     gs2(t,['Entry','entry']),
+              tp:        gs2(t,['TP','tp']),
+              sl:        gs2(t,['SL','sl']),
+              risk:      gs2(t,['Risk','risk']),
+              lots:      gs2(t,['Lots','lots']),
+              pnl:       gn2(t,['PnL($)','pnl($)','pnl','PnL']),
+              result:    gs2(t,['Result','result']),
+              setupDuration: gs2(t,['SetupDuration','setupduration','setupDuration']),
+              maxRR:     gs2(t,['MaxRR','maxRR','maxrr']),
+              emo:       parseInt(gv2(t,['Emotion','emotion']))||5,
+              disc:      (function(){ var v=parseInt(gv2(t,['Discipline','discipline','Disc','disc'])); return (v&&v>0&&v<=10)?v:5; })(),
+              note:      gs2(t,['Note','note']),
+              imgLink:   gs2(t,['ImageLink','imagelink','imgLink'])
+            };
+            newDT.push(tradeObj);
+          });
+        }
         // ── ตรวจ tombstone: ถ้าผู้ใช้เพิ่งกด "ลบทั้งหมด" → ห้าม restore จาก Sheet ──
+        // (tombstone จะถูกลบเมื่อ GAS confirm ลบสำเร็จ)
         var _dtCleared = localStorage.getItem('dt_data_cleared');
         if(_dtCleared){
-          // Sheet ยังมีข้อมูลอยู่ (GAS กำลังลบอยู่) → ไม่ overwrite local
-          // tombstone จะถูกลบเมื่อ Sheet confirm ลบสำเร็จ
           console.log('[sync] dt_data_cleared tombstone active — skip DataTrades restore');
         } else {
-          // Replace ข้อมูล DataTrades ทั้งหมดด้วยข้อมูลจาก Sheet
+          // Sheet ว่าง → newDT=[] → localStorage ถูก clear ด้วย ✅
           localStorage.setItem('dt_trades', JSON.stringify(newDT));
+          if(newDT.length === 0){
+            console.log('[sync] DataTrades: Sheet is empty → cleared localStorage dt_trades');
+          }
         }
       }
 
@@ -8628,11 +8644,11 @@ function dtClearAllFromSheet(trades){
   var cnt=trades?trades.length:0;
   showToast('📤 กำลังลบ '+cnt+' rows จาก Google Sheet...','success');
 
-  // ── ตั้ง safety timeout: clear tombstone อัตโนมัติใน 30 วิ ──
-  // ป้องกัน tombstone ค้างถ้า network error ทุกทาง
+  // ── ตั้ง safety timeout: clear tombstone อัตโนมัติใน 60 วิ ──
+  // FIX: เพิ่มจาก 30→60 วิ เพื่อให้ GAS ลบเสร็จก่อน tombstone หมดอายุ
   var _safetyTimer = setTimeout(function(){
     localStorage.removeItem('dt_data_cleared');
-  }, 30000);
+  }, 60000);
 
   function _onSuccess(deleted){
     clearTimeout(_safetyTimer);
@@ -8673,11 +8689,11 @@ function _dtClearSheetFallback(cnt, safetyTimer, onSuccess){
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({action:'clearAllDataTrades',portfolio:S.currentPortfolio})
   }).catch(function(){});
-  // GAS ควรลบเสร็จภายใน 10 วิ → clear tombstone
+  // FIX: เพิ่มจาก 10→20 วิ เผื่อ GAS ช้า
   setTimeout(function(){
     if(safetyTimer) clearTimeout(safetyTimer);
     if(onSuccess) onSuccess(cnt);
-  }, 10000);
+  }, 20000);
 }
 
 function dtSetupResizeHandles(){
