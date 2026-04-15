@@ -7363,9 +7363,16 @@ function dtOpenEdit(visIdx){
   sv('dtRisk',t.risk);sv('dtLots',t.lots);sv('dtPnl',t.pnl);
   sv('dtMaxRR',t.maxRR);sv('dtNote',t.note);sv('dtImgLink',t.imgLink);
   sv('dtSetupDur',t.setupDuration);
-  // Entry date from entryTime + date
-  if(t.date&&t.entryTime){
-    document.getElementById('dtEntryDate').value=t.date+'T'+t.entryTime;
+  // Entry date from entryTime + date — always restore saved value, never use current time
+  var edEl=document.getElementById('dtEntryDate');
+  if(edEl){
+    if(t.date&&t.entryTime){
+      edEl.value=t.date+'T'+t.entryTime;
+    } else if(t.date){
+      edEl.value=t.date+'T00:00';
+    } else {
+      edEl.value='';
+    }
   }
   // Set selects
   var ss=function(id,v){var el=document.getElementById(id);if(el){for(var i=0;i<el.options.length;i++){if(el.options[i].value===v){el.selectedIndex=i;break;}}}};
