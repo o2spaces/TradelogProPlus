@@ -666,6 +666,18 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
             <select id="dtfModel" onchange="dtSaveFilterState();dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"><option value="">All</option></select></div>
           <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;">Duration (≤ นาที)</div>
             <input type="number" id="dtfDur" placeholder="ไม่จำกัด" min="0" oninput="dtSaveFilterState();dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;"></div>
+          <div><div style="font-size:9px;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;">&#x23F0; Entry Time</div>
+            <select id="dtfEntryTime" onchange="dtSaveFilterState();dtRender()" style="width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);border-radius:5px;font-size:11px;padding:4px 6px;height:28px;">
+              <option value="">All</option>
+              <option value="06:01-09:00">06:01 - 09:00</option>
+              <option value="09:01-12:00">09:01 - 12:00</option>
+              <option value="12:01-15:00">12:01 - 15:00</option>
+              <option value="15:01-18:00">15:01 - 18:00</option>
+              <option value="18:01-21:00">18:01 - 21:00</option>
+              <option value="21:01-24:00">21:01 - 24:00</option>
+              <option value="00:01-03:00">00:01 - 03:00</option>
+              <option value="03:01-06:00">03:01 - 06:00</option>
+            </select></div>
         </div>
       </div>
     </div>
@@ -1636,21 +1648,14 @@ function deleteDataTrade(d){
 
 function clearAllDataTrades(d){
   var sh=_sheet(SHEET.DATA_TRADES,HDR.DATA_TRADES);
-  var portfolio=String(d.portfolio||'data');
   var last=sh.getLastRow();
   var deleted=0;
-  if(last&gt;1){
-    // FIX: ลบเฉพาะ rows ของ portfolio นั้น (คอลัมน์ 4 = Portfolio)
-    // วนจากล่างขึ้นบนเพื่อไม่ให้ row index เลื่อน
-    var vals=sh.getRange(2,1,last-1,4).getValues();
-    for(var i=vals.length-1;i&gt;=0;i--){
-      if(String(vals[i][3])===portfolio){
-        sh.deleteRow(i+2); // +2 เพราะ header row + 0-index
-        deleted++;
-      }
-    }
+  if(last>1){
+    // DataTrades ทั้งชีตเป็น Data Mode เท่านั้น → ลบทุก row เลย (เร็วกว่า loop)
+    deleted=last-1;
+    sh.deleteRows(2,deleted);
   }
-  _log('clearAllDataTrades','deleted='+deleted+' portfolio='+portfolio,portfolio,'data','ok');
+  _log('clearAllDataTrades','deleted='+deleted,d&&d.portfolio?d.portfolio:'data','data','ok');
   return {status:'ok',deleted:deleted};
 }
 
@@ -7470,7 +7475,7 @@ function dtToggleFilter(){
 function dtUpdateFilterBadge(){
   var badge=document.getElementById('dtFilterActiveBadge');if(!badge)return;
   var count=0;
-  ['dtfAsset','dtfResult','dtfDay','dtfSession','dtfCode','dtfMode','dtfClass','dtfModel'].forEach(function(id){
+  ['dtfAsset','dtfResult','dtfDay','dtfSession','dtfCode','dtfMode','dtfClass','dtfModel','dtfEntryTime'].forEach(function(id){
     var el=document.getElementById(id);if(el&&el.value)count++;
   });
   var dur=document.getElementById('dtfDur');if(dur&&dur.value)count++;
@@ -7767,6 +7772,7 @@ function dtFiltered(){
   var fClass=gv('dtfClass');
   var fModel=gv('dtfModel');
   var fDur=parseFloat(gv('dtfDur'))||0;
+  var fEntryTime=gv('dtfEntryTime'); // เช่น "06:01-09:00"
   var src=[];
   // Data trades
   if(_dtViewMode!=='port_only'){
@@ -7825,6 +7831,28 @@ function dtFiltered(){
       if(mh) m+=parseInt(mh[1])*60;
       if(mm) m+=parseInt(mm[1]);
       if(m>fDur) return false;
+    }
+    if(fEntryTime){
+      // แปลง entryTime "HH:mm" → นาที เพื่อเปรียบเทียบ
+      var etStr=t.entryTime||'';
+      var etMatch=etStr.match(/^(\d{1,2}):(\d{2})/);
+      if(!etMatch) return false; // ถ้าไม่มี entryTime → ไม่ผ่านกรอง
+      var etMin=parseInt(etMatch[1])*60+parseInt(etMatch[2]);
+      // parse range "HH:MM-HH:MM"
+      var rMatch=fEntryTime.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/);
+      if(rMatch){
+        var rStart=parseInt(rMatch[1])*60+parseInt(rMatch[2]);
+        var rEnd  =parseInt(rMatch[3])*60+parseInt(rMatch[4]);
+        // กรณี range ข้ามเที่ยงคืน เช่น 21:01-03:00 (rEnd < rStart)
+        var inRange;
+        if(rEnd<rStart){
+          // ข้ามเที่ยงคืน: etMin >= start หรือ etMin <= end
+          inRange=(etMin>=rStart)||(etMin<=rEnd);
+        } else {
+          inRange=(etMin>=rStart&&etMin<=rEnd);
+        }
+        if(!inRange) return false;
+      }
     }
     return true;
   });
@@ -8065,7 +8093,7 @@ function dtUpdateFilterOpts(rows){
 function dtSaveFilters(resetPage){
   if(resetPage!==false) _dtPage=1;
   var state={};
-  ['dtfAsset','dtfResult','dtfDay','dtfSession','dtfCode','dtfMode','dtfClass','dtfModel','dtfDur'].forEach(function(id){
+  ['dtfAsset','dtfResult','dtfDay','dtfSession','dtfCode','dtfMode','dtfClass','dtfModel','dtfDur','dtfEntryTime'].forEach(function(id){
     var el=document.getElementById(id);if(el)state[id]=el.value;
   });
   localStorage.setItem('dt_filters',JSON.stringify(state));
@@ -8245,7 +8273,7 @@ function updatePortSelectorLabel(){
 
 
 function dtResetFilters(){
-  ['dtfAsset','dtfResult','dtfDay','dtfSession','dtfCode','dtfMode','dtfClass','dtfModel'].forEach(function(id){
+  ['dtfAsset','dtfResult','dtfDay','dtfSession','dtfCode','dtfMode','dtfClass','dtfModel','dtfEntryTime'].forEach(function(id){
     var el=document.getElementById(id);if(el)el.selectedIndex=0;
   });
   var dur=document.getElementById('dtfDur');if(dur)dur.value='';
@@ -8462,7 +8490,7 @@ function dtGetCardWidths(){
 }
 
 // ── Filter state persistence ──
-var _DT_FILTER_IDS=['dtfAsset','dtfResult','dtfDay','dtfSession','dtfCode','dtfMode','dtfClass','dtfModel','dtfDur'];
+var _DT_FILTER_IDS=['dtfAsset','dtfResult','dtfDay','dtfSession','dtfCode','dtfMode','dtfClass','dtfModel','dtfDur','dtfEntryTime'];
 function dtSaveFilterState(){
   var state={};
   _DT_FILTER_IDS.forEach(function(id){
@@ -8656,11 +8684,17 @@ function dtClearAllFromSheet(trades){
     showToast('✅ ลบออกจาก Sheet เสร็จ ('+(deleted||cnt)+' rows)','success');
   }
 
-  // GAS Web App ตอบ redirect → ใช้ fetch แบบ follow redirect (default)
-  // แต่บาง deploy อาจ strip JSON → ลอง parse ส่วนที่เป็น JSON ใน text
-  fetch(S.scriptUrl+'?action=clearAllDataTrades&portfolio='+encodeURIComponent(S.currentPortfolio))
-    .then(function(r){ return r.text(); })
+  // ส่ง GET → GAS doGet → clearAllDataTrades
+  // ต้องใส่ redirect:'follow' เพื่อให้ follow redirect ของ GAS Web App
+  var _url=S.scriptUrl+'?action=clearAllDataTrades&portfolio='+encodeURIComponent(S.currentPortfolio);
+  console.log('[dtClearAllFromSheet] fetching:', _url);
+  fetch(_url, {redirect:'follow'})
+    .then(function(r){
+      console.log('[dtClearAllFromSheet] status:', r.status, r.url);
+      return r.text();
+    })
     .then(function(txt){
+      console.log('[dtClearAllFromSheet] response text:', txt.slice(0,200));
       // หา JSON ที่ฝังใน text (กรณี GAS ใส่ prefix/suffix)
       var jsonStart = txt.search(/[\x7b]/);
       var jsonStr = jsonStart >= 0 ? txt.slice(jsonStart) : txt;
@@ -8672,11 +8706,13 @@ function dtClearAllFromSheet(trades){
           throw new Error(d.msg||'Sheet error');
         }
       }catch(e){
+        console.warn('[dtClearAllFromSheet] parse fail, trying fallback:', e.message);
         // ถ้า parse ไม่ได้ → ลอง POST fallback
         _dtClearSheetFallback(cnt, _safetyTimer, _onSuccess);
       }
     })
-    .catch(function(){
+    .catch(function(err){
+      console.warn('[dtClearAllFromSheet] fetch error:', err);
       _dtClearSheetFallback(cnt, _safetyTimer, _onSuccess);
     });
 }
