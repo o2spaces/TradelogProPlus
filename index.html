@@ -6597,12 +6597,12 @@ function parseTopstepCSV(text){
     var parts=lines[i].split(',');
     var contractName=col(parts,'ContractName');
     if(!contractName){skipped++;continue;}
-    // Parse dates — format: "04/06/2026 08:51:17 +07:00"
+    // Parse dates — format: "04/06/2026 08:51:17 +07:00" (DD/MM/YYYY)
     function parseTopstepDate(ds){
       if(!ds) return '';
-      // MM/DD/YYYY HH:MM:SS ±HH:MM
+      // DD/MM/YYYY HH:MM:SS ±HH:MM
       var m=ds.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2})/);
-      if(m) return m[3]+'-'+m[1]+'-'+m[2]+'T'+m[4]; // YYYY-MM-DDTHH:MM
+      if(m) return m[3]+'-'+m[2]+'-'+m[1]+'T'+m[4]; // YYYY-MM-DDTHH:MM (m[1]=DD, m[2]=MM)
       return '';
     }
     var enteredAt=parseTopstepDate(col(parts,'EnteredAt'));
@@ -7611,26 +7611,47 @@ function dtParseSheetData(raw){
 
     // ── Resolve date ──
     var dateOnly='';
+    // Helper: แปลง ปีพ.ศ. 2 หลัก/4 หลัก → ค.ศ. 4 หลัก
+    function beToAD(yr){
+      var y=parseInt(yr);
+      if(isNaN(y)) return NaN;
+      // 2 หลัก: ถ้า >= 63 ถือเป็น พ.ศ. 2563+ → ลบ 543, ถ้าน้อยกว่า 63 ถือเป็น 20xx CE
+      if(yr.length<=2) return y>=63?y+2500-543:2000+y;
+      // 4 หลัก: พ.ศ. จะเป็น 2500+ → ลบ 543
+      if(y>2400) return y-543;
+      return y; // ค.ศ. อยู่แล้ว
+    }
     var mappedDate=g(row,'date');
     if(mappedDate&&/^\d{4}-\d{2}-\d{2}$/.test(mappedDate)){
-      dateOnly=mappedDate;
-    } else if(mappedDate&&/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(mappedDate)){
-      var pts2=mappedDate.split('/');
-      var yr2=pts2[2].length===2?'20'+pts2[2]:pts2[2];
-      dateOnly=yr2+'-'+pts2[1].padStart(2,'0')+'-'+pts2[0].padStart(2,'0');
-      if(isNaN(new Date(dateOnly))) dateOnly=yr2+'-'+pts2[0].padStart(2,'0')+'-'+pts2[1].padStart(2,'0');
+      // ISO yyyy-MM-dd (อาจเป็น พ.ศ. เช่น 2569-04-13)
+      var isoY=parseInt(mappedDate.substring(0,4));
+      if(isoY>2400){ var adY=isoY-543; dateOnly=adY+mappedDate.substring(4); }
+      else dateOnly=mappedDate;
+    } else if(mappedDate&&/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(mappedDate)){
+      // dd/MM/yy, dd-MM-yy, dd/MM/yyyy, dd-MM-yyyy (รวม พ.ศ.)
+      var sep2=mappedDate.includes('/')?'/':'-';
+      var pts2=mappedDate.split(sep2);
+      var adYr=beToAD(pts2[2]);
+      dateOnly=adYr+'-'+pts2[1].padStart(2,'0')+'-'+pts2[0].padStart(2,'0');
+      if(isNaN(new Date(dateOnly).getTime())) dateOnly=adYr+'-'+pts2[0].padStart(2,'0')+'-'+pts2[1].padStart(2,'0');
     }
     if(!dateOnly){
       var dateCands=row.filter(function(c){return /^\d{4}-\d{2}-\d{2}$/.test((c||'').trim());});
-      if(dateCands.length) dateOnly=dateCands[0].trim();
+      if(dateCands.length){
+        var isoY2=parseInt(dateCands[0].trim().substring(0,4));
+        if(isoY2>2400) dateOnly=(isoY2-543)+dateCands[0].trim().substring(4);
+        else dateOnly=dateCands[0].trim();
+      }
     }
     if(!dateOnly){
-      var slashCand=row.filter(function(c){return /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test((c||'').trim());});
+      var slashCand=row.filter(function(c){return /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test((c||'').trim());});
       if(slashCand.length){
-        var parts=slashCand[0].trim().split('/');
-        var yr=parts[2].length===2?'20'+parts[2]:parts[2];
-        dateOnly=yr+'-'+parts[1].padStart(2,'0')+'-'+parts[0].padStart(2,'0');
-        if(isNaN(new Date(dateOnly))) dateOnly=yr+'-'+parts[0].padStart(2,'0')+'-'+parts[1].padStart(2,'0');
+        var sParts=slashCand[0].trim();
+        var sSep=sParts.includes('/')?'/':'-';
+        var parts=sParts.split(sSep);
+        var adYr2=beToAD(parts[2]);
+        dateOnly=adYr2+'-'+parts[1].padStart(2,'0')+'-'+parts[0].padStart(2,'0');
+        if(isNaN(new Date(dateOnly).getTime())) dateOnly=adYr2+'-'+parts[0].padStart(2,'0')+'-'+parts[1].padStart(2,'0');
       }
     }
     if(!dateOnly){
