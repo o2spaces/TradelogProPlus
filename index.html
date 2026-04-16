@@ -1352,6 +1352,7 @@ function loadAll(){
     if(logSh&amp;&amp;logSh.getLastRow()&gt;1){
       var logRows=logSh.getRange(2,1,logSh.getLastRow()-1,6).getValues();
       var ports={};
+      var deletedPorts={}; // tombstone: พอร์ตที่ถูกลบแล้ว
       logRows.forEach(function(r){
         var action=String(r[1]||'');
         var detail=String(r[2]||'');
@@ -1361,19 +1362,26 @@ function loadAll(){
           if(addM){ var id=addM[1]; if(!ports[id]) ports[id]={name:addM[2],balance:0,fund:addM[3]==='-'?'':addM[3]}; }
           if(editM){ var id=editM[1]; ports[id]={name:editM[2],balance:parseFloat(editM[3])||0,fund:editM[4]==='-'?'':editM[4]}; }
         }
+        // อ่าน tombstone จาก deletePortfolio
+        if(action==='deletePortfolio'){
+          var delM=detail.match(/^portfolio_delete\s+id=(\S+)/);
+          if(delM){ deletedPorts[delM[1]]=true; delete ports[delM[1]]; }
+        }
       });
       if(!ports['default']) ports['default']={name:'Default',balance:0,fund:''};
       result.portfolios=ports;
+      result._deletedPorts=deletedPorts; // ส่งกลับไปให้ client ด้วย
     }
 
     // ── fallback: ดึง unique Portfolio IDs จาก Trades sheet ถ้า Log ไม่มี ──
+    var _deletedPorts=result._deletedPorts||{};
     var tShFB=ss.getSheetByName(SHEET.TRADES);
     if(tShFB&amp;&amp;tShFB.getLastRow()&gt;1){
       var tPortVals=tShFB.getRange(2,3,tShFB.getLastRow()-1,1).getValues();
       tPortVals.forEach(function(r){
         var pid=String(r[0]||'').trim();
-        if(pid&amp;&amp;!result.portfolios[pid]){
-          // fallback: Log ไม่มีข้อมูลพอร์ตนี้ → ตั้งชื่อ auto ไว้ก่อน (user เปลี่ยนเองได้)
+        // ข้ามพอร์ตที่ถูกลบ (tombstone) — ป้องกันเด้งกลับมา
+        if(pid&amp;&amp;!result.portfolios[pid]&amp;&amp;!_deletedPorts[pid]){
           var shortName=pid.replace(/^port_/,'').substring(0,7);
           result.portfolios[pid]={name:'Port-'+shortName,balance:0,fund:'',_autoName:true};
         }
@@ -1383,11 +1391,11 @@ function loadAll(){
     // ── fallback: สร้างพอร์ตจาก Trades sheet ถ้า Log ไม่มีข้อมูล ──
     var tShP=ss.getSheetByName(SHEET.TRADES);
     if(tShP&amp;&amp;tShP.getLastRow()&gt;1){
-      var tVals=tShP.getRange(2,3,tShP.getLastRow()-1,1).getValues(); // col C = Portfolio
+      var tVals=tShP.getRange(2,3,tShP.getLastRow()-1,1).getValues();
       tVals.forEach(function(r){
         var pid=String(r[0]||'').trim();
-        if(pid&amp;&amp;!result.portfolios[pid]){
-          // fallback: Log ไม่มีบันทึก → ตั้งชื่อ auto ไว้ก่อน (user เปลี่ยนชื่อเองได้จาก UI)
+        // ข้ามพอร์ตที่ถูกลบ (tombstone) — ป้องกันเด้งกลับมา
+        if(pid&amp;&amp;!result.portfolios[pid]&amp;&amp;!_deletedPorts[pid]){
           var shortName=pid.replace(/^port_/,'').substring(0,7);
           result.portfolios[pid]={name:'Port '+shortName,balance:0,fund:'',_autoName:true};
         }
@@ -1798,7 +1806,8 @@ function deletePortfolio(d){
       if(String(vals[i][portCol-1])===portfolio) sh.deleteRow(i+1);
     }
   });
-  _log('deletePortfolio','portfolio='+portfolio,portfolio,'port','ok');
+  // บันทึก tombstone เพื่อป้องกัน loadAll สร้างพอร์ตขึ้นมาใหม่จาก Trades fallback
+  _log('deletePortfolio','portfolio_delete id='+portfolio,portfolio,'port','ok');
   return {status:'ok',portfolio:portfolio};
 }
 
@@ -2391,7 +2400,14 @@ function syncFromSheet(onDone){
         localStorage.removeItem('dt_trades');
 
         var merged = {};
+        // อ่าน tombstone local — filter พอร์ตที่เคยลบออก
+        var _localDeleted=[];
+        try{ _localDeleted=JSON.parse(localStorage.getItem('tj_deleted_ports')||'[]'); }catch(e){}
+        // รวม tombstone จาก Sheet ด้วย (ถ้า GAS ส่งมา)
+        var _sheetDeleted=d._deletedPorts||{};
         Object.keys(d.portfolios).forEach(function(id){
+          // ข้ามพอร์ตที่ถูกลบ (ทั้ง local tombstone และ sheet tombstone)
+          if(_localDeleted.indexOf(id)>=0 || _sheetDeleted[id]) return;
           var p = d.portfolios[id];
           var localP = S.portfolios[id];
           // ตรวจว่าชื่อจาก Sheet เป็น auto-generated หรือเปล่า
@@ -2965,6 +2981,12 @@ function deletePortfolio(id,btn){
   delete S.portfolios[id];
   localStorage.removeItem('port_'+id+'_s');
   localStorage.removeItem('port_'+id+'_t');
+  // บันทึก tombstone ใน localStorage — ป้องกันพอร์ตเด้งกลับมาหลัง syncFromSheet
+  try{
+    var deleted=JSON.parse(localStorage.getItem('tj_deleted_ports')||'[]');
+    if(deleted.indexOf(id)<0) deleted.push(id);
+    localStorage.setItem('tj_deleted_ports',JSON.stringify(deleted));
+  }catch(e){}
   btn.closest('div[style*=fixed]').remove();
   var remaining=Object.keys(S.portfolios);
   if(S.currentPortfolio===id){
