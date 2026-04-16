@@ -1386,7 +1386,8 @@ function loadAll(){
       });
       // ลบพอร์ตที่อยู่ใน permanent tombstone ออกจาก ports ด้วย (กันทุกกรณี)
       Object.keys(_permanentDeleted).forEach(function(pid){ delete ports[pid]; });
-      if(!ports['default']) ports['default']={name:'Default',balance:0,fund:''};
+      // สร้าง default เฉพาะตอนที่ไม่ได้อยู่ใน tombstone (ป้องกัน default เด้งกลับ)
+      if(!ports['default'] &amp;&amp; !deletedPorts['default']) ports['default']={name:'Default',balance:0,fund:''};
       result.portfolios=ports;
       result._deletedPorts=deletedPorts; // ส่งกลับไปให้ client ด้วย
     }
@@ -2461,7 +2462,10 @@ function syncFromSheet(onDone){
           delete p._autoName;
           merged[id] = p;
         });
-        if(!merged['default']) merged['default'] = {name:'Default',balance:0,fund:''};
+        // สร้าง default เฉพาะตอนที่มันไม่อยู่ใน tombstone (ป้องกัน default เด้งกลับมาหลังลบ)
+        if(!merged['default'] && _localDeleted.indexOf('default')<0 && !_sheetDeleted['default']){
+          merged['default'] = {name:'Default',balance:0,fund:''};
+        }
         // ถ้า currentPortfolio ไม่อยู่ใน merged → เปลี่ยนไปพอร์ตแรก
         if(!merged[S.currentPortfolio]){
           S.currentPortfolio = Object.keys(merged)[0] || 'default';
@@ -2809,7 +2813,8 @@ function init(){
     S.provBackup=localStorage.getItem('tj_pb')||'groq';
     S.portfolios=JSON.parse(localStorage.getItem('tj_ports')||'{}');
     S.currentPortfolio=localStorage.getItem('tj_curport')||'default';
-    if(!S.portfolios['default']) S.portfolios['default']={name:'Default',balance:0,fund:''};
+    var _initDeleted=[]; try{ _initDeleted=JSON.parse(localStorage.getItem('tj_deleted_ports')||'[]'); }catch(e){}
+    if(!S.portfolios['default'] && _initDeleted.indexOf('default')<0) S.portfolios['default']={name:'Default',balance:0,fund:''};
     // Load current portfolio data
     S.sessions=getPortSessions();
     S.trades=getPortTrades();
@@ -3030,8 +3035,17 @@ function deletePortfolio(id,btn){
     if(remaining.length>0){
       switchPortfolio(remaining[0]);
     } else {
-      S.portfolios['default']={name:'Default',balance:0,fund:''};
-      switchPortfolio('default');
+      // ถ้าไม่มีพอร์ตเหลือ และ default ก็ถูกลบไปแล้ว → สร้างพอร์ตใหม่ว่างๆ
+      var _delList=[]; try{ _delList=JSON.parse(localStorage.getItem('tj_deleted_ports')||'[]'); }catch(e){}
+      if(_delList.indexOf('default')>=0){
+        // default ถูกลบแล้ว สร้าง port ชื่อ main แทน
+        var _newId='port_'+Date.now();
+        S.portfolios[_newId]={name:'Main',balance:0,fund:''};
+        switchPortfolio(_newId);
+      } else {
+        S.portfolios['default']={name:'Default',balance:0,fund:''};
+        switchPortfolio('default');
+      }
     }
   }
   renderPortfolioBar();
