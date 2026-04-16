@@ -1276,7 +1276,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
 <div class="modal">
   <div class="modal-header"><div><div class="modal-title">🔗 Google Sheet</div><div class="modal-subtitle">เชื่อมต่อกับ Google Sheet</div></div><button class="modal-close" onclick="closeM('mSheet')">✕</button></div>
   <div class="modal-body">
-    <div class="info-box"><span class="step-n">1</span>เปิด Google Sheet → Extensions → Apps Script<br><span class="step-n">2</span>วางโค้ดด้านล่าง → กด <strong>setupSheets()</strong> รันครั้งแรก<br><span class="step-n">3</span>Deploy → Web App → Execute as: <strong>Me</strong> → Access: <strong>Anyone</strong><br><span class="step-n">4</span>Copy URL → วางด้านล่าง → Save &amp; Test<br><span style="font-size:10px;color:var(--amber);margin-top:4px;display:block;">⚡ Sheets ที่สร้าง: Trades | Sessions | Summary | Assets | Journal | Log — รองรับ Fees + Commission แยกกัน + Log ครบทุก action</span></div>
+    <div class="info-box"><span class="step-n">1</span>เปิด Google Sheet → Extensions → Apps Script<br><span class="step-n">2</span>วางโค้ดด้านล่าง → กด <strong>setupSheets()</strong> รันครั้งแรก<br><span class="step-n">3</span>Deploy → Web App → Execute as: <strong>Me</strong> → Access: <strong>Anyone</strong><br><span class="step-n">4</span>Copy URL → วางด้านล่าง → Save &amp; Test<br><span style="font-size:10px;color:var(--amber);margin-top:4px;display:block;">⚡ Sheets ที่สร้าง: Trades | Sessions | Summary | Assets | Journal | Log | DeletedPorts — รองรับ Fees + Commission แยกกัน + Log ครบทุก action + tombstone ถาวรป้องกันพอร์ตเด้งกลับ</span></div>
     <!-- Live connection status -->
     <div id="sheetLiveStatus" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--bg-input);border:1px solid var(--border);margin-bottom:10px;font-size:11px;">
       <div id="sheetStatusDot" style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);flex-shrink:0;"></div>
@@ -1298,7 +1298,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
    Sheet: Trades | DataTrades | Sessions | Summary | Assets | Log
    ========================================= */
 
-var SHEET={TRADES:'Trades',DATA_TRADES:'DataTrades',SESSIONS:'Sessions',SUMMARY:'Summary',ASSETS:'Assets',LOG:'Log',JOURNAL:'Journal'};
+var SHEET={TRADES:'Trades',DATA_TRADES:'DataTrades',SESSIONS:'Sessions',SUMMARY:'Summary',ASSETS:'Assets',LOG:'Log',JOURNAL:'Journal',DELETED_PORTS:'DeletedPorts'};
 var HDR={
   TRADES:[
     'ID','Date','Portfolio','Asset','Side','Lots','Entry','Close','TP','SL',
@@ -1330,7 +1330,8 @@ var HDR={
   ],
   ASSETS:['Asset','UpdatedAt'],
   LOG:['Time','Action','Detail','Portfolio','Source','Result'],
-  JOURNAL:['Date','Portfolio','NoteHTML','NotePlain','UpdatedAt']
+  JOURNAL:['Date','Portfolio','NoteHTML','NotePlain','UpdatedAt'],
+  DELETED_PORTS:['PortfolioID','DeletedAt']
 };
 
 function doGet(e){
@@ -1347,27 +1348,44 @@ function loadAll(){
     var ss=SpreadsheetApp.getActiveSpreadsheet();
     var result={status:'ok',portfolios:{},trades:[],sessions:[],dataTrades:[]};
 
+    // ── อ่าน DeletedPorts sheet ก่อน (permanent tombstone — ไม่โดนลบโดย rolling log) ──
+    var _permanentDeleted={};
+    try{
+      var dpSh=ss.getSheetByName(SHEET.DELETED_PORTS);
+      if(dpSh&amp;&amp;dpSh.getLastRow()&gt;1){
+        dpSh.getRange(2,1,dpSh.getLastRow()-1,1).getValues().forEach(function(r){
+          var pid=String(r[0]||'').trim();
+          if(pid) _permanentDeleted[pid]=true;
+        });
+      }
+    }catch(e){}
+
     // ── Portfolios from Log ──
     var logSh=ss.getSheetByName(SHEET.LOG);
     if(logSh&amp;&amp;logSh.getLastRow()&gt;1){
       var logRows=logSh.getRange(2,1,logSh.getLastRow()-1,6).getValues();
       var ports={};
-      var deletedPorts={}; // tombstone: พอร์ตที่ถูกลบแล้ว
+      var deletedPorts={}; // tombstone: พอร์ตที่ถูกลบแล้ว (จาก Log)
+      // รวม permanent tombstone เข้าไปก่อนเลย
+      Object.keys(_permanentDeleted).forEach(function(pid){ deletedPorts[pid]=true; });
       logRows.forEach(function(r){
         var action=String(r[1]||'');
         var detail=String(r[2]||'');
         if(action==='saveSettings'){
           var addM=detail.match(/^portfolio_add\s+id=(\S+)\s+name=([^\s]+(?:\s+[^\s]+)*?)\s+fund=(\S*)/);
           var editM=detail.match(/^portfolio_edit\s+id=(\S+)\s+name=([^\s]+(?:\s+[^\s]+)*?)\s+balance=([\d.]+)\s+fund=(\S*)/);
-          if(addM){ var id=addM[1]; if(!ports[id]) ports[id]={name:addM[2],balance:0,fund:addM[3]==='-'?'':addM[3]}; }
-          if(editM){ var id=editM[1]; ports[id]={name:editM[2],balance:parseFloat(editM[3])||0,fund:editM[4]==='-'?'':editM[4]}; }
+          // ถ้า id อยู่ใน permanent tombstone → ไม่ restore ไม่ว่า Log จะบอกอะไร
+          if(addM){ var id=addM[1]; if(!ports[id]&amp;&amp;!_permanentDeleted[id]) ports[id]={name:addM[2],balance:0,fund:addM[3]==='-'?'':addM[3]}; }
+          if(editM){ var id=editM[1]; if(!_permanentDeleted[id]) ports[id]={name:editM[2],balance:parseFloat(editM[3])||0,fund:editM[4]==='-'?'':editM[4]}; }
         }
-        // อ่าน tombstone จาก deletePortfolio
+        // อ่าน tombstone จาก deletePortfolio ใน Log (เป็น backup ของ permanent sheet)
         if(action==='deletePortfolio'){
           var delM=detail.match(/^portfolio_delete\s+id=(\S+)/);
           if(delM){ deletedPorts[delM[1]]=true; delete ports[delM[1]]; }
         }
       });
+      // ลบพอร์ตที่อยู่ใน permanent tombstone ออกจาก ports ด้วย (กันทุกกรณี)
+      Object.keys(_permanentDeleted).forEach(function(pid){ delete ports[pid]; });
       if(!ports['default']) ports['default']={name:'Default',balance:0,fund:''};
       result.portfolios=ports;
       result._deletedPorts=deletedPorts; // ส่งกลับไปให้ client ด้วย
@@ -1806,7 +1824,19 @@ function deletePortfolio(d){
       if(String(vals[i][portCol-1])===portfolio) sh.deleteRow(i+1);
     }
   });
-  // บันทึก tombstone เพื่อป้องกัน loadAll สร้างพอร์ตขึ้นมาใหม่จาก Trades fallback
+  // บันทึก tombstone ถาวรลงใน DeletedPorts sheet — ไม่โดนลบโดย rolling log
+  try{
+    var dpSh=_sheet(SHEET.DELETED_PORTS,HDR.DELETED_PORTS);
+    // ตรวจว่ามีอยู่แล้วหรือยัง (ป้องกัน duplicate)
+    var alreadyDeleted=false;
+    if(dpSh.getLastRow()&gt;1){
+      var existing=dpSh.getRange(2,1,dpSh.getLastRow()-1,1).getValues();
+      for(var i=0;i&lt;existing.length;i++){
+        if(String(existing[i][0])===portfolio){alreadyDeleted=true;break;}
+      }
+    }
+    if(!alreadyDeleted) dpSh.appendRow([portfolio,_now()]);
+  }catch(e){}
   _log('deletePortfolio','portfolio_delete id='+portfolio,portfolio,'port','ok');
   return {status:'ok',portfolio:portfolio};
 }
@@ -2006,10 +2036,11 @@ function setupSheets(){
   _sheet(SHEET.ASSETS,HDR.ASSETS);
   _sheet(SHEET.JOURNAL,HDR.JOURNAL);
   _sheet(SHEET.LOG,HDR.LOG);
+  _sheet(SHEET.DELETED_PORTS,HDR.DELETED_PORTS);
   var ss=SpreadsheetApp.getActiveSpreadsheet();
   var def=ss.getSheetByName('Sheet1');
   if(def&amp;&amp;ss.getSheets().length&gt;1) ss.deleteSheet(def);
-  SpreadsheetApp.getUi().alert('✅ TradeLog Pro+ v5.0 พร้อม!\n\nSheets: Trades | DataTrades | Sessions | Summary | Assets | Journal | Log\nรองรับ: Multi-Portfolio + Data Mode + Custom Assets + Fees + Commission\nLog: ครบทุก action + Source (port/data/system) + 2000 rows\n\n⚡ หมายเหตุ: ถ้า Sheet เดิมมี Header ไม่ครบ ระบบจะเพิ่ม Column ใหม่ให้อัตโนมัติ');
+  SpreadsheetApp.getUi().alert('✅ TradeLog Pro+ v5.0 พร้อม!\n\nSheets: Trades | DataTrades | Sessions | Summary | Assets | Journal | Log | DeletedPorts\nรองรับ: Multi-Portfolio + Data Mode + Custom Assets + Fees + Commission\nLog: ครบทุก action + Source (port/data/system) + 2000 rows\nDeletedPorts: tombstone ถาวร ป้องกันพอร์ตเด้งกลับ\n\n⚡ หมายเหตุ: ถ้า Sheet เดิมมี Header ไม่ครบ ระบบจะเพิ่ม Column ใหม่ให้อัตโนมัติ');
 }
 function onOpen(){
   SpreadsheetApp.getUi().createMenu('🔧 TradeLog Pro+')
@@ -2403,8 +2434,14 @@ function syncFromSheet(onDone){
         // อ่าน tombstone local — filter พอร์ตที่เคยลบออก
         var _localDeleted=[];
         try{ _localDeleted=JSON.parse(localStorage.getItem('tj_deleted_ports')||'[]'); }catch(e){}
-        // รวม tombstone จาก Sheet ด้วย (ถ้า GAS ส่งมา)
+        // รวม tombstone จาก Sheet ด้วย (ถ้า GAS ส่งมา) — ป้องกันกรณี localStorage ถูก clear
         var _sheetDeleted=d._deletedPorts||{};
+        // อัปเดต localStorage tombstone จาก Sheet (ซิงค์ tombstone กลับ)
+        var _tombstoneUpdated=false;
+        Object.keys(_sheetDeleted).forEach(function(pid){
+          if(_localDeleted.indexOf(pid)<0){ _localDeleted.push(pid); _tombstoneUpdated=true; }
+        });
+        if(_tombstoneUpdated){ try{ localStorage.setItem('tj_deleted_ports',JSON.stringify(_localDeleted)); }catch(e){} }
         Object.keys(d.portfolios).forEach(function(id){
           // ข้ามพอร์ตที่ถูกลบ (ทั้ง local tombstone และ sheet tombstone)
           if(_localDeleted.indexOf(id)>=0 || _sheetDeleted[id]) return;
@@ -2999,7 +3036,10 @@ function deletePortfolio(id,btn){
   }
   renderPortfolioBar();
   localStorage.setItem('tj_ports',JSON.stringify(S.portfolios));
-  if(S.scriptUrl) sendSheet('deletePortfolio',{portfolio:id});
+  if(S.scriptUrl){
+    // ส่ง deletePortfolio ไป GAS เพื่อเขียน permanent tombstone ลง DeletedPorts sheet
+    sendSheet('deletePortfolio',{portfolio:id});
+  }
   showToast('🗑 ลบพอร์ตแล้ว','success');
 }
 
