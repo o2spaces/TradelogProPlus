@@ -308,7 +308,52 @@ body.data-mode-open .portfolio-bar {
 .tag.tokyo.active{background:rgba(245,166,35,.15);border-color:var(--amber);color:var(--amber);}
 .tag.london.active{background:rgba(79,122,255,.15);border-color:var(--accent);color:var(--accent);}
 .tag.newyork.active{background:rgba(34,211,238,.1);border-color:var(--teal);color:var(--teal);}
-/* custom color classes for session tags */
+/* ── Help Modal Styles ── */
+.help-tab{background:none;border:none;color:var(--text-muted);padding:9px 14px;font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-main);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;white-space:nowrap;}
+.help-tab:hover{color:var(--text-primary);}
+.help-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.help-hero{text-align:center;padding:16px 0 20px;border-bottom:1px solid var(--border);margin-bottom:18px;}
+.help-section-title{font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.6px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.help-section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+.help-flow-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;}
+.help-flow-card{flex:1;min-width:130px;background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:12px 10px;text-align:center;transition:border-color .15s;}
+.help-flow-card:hover{border-color:var(--border-hover);}
+.help-flow-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;}
+.help-flow-label{font-size:11px;font-weight:600;color:var(--text-primary);margin-bottom:3px;}
+.help-flow-desc{font-size:10px;color:var(--text-muted);line-height:1.4;}
+.help-flow-arrow{color:var(--text-muted);font-size:16px;flex-shrink:0;}
+.help-steps{display:flex;flex-direction:column;gap:10px;}
+.help-step{display:flex;gap:12px;align-items:flex-start;}
+.help-step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+.help-step-body{flex:1;}
+.help-step-title{font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:4px;}
+.help-step-desc{font-size:11px;color:var(--text-secondary);line-height:1.6;}
+.help-badge{display:inline-block;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:500;color:var(--text-primary);font-family:var(--font-mono);}
+.help-kbd-row{display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-secondary);}
+.help-kbd-row kbd{background:var(--bg-secondary);border:1px solid var(--border-hover);border-radius:4px;padding:1px 6px;font-size:10px;font-family:var(--font-mono);color:var(--text-primary);white-space:nowrap;}
+.help-info-box{background:var(--bg-input);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:10px 13px;font-size:11px;color:var(--text-secondary);line-height:1.7;margin-bottom:4px;}
+.help-code-block{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);line-height:1.7;white-space:pre;tab-size:2;margin-bottom:8px;}
+.help-copy-btn{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);transition:background .15s;width:100%;}
+.help-copy-btn:hover{background:var(--accent-hover);}
+.help-sheet-card{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--text-primary);}
+.help-deploy-box{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:8px 0;display:flex;flex-direction:column;gap:6px;}
+.help-deploy-row{display:flex;align-items:center;gap:10px;font-size:11px;}
+.help-deploy-label{color:var(--text-muted);min-width:110px;font-weight:500;}
+.help-deploy-val{color:var(--text-primary);font-weight:600;}
+.help-img-placeholder{margin-top:8px;background:var(--bg-secondary);border:1px dashed var(--border);border-radius:6px;padding:8px 12px;font-size:10px;color:var(--text-muted);text-align:center;}
+.help-warn-box{background:rgba(245,166,35,.06);border:1px solid var(--amber);border-radius:8px;padding:10px 13px;display:flex;flex-direction:column;gap:7px;}
+.help-warn-row{font-size:11px;color:var(--text-secondary);line-height:1.6;}
+.help-field-card{background:var(--bg-input);border:1px solid var(--border);border-radius:7px;padding:7px 10px;display:flex;flex-direction:column;gap:2px;}
+.help-field-name{font-size:11px;font-weight:600;color:var(--accent);font-family:var(--font-mono);}
+.help-field-desc{font-size:10px;color:var(--text-muted);}
+.help-ai-prompt{background:var(--bg-input);border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:11px;color:var(--text-secondary);cursor:pointer;transition:all .15s;}
+.help-ai-prompt:hover{border-color:var(--purple);color:var(--text-primary);background:rgba(168,85,247,.07);}
+.help-faq-item{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:6px;}
+.help-faq-q{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;font-size:12px;font-weight:600;color:var(--text-primary);cursor:pointer;background:var(--bg-input);transition:background .15s;gap:10px;}
+.help-faq-q:hover{background:var(--bg-secondary);}
+.help-faq-arrow{font-size:10px;color:var(--text-muted);transition:transform .2s;flex-shrink:0;}
+.help-faq-a{display:none;padding:10px 13px;font-size:11px;color:var(--text-secondary);line-height:1.7;background:var(--bg-card);border-top:1px solid var(--border);}
+[data-theme="light"] .help-code-block{background:#f8fafc;color:#334155;}
 .tag.c-red.active{background:rgba(255,77,106,.15);border-color:var(--red);color:var(--red);}
 .tag.c-amber.active{background:rgba(245,166,35,.15);border-color:var(--amber);color:var(--amber);}
 .tag.c-blue.active{background:rgba(79,122,255,.15);border-color:var(--accent);color:var(--accent);}
@@ -492,7 +537,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
           <div class="drop-item" onclick="openShareDashboard();closeMenu()">🔗 Share Dashboard</div>
           <div class="drop-item" onclick="closeMenu();setTimeout(openFeesConfig,80)">💰 Fees &amp; Commission</div>
           <div class="drop-item" onclick="openSheet();closeMenu()">🔗 Google Sheet URL</div>
-          <div class="drop-item" onclick="showToast('กำลังพัฒนา...','success');closeMenu()">❓ Help & Tutorials</div>
+          <div class="drop-item" onclick="openM('mHelp');closeMenu()">❓ Help & Tutorials</div>
         </div>
       </div>
     </div>
@@ -9845,6 +9890,678 @@ if(document.readyState==='loading'){
   </div>
 </div>
 
+<!-- ═══ HELP & TUTORIALS MODAL ═══ -->
+<div id="mHelp" class="modal-backdrop">
+  <div class="modal modal-xl" style="max-height:92vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="flex-shrink:0;">
+      <div>
+        <div class="modal-title">❓ Help & Tutorials</div>
+        <div class="modal-subtitle">คู่มือการใช้งาน TradeLog Pro+ และการตั้งค่า Google Apps Script</div>
+      </div>
+      <button class="modal-close" onclick="closeM('mHelp')">✕</button>
+    </div>
+
+    <!-- Tab bar -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 17px;flex-shrink:0;overflow-x:auto;">
+      <button class="help-tab active" id="htab0" onclick="helpTab(0)">🚀 เริ่มต้น</button>
+      <button class="help-tab" id="htab1" onclick="helpTab(1)">📋 Apps Script</button>
+      <button class="help-tab" id="htab2" onclick="helpTab(2)">🔗 Deploy & Connect</button>
+      <button class="help-tab" id="htab3" onclick="helpTab(3)">📊 Data Mode</button>
+      <button class="help-tab" id="htab4" onclick="helpTab(4)">🤖 AI Coach</button>
+      <button class="help-tab" id="htab5" onclick="helpTab(5)">❓ FAQ</button>
+    </div>
+
+    <div class="modal-body" style="flex:1;overflow-y:auto;padding:18px 20px;">
+
+      <!-- ══ TAB 0: เริ่มต้น ══ -->
+      <div id="hpanel0">
+        <div class="help-hero">
+          <div style="font-size:36px;margin-bottom:8px;">📈</div>
+          <div style="font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">TradeLog Pro+</div>
+          <div style="font-size:12px;color:var(--text-muted);">Trading Journal · Data Mode · AI Coach · Google Sheet Sync</div>
+        </div>
+
+        <div class="help-section-title">🗺️ ภาพรวมระบบ</div>
+        <div class="help-flow-row">
+          <div class="help-flow-card" style="border-color:var(--accent);">
+            <div class="help-flow-icon" style="background:var(--accent-dim);color:var(--accent);">📓</div>
+            <div class="help-flow-label">Journal Mode</div>
+            <div class="help-flow-desc">บันทึก Trade รายวัน ดู Equity Curve ปฏิทิน P&amp;L</div>
+          </div>
+          <div class="help-flow-arrow">→</div>
+          <div class="help-flow-card" style="border-color:var(--purple);">
+            <div class="help-flow-icon" style="background:rgba(168,85,247,.15);color:var(--purple);">🗂️</div>
+            <div class="help-flow-label">Data Mode</div>
+            <div class="help-flow-desc">วิเคราะห์ Setup · Filter ขั้นสูง · Stats Bar · Charts</div>
+          </div>
+          <div class="help-flow-arrow">→</div>
+          <div class="help-flow-card" style="border-color:var(--teal);">
+            <div class="help-flow-icon" style="background:rgba(34,211,238,.12);color:var(--teal);">☁️</div>
+            <div class="help-flow-label">Google Sheet Sync</div>
+            <div class="help-flow-desc">Backup อัตโนมัติ · Sync ข้ามอุปกรณ์ · Export ข้อมูล</div>
+          </div>
+          <div class="help-flow-arrow">→</div>
+          <div class="help-flow-card" style="border-color:var(--green);">
+            <div class="help-flow-icon" style="background:var(--green-dim);color:var(--green);">🤖</div>
+            <div class="help-flow-label">AI Coach</div>
+            <div class="help-flow-desc">วิเคราะห์ Pattern · แนะนำ Setup · Psychology Coaching</div>
+          </div>
+        </div>
+
+        <div class="help-section-title" style="margin-top:20px;">⚡ Quick Start — 4 ขั้นตอน</div>
+        <div class="help-steps">
+          <div class="help-step">
+            <div class="help-step-num" style="background:var(--accent-dim);color:var(--accent);">1</div>
+            <div class="help-step-body">
+              <div class="help-step-title">สร้าง Portfolio</div>
+              <div class="help-step-desc">กดปุ่ม <span class="help-badge">+ พอร์ต</span> ที่ Portfolio Bar ด้านล่าง ตั้งชื่อและทุนเริ่มต้น สามารถมีหลาย Portfolio ได้ เช่น Live / Demo / Prop Firm</div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num" style="background:rgba(168,85,247,.15);color:var(--purple);">2</div>
+            <div class="help-step-body">
+              <div class="help-step-title">บันทึก Trade แรก</div>
+              <div class="help-step-desc">กดปุ่ม <span class="help-badge">💾 Save Entry</span> มุมขวาบน หรือคลิกวันในปฏิทิน → กรอก Asset, Side, Entry/Close, P&amp;L → กด Save</div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num" style="background:rgba(34,211,238,.12);color:var(--teal);">3</div>
+            <div class="help-step-body">
+              <div class="help-step-title">เชื่อม Google Sheet (ถ้าต้องการ Backup)</div>
+              <div class="help-step-desc">เมนู ☰ → <span class="help-badge">🔗 Google Sheet URL</span> → ทำตามขั้นตอน Apps Script → วาง URL → Save &amp; Test ดูแท็บ <b>📋 Apps Script</b> สำหรับขั้นตอนละเอียด</div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num" style="background:var(--green-dim);color:var(--green);">4</div>
+            <div class="help-step-body">
+              <div class="help-step-title">เปิด Data Mode วิเคราะห์</div>
+              <div class="help-step-desc">กดปุ่ม <span class="help-badge">🗂️ Data</span> บน Topbar → เพิ่ม Trade ผ่านฟอร์ม → ใช้ Filter / Stats Bar / AI Analysis เพื่อหา Edge ของตัวเอง</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="help-section-title" style="margin-top:20px;">⌨️ Keyboard Shortcuts</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div class="help-kbd-row"><kbd>Alt + N</kbd><span>เปิดบันทึก Trade ใหม่</span></div>
+          <div class="help-kbd-row"><kbd>Alt + D</kbd><span>สลับ Data Mode</span></div>
+          <div class="help-kbd-row"><kbd>Alt + S</kbd><span>Save Entry</span></div>
+          <div class="help-kbd-row"><kbd>Esc</kbd><span>ปิด Modal / Popup</span></div>
+          <div class="help-kbd-row"><kbd>Alt + ←</kbd><span>เดือนก่อนหน้า</span></div>
+          <div class="help-kbd-row"><kbd>Alt + →</kbd><span>เดือนถัดไป</span></div>
+        </div>
+      </div>
+
+      <!-- ══ TAB 1: Apps Script Code ══ -->
+      <div id="hpanel1" style="display:none;">
+        <div class="help-section-title">📋 Apps Script คืออะไร?</div>
+        <div class="help-info-box" style="border-color:var(--teal);background:rgba(34,211,238,.06);">
+          <b style="color:var(--teal);">Google Apps Script</b> คือ JavaScript ที่รันบน Google Cloud — ทำหน้าที่เป็น <b>API Server</b> ให้ TradeLog Pro+ ส่ง/รับข้อมูลกับ Google Sheet ของคุณโดยตรง ไม่ผ่านเซิร์ฟเวอร์ภายนอก ข้อมูลอยู่ใน Google Account ของคุณ 100%
+        </div>
+
+        <div class="help-section-title" style="margin-top:16px;">🏗️ โครงสร้าง Sheet ที่จะถูกสร้าง</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-bottom:16px;">
+          <div class="help-sheet-card" style="border-color:var(--accent);">📋 <b>Trades</b><div style="font-size:9px;color:var(--text-muted);margin-top:2px;">Journal trades รายวัน</div></div>
+          <div class="help-sheet-card" style="border-color:var(--purple);">🗂️ <b>DataTrades</b><div style="font-size:9px;color:var(--text-muted);margin-top:2px;">Data Mode trades</div></div>
+          <div class="help-sheet-card" style="border-color:var(--teal);">📅 <b>Sessions</b><div style="font-size:9px;color:var(--text-muted);margin-top:2px;">สรุปรายวัน + Emotion</div></div>
+          <div class="help-sheet-card" style="border-color:var(--green);">📊 <b>Summary</b><div style="font-size:9px;color:var(--text-muted);margin-top:2px;">สถิติภาพรวม</div></div>
+          <div class="help-sheet-card" style="border-color:var(--amber);">💱 <b>Assets</b><div style="font-size:9px;color:var(--text-muted);margin-top:2px;">Custom assets list</div></div>
+          <div class="help-sheet-card" style="border-color:var(--red);">📝 <b>Log</b><div style="font-size:9px;color:var(--text-muted);margin-top:2px;">Action log ทุก event</div></div>
+          <div class="help-sheet-card" style="border-color:var(--text-muted);">🗑️ <b>DeletedPorts</b><div style="font-size:9px;color:var(--text-muted);margin-top:2px;">Tombstone ป้องกัน port เด้ง</div></div>
+        </div>
+
+        <div class="help-section-title">📝 Code ทั้งหมด — คัดลอกแล้ววางใน Apps Script</div>
+        <div style="position:relative;">
+          <div id="helpCodeBlock" class="help-code-block" style="max-height:340px;overflow-y:auto;">/* =========================================
+   TradeLog Pro+ — Google Apps Script v5.0
+   รองรับ: Portfolio | Data Mode Trades
+           Candle | Mode | TF | Trend
+           Zone | Confirm | Sessions
+           Emotion | Discipline | MaxRR | SetupClass
+           Custom Assets (saveAssets/loadAssets)
+           Fees + Commission แยกกัน
+   Log: ครบทุก action
+   Sheet: Trades | DataTrades | Sessions | Summary | Assets | Log
+   ========================================= */
+
+var SHEET={TRADES:'Trades',DATA_TRADES:'DataTrades',SESSIONS:'Sessions',SUMMARY:'Summary',ASSETS:'Assets',LOG:'Log',JOURNAL:'Journal',DELETED_PORTS:'DeletedPorts'};
+
+var TRADES_HEADER=[
+  'Date','Portfolio','Asset','Side','Lots','EntryPrice','ClosePrice',
+  'PnL','Fees','Commission','NetPnL','Result',
+  'Trend','Zone','Confirm','Sessions','Emotion','Discipline',
+  'Note','ImageLink','UpdatedAt'
+];
+var DATA_TRADES_HEADER=[
+  'Date','Day','Session','Asset','Side','EntryTime','Duration','SetupDuration',
+  'Code','Mode','TF','SetupClass','Model','MaxRR',
+  'Entry','TP','SL','Close','Result',
+  'Trend','Zone','Confirm',
+  'Sessions','Strategies','Notes',
+  'UpdatedAt'
+];
+var SESSIONS_HEADER=[
+  'Date','Portfolio','NetPnL','TotalTrades','WinRate',
+  'Emotion','Sessions','UpdatedAt'
+];
+
+function doGet(e){
+  try{
+    var action=e.parameter.action||'loadAll';
+    if(action==='loadAll')    return _json(loadAll());
+    if(action==='loadAssets') return _json(loadAssets());
+    if(action==='clearAllDataTrades') return _json(clearAllDataTrades());
+    return _json({status:'error',msg:'Unknown action: '+action});
+  }catch(err){
+    return _json({status:'error',msg:err.message});
+  }
+}
+
+function doPost(e){
+  try{
+    var d=JSON.parse(e.postData.contents);
+    var res={status:'ok'};
+    if(d.action==='saveTrade')         res=saveTrade(d);
+    else if(d.action==='deleteTrade')  res=deleteTrade(d);
+    else if(d.action==='saveDataTrade')   res=saveDataTrade(d);
+    else if(d.action==='deleteDataTrade') res=deleteDataTrade(d);
+    else if(d.action==='saveSession')  res=saveSession(d);
+    else if(d.action==='saveAssets')   res=saveAssets(d);
+    else if(d.action==='deletePortfolio') res=deletePortfolio(d);
+    else res={status:'error',msg:'Unknown action'};
+    return _json(res);
+  }catch(err){
+    return _json({status:'error',msg:err.message});
+  }
+}
+
+// ── loadAll ──
+function loadAll(){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var result={status:'ok',portfolios:{},trades:[],sessions:[],dataTrades:[]};
+  var delSh=ss.getSheetByName(SHEET.DELETED_PORTS);
+  var deletedIds={};
+  if(delSh){
+    var dRows=delSh.getDataRange().getValues();
+    for(var i=1;i<dRows.length;i++){if(dRows[i][0])deletedIds[String(dRows[i][0])]=true;}
+  }
+  var ts=ss.getSheetByName(SHEET.TRADES);
+  var tSeen={};
+  if(ts){
+    var tv=ts.getDataRange().getValues();
+    var th=tv[0]||[];
+    var gi=function(n){return th.indexOf(n);};
+    for(var r=1;r<tv.length;r++){
+      var row=tv[r];
+      var port=String(row[gi('Portfolio')]||'default');
+      if(deletedIds[port]) continue;
+      if(!result.portfolios[port]) result.portfolios[port]={name:port,initialBalance:10000,currency:'USD',createdAt:''};
+      var tKey=row[gi('Date')]+'|'+port+'|'+row[gi('EntryPrice')]+'|'+row[gi('PnL')];
+      if(tSeen[tKey]) continue; tSeen[tKey]=true;
+      var obj={};
+      th.forEach(function(h,i){obj[h]=row[i];});
+      result.trades.push(obj);
+    }
+  }
+  var ds=ss.getSheetByName(SHEET.DATA_TRADES);
+  if(ds){
+    var dv=ds.getDataRange().getValues();
+    var dh=dv[0]||[];
+    var dgi=function(n){return dh.indexOf(n);};
+    for(var r=1;r<dv.length;r++){
+      var row=dv[r];
+      var obj={};
+      dh.forEach(function(h,i){obj[h]=row[i];});
+      result.dataTrades.push(obj);
+    }
+  }
+  var sSh=ss.getSheetByName(SHEET.SESSIONS);
+  var sSeen={};
+  if(sSh){
+    var sv=sSh.getDataRange().getValues();
+    var sh2=sv[0]||[];
+    for(var r=1;r<sv.length;r++){
+      var row=sv[r];
+      var date=String(row[0]||'');
+      var port=String(row[1]||'default');
+      if(deletedIds[port]) continue;
+      var sKey=date+'|'+port;
+      if(sSeen[sKey]) continue; sSeen[sKey]=true;
+      var obj={};
+      sh2.forEach(function(h,i){obj[h]=row[i];});
+      result.sessions.push(obj);
+    }
+  }
+  return result;
+}
+
+// ── saveTrade / deleteTrade ──
+function saveTrade(d){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var sh=ss.getSheetByName(SHEET.TRADES)||ss.insertSheet(SHEET.TRADES);
+  var v=sh.getDataRange().getValues();
+  var h=v[0]||[];
+  if(!h.length){sh.appendRow(TRADES_HEADER);v=sh.getDataRange().getValues();h=v[0];}
+  var gi=function(n){var i=h.indexOf(n);return i<0?null:i;};
+  var ts=new Date().toISOString();
+  var row=TRADES_HEADER.map(function(col){
+    if(col==='UpdatedAt') return ts;
+    return d[col.toLowerCase()]!==undefined?d[col.toLowerCase()]:d[col]!==undefined?d[col]:'';
+  });
+  var found=-1;
+  for(var i=1;i<v.length;i++){
+    if(String(v[i][gi('Date')]||'')==String(d.date||'')&&String(v[i][gi('Portfolio')]||'')==String(d.portfolio||'default')&&String(v[i][gi('EntryPrice')]||'')==String(d.entryPrice||'')){found=i;break;}
+  }
+  if(found>0) sh.getRange(found+1,1,1,row.length).setValues([row]);
+  else sh.appendRow(row);
+  _log('saveTrade','date='+d.date+' asset='+d.asset+' pnl='+d.netPnL,d.portfolio,'port','ok');
+  return {status:'ok'};
+}
+function deleteTrade(d){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var sh=ss.getSheetByName(SHEET.TRADES);
+  if(!sh) return {status:'ok'};
+  var v=sh.getDataRange().getValues();
+  var h=v[0]||[];
+  var gi=function(n){return h.indexOf(n);};
+  for(var i=v.length-1;i>=1;i--){
+    if(String(v[i][gi('Date')]||'')==String(d.date||'')&&String(v[i][gi('Portfolio')]||'')==String(d.portfolio||'')&&String(v[i][gi('EntryPrice')]||'')==String(d.entryPrice||'')){
+      sh.deleteRow(i+1);
+      _log('deleteTrade','date='+d.date+' asset='+d.asset,d.portfolio,'port','ok');
+      return {status:'ok'};
+    }
+  }
+  return {status:'ok'};
+}
+
+// ── saveDataTrade / deleteDataTrade ──
+function saveDataTrade(d){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var sh=ss.getSheetByName(SHEET.DATA_TRADES)||ss.insertSheet(SHEET.DATA_TRADES);
+  var v=sh.getDataRange().getValues();
+  var h=v[0]||[];
+  if(!h.length){sh.appendRow(DATA_TRADES_HEADER);v=sh.getDataRange().getValues();h=v[0];}
+  var gi=function(n){return h.indexOf(n);};
+  var ts=new Date().toISOString();
+  var row=DATA_TRADES_HEADER.map(function(col){return d[col]!==undefined?d[col]:d[col.toLowerCase()]!==undefined?d[col.toLowerCase()]:'';});
+  row[gi('UpdatedAt')]=ts;
+  var uid=String(d.uid||d.id||'');
+  var found=-1;
+  if(uid){for(var i=1;i<v.length;i++){if(String(v[i][gi('UpdatedAt')||0]||'')==uid||(d.date&&String(v[i][0]||'')==String(d.date)&&String(v[i][gi('EntryTime')||5]||'')==String(d.entryTime||'')&&String(v[i][gi('Code')||8]||'')==String(d.code||''))){found=i;break;}}}
+  if(found>0) sh.getRange(found+1,1,1,row.length).setValues([row]);
+  else sh.appendRow(row);
+  _log('saveDataTrade','date='+d.date+' code='+d.code,'data','data','ok');
+  return {status:'ok'};
+}
+function deleteDataTrade(d){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var sh=ss.getSheetByName(SHEET.DATA_TRADES);
+  if(!sh) return {status:'ok'};
+  var v=sh.getDataRange().getValues();
+  for(var i=v.length-1;i>=1;i--){
+    if(String(v[i][0]||'')==String(d.date||'')&&String(v[i][5]||'')==String(d.entryTime||'')&&String(v[i][8]||'')==String(d.code||'')){
+      sh.deleteRow(i+1);
+      _log('deleteDataTrade','date='+d.date,'data','data','ok');
+      return {status:'ok'};
+    }
+  }
+  return {status:'ok'};
+}
+
+// ── saveSession ──
+function saveSession(d){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var sh=ss.getSheetByName(SHEET.SESSIONS)||ss.insertSheet(SHEET.SESSIONS);
+  var v=sh.getDataRange().getValues();
+  var h=v[0]||[];
+  if(!h.length){sh.appendRow(SESSIONS_HEADER);v=sh.getDataRange().getValues();h=v[0];}
+  var ts=new Date().toISOString();
+  var port=d.portfolio||'default';
+  var pnl=parseFloat(d.netPnl)||0;
+  var total=parseInt(d.totalTrades)||0;
+  var wr=total>0?Math.round((parseInt(d.winTrades)||0)/total*100):0;
+  var row=[d.date||'',port,pnl,total,wr,d.emotion||'',d.sessions||'',ts];
+  var found=-1;
+  for(var i=1;i<v.length;i++){if(String(v[i][0]||'')==String(d.date||'')&&String(v[i][1]||'')==String(port)){found=i;break;}}
+  if(found>0) sh.getRange(found+1,1,1,row.length).setValues([row]);
+  else sh.appendRow(row);
+  _log('saveSession','date='+d.date+' pnl='+pnl.toFixed(2),port,'port','ok');
+  return {status:'ok'};
+}
+
+// ── loadAssets / saveAssets ──
+function loadAssets(){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var sh=ss.getSheetByName(SHEET.ASSETS);
+  if(!sh) return {status:'ok',assets:[]};
+  var v=sh.getDataRange().getValues();
+  var assets=[];
+  for(var i=1;i<v.length;i++){if(v[i][0])assets.push({symbol:v[i][0],pointVal:v[i][1]||1,digits:v[i][2]||2});}
+  return {status:'ok',assets:assets};
+}
+function saveAssets(d){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var sh=ss.getSheetByName(SHEET.ASSETS)||ss.insertSheet(SHEET.ASSETS);
+  sh.clearContents();
+  sh.appendRow(['Symbol','PointValue','Digits']);
+  (d.assets||[]).forEach(function(a){sh.appendRow([a.symbol||'',a.pointVal||1,a.digits||2]);});
+  _log('saveAssets','count='+(d.assets||[]).length,'','system','ok');
+  return {status:'ok'};
+}
+
+// ── deletePortfolio ──
+function deletePortfolio(d){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var sh=ss.getSheetByName(SHEET.DELETED_PORTS)||ss.insertSheet(SHEET.DELETED_PORTS);
+  var v=sh.getDataRange().getValues();
+  var h=v[0]||[];
+  if(!h.length){sh.appendRow(['PortfolioID','DeletedAt']);v=sh.getDataRange().getValues();}
+  sh.appendRow([d.portfolio||'',new Date().toISOString()]);
+  _log('deletePortfolio','id='+d.portfolio,'','system','ok');
+  return {status:'ok'};
+}
+
+// ── clearAllDataTrades ──
+function clearAllDataTrades(){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var sh=ss.getSheetByName(SHEET.DATA_TRADES);
+  if(!sh) return {status:'ok',msg:'Sheet not found'};
+  var lastRow=sh.getLastRow();
+  if(lastRow>1) sh.deleteRows(2,lastRow-1);
+  _log('clearAllDataTrades','cleared all data trades','data','data','ok');
+  return {status:'ok',msg:'cleared'};
+}
+
+// ── Log helper ──
+function _log(action,detail,portfolio,source,status){
+  try{
+    var ss=SpreadsheetApp.getActiveSpreadsheet();
+    var sh=ss.getSheetByName(SHEET.LOG)||ss.insertSheet(SHEET.LOG);
+    if(sh.getLastRow()===0) sh.appendRow(['Timestamp','Action','Detail','Portfolio','Source','Status']);
+    if(sh.getLastRow()>2001) sh.deleteRow(2);
+    sh.appendRow([new Date().toISOString(),action,detail||'',portfolio||'',source||'',status||'']);
+  }catch(e){}
+}
+
+// ── JSON response ──
+function _json(obj){return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);}
+
+// ── setupSheets (รันครั้งแรก) ──
+function setupSheets(){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var sheets=[
+    {name:SHEET.TRADES,header:TRADES_HEADER},
+    {name:SHEET.DATA_TRADES,header:DATA_TRADES_HEADER},
+    {name:SHEET.SESSIONS,header:SESSIONS_HEADER},
+    {name:SHEET.ASSETS,header:['Symbol','PointValue','Digits']},
+    {name:SHEET.LOG,header:['Timestamp','Action','Detail','Portfolio','Source','Status']},
+    {name:SHEET.DELETED_PORTS,header:['PortfolioID','DeletedAt']}
+  ];
+  sheets.forEach(function(s){
+    var sh=ss.getSheetByName(s.name)||ss.insertSheet(s.name);
+    var existing=sh.getLastRow()>0?sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0]:[];
+    var added=0;
+    s.header.forEach(function(h,i){
+      if(existing.indexOf(h)<0){
+        var col=sh.getLastColumn()+1;
+        if(sh.getLastRow()===0){sh.getRange(1,i+1).setValue(h);}
+        else{sh.getRange(1,col).setValue(h);}
+        added++;
+      }
+    });
+  });
+  SpreadsheetApp.getUi().createMenu('🔧 TradeLog Pro+')
+    .addItem('⚙️ Setup Sheets','setupSheets')
+    .addItem('🔍 Check &amp; Clean Duplicates','checkDuplicates')
+    .addToUi();
+  SpreadsheetApp.getUi().alert('✅ TradeLog Pro+ v5.0 พร้อม!\n\nSheets: Trades | DataTrades | Sessions | Summary | Assets | Log | DeletedPorts\nรองรับ: Multi-Portfolio + Data Mode + Custom Assets + Fees + Commission\nLog: ครบทุก action\n\n⚡ หมายเหตุ: ถ้า Sheet เดิมมี Header ไม่ครบ ระบบจะเพิ่ม Column ใหม่ให้อัตโนมัติ');
+}
+
+// ── checkDuplicates ──
+function checkDuplicates(){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var report=[];
+  [SHEET.TRADES,SHEET.DATA_TRADES,SHEET.SESSIONS].forEach(function(name){
+    var sh=ss.getSheetByName(name);
+    if(!sh) return;
+    var v=sh.getDataRange().getValues();
+    var seen={};var del=[];
+    for(var i=v.length-1;i>=1;i--){
+      var key=v[i].join('|');
+      if(seen[key]){del.push(i+1);}else{seen[key]=true;}
+    }
+    if(del.length){del.forEach(function(r){sh.deleteRow(r);});report.push(name+': removed '+del.length+' duplicates');}
+  });
+  SpreadsheetApp.getUi().alert('✅ Clean เสร็จ!\n\n'+(report.length?report.join('\n'):'ไม่พบ duplicate'));
+}</div>
+          <button onclick="helpCopyCode()" class="help-copy-btn">📋 Copy Code</button>
+        </div>
+      </div>
+
+      <!-- ══ TAB 2: Deploy & Connect ══ -->
+      <div id="hpanel2" style="display:none;">
+        <div class="help-section-title">🚀 Deploy Apps Script เป็น Web App</div>
+        <div class="help-steps">
+          <div class="help-step">
+            <div class="help-step-num" style="background:var(--accent-dim);color:var(--accent);">1</div>
+            <div class="help-step-body">
+              <div class="help-step-title">เปิด Google Sheet และ Apps Script</div>
+              <div class="help-step-desc">ไปที่ <a href="https://sheets.new" target="_blank" style="color:var(--teal);">sheets.new</a> สร้าง Sheet ใหม่ → เมนู <span class="help-badge">Extensions</span> → <span class="help-badge">Apps Script</span> → หน้าต่าง Editor จะเปิดขึ้น</div>
+              <div class="help-img-placeholder">📸 Extensions → Apps Script</div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num" style="background:rgba(168,85,247,.15);color:var(--purple);">2</div>
+            <div class="help-step-body">
+              <div class="help-step-title">วาง Code และ Run setupSheets()</div>
+              <div class="help-step-desc">ลบ code เดิมทั้งหมดออก → วาง code จากแท็บ <b>📋 Apps Script</b> → กด <span class="help-badge" style="background:var(--green-dim);color:var(--green);">▶ Run</span> (เลือก function: <code>setupSheets</code>) → อนุญาต Permission → รอ Alert "✅ TradeLog Pro+ v5.0 พร้อม!"</div>
+              <div class="help-img-placeholder">📸 วาง Code → Run setupSheets</div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num" style="background:rgba(34,211,238,.12);color:var(--teal);">3</div>
+            <div class="help-step-body">
+              <div class="help-step-title">Deploy เป็น Web App</div>
+              <div class="help-step-desc">กด <span class="help-badge">Deploy</span> (มุมขวาบน) → <span class="help-badge">New deployment</span> → เลือก Type: <b>Web App</b><br>ตั้งค่าดังนี้:</div>
+              <div class="help-deploy-box">
+                <div class="help-deploy-row"><span class="help-deploy-label">Execute as:</span><span class="help-deploy-val" style="color:var(--green);">✅ Me (your Google account)</span></div>
+                <div class="help-deploy-row"><span class="help-deploy-label">Who has access:</span><span class="help-deploy-val" style="color:var(--green);">✅ Anyone</span></div>
+              </div>
+              <div class="help-img-placeholder">📸 Deploy → New Deployment → Web App</div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num" style="background:var(--green-dim);color:var(--green);">4</div>
+            <div class="help-step-body">
+              <div class="help-step-title">Copy URL → วางใน TradeLog Pro+</div>
+              <div class="help-step-desc">หลัง Deploy สำเร็จ จะได้ URL รูปแบบ:<br><code style="font-size:10px;color:var(--teal);">https://script.google.com/macros/s/AKfycb.../exec</code><br>Copy URL นี้ → กลับมาที่ TradeLog Pro+ → เมนู ☰ → <span class="help-badge">🔗 Google Sheet URL</span> → วาง URL → กด <span class="help-badge" style="background:var(--green-dim);color:var(--green);">💾 Save & Test</span></div>
+              <div class="help-img-placeholder">📸 Copy Deployment URL</div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num" style="background:var(--amber-dim);color:var(--amber);">5</div>
+            <div class="help-step-body">
+              <div class="help-step-title">ตรวจสอบการเชื่อมต่อ</div>
+              <div class="help-step-desc">หลังกด Save & Test จะเห็น Status Dot เปลี่ยนเป็น <span style="color:var(--green);">🟢 เชื่อมต่อแล้ว</span> ที่ Topbar มุมขวา หากเป็นสีแดง ให้ตรวจสอบขั้นตอนที่ 3 (Execute as / Who has access)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="help-section-title" style="margin-top:20px;">⚠️ ข้อควรระวัง</div>
+        <div class="help-warn-box">
+          <div class="help-warn-row">🔄 <b>ทุกครั้งที่แก้ไข Code</b> ต้อง Deploy ใหม่ เลือก "New Deployment" หรือ "Deploy &gt; Manage deployments &gt; Edit" เพื่ออัปเดต</div>
+          <div class="help-warn-row">🔑 <b>ถ้า Access เปลี่ยน</b> จาก Anyone → ระบบจะ error — ตรวจสอบ Deployment settings ใน Apps Script</div>
+          <div class="help-warn-row">⏱️ <b>Quota limit</b>: Google Apps Script มี quota ฟรี 20,000 request/วัน เพียงพอสำหรับการใช้งานปกติ</div>
+          <div class="help-warn-row">🛡️ <b>ความปลอดภัย</b>: ข้อมูลอยู่ใน Google Sheet ของคุณเท่านั้น TradeLog Pro+ ไม่เก็บข้อมูลบน server ใดๆ</div>
+        </div>
+      </div>
+
+      <!-- ══ TAB 3: Data Mode ══ -->
+      <div id="hpanel3" style="display:none;">
+        <div class="help-section-title">🗂️ Data Mode คืออะไร?</div>
+        <div class="help-info-box" style="border-color:var(--purple);background:rgba(168,85,247,.06);">
+          Data Mode คือโหมดวิเคราะห์ <b>Setup/Strategy</b> แบบ Backtesting-style — บันทึก trade โดยไม่ผูกกับ Portfolio หรือ Capital จริง เหมาะสำหรับ <b>หา Edge, ทดสอบ Setup, วิเคราะห์ Win Rate ตาม Session/เวลา/Candle Pattern</b>
+        </div>
+
+        <div class="help-section-title" style="margin-top:16px;">📊 Field ใน Data Mode</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px;">
+          <div class="help-field-card"><span class="help-field-name">Day</span><span class="help-field-desc">วันในสัปดาห์ (Mon–Sun)</span></div>
+          <div class="help-field-card"><span class="help-field-name">Session</span><span class="help-field-desc">Sydney / Tokyo / London / NY</span></div>
+          <div class="help-field-card"><span class="help-field-name">Entry Time</span><span class="help-field-desc">เวลาเข้า (HH:MM) — filter ได้ตามช่วง</span></div>
+          <div class="help-field-card"><span class="help-field-name">Code</span><span class="help-field-desc">ชื่อ Setup เช่น MSS, OB, FVG</span></div>
+          <div class="help-field-card"><span class="help-field-name">Mode</span><span class="help-field-desc">Trend / Range / Reversal</span></div>
+          <div class="help-field-card"><span class="help-field-name">TF</span><span class="help-field-desc">Timeframe ที่ใช้ (M1, M5, H1 …)</span></div>
+          <div class="help-field-card"><span class="help-field-name">Class</span><span class="help-field-desc">A+ / A / B / C — คุณภาพ Setup</span></div>
+          <div class="help-field-card"><span class="help-field-name">Candle/Model</span><span class="help-field-desc">รูปแบบ Candle Pattern</span></div>
+          <div class="help-field-card"><span class="help-field-name">MaxRR</span><span class="help-field-desc">Max Risk:Reward ที่ทำได้</span></div>
+          <div class="help-field-card"><span class="help-field-name">Result</span><span class="help-field-desc">Win / Loss / BE / Miss</span></div>
+          <div class="help-field-card"><span class="help-field-name">Trend / Zone / Confirm</span><span class="help-field-desc">บริบทตลาดและการยืนยัน</span></div>
+          <div class="help-field-card"><span class="help-field-name">Duration</span><span class="help-field-desc">เวลาที่ใช้ใน trade (นาที)</span></div>
+        </div>
+
+        <div class="help-section-title">🔍 การใช้ Filter</div>
+        <div class="help-steps">
+          <div class="help-step">
+            <div class="help-step-num" style="background:var(--accent-dim);color:var(--accent);">💡</div>
+            <div class="help-step-body">
+              <div class="help-step-title">Filter แบบ Multi-dimension</div>
+              <div class="help-step-desc">เลือก Filter หลายตัวพร้อมกันได้ เช่น <b>Session = London + Code = MSS + Result = Win</b> → จะได้ Stats เฉพาะ Setup นั้น ใช้หา "เวลาทองคำ" ของ Setup ตัวเอง</div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num" style="background:rgba(168,85,247,.15);color:var(--purple);">💡</div>
+            <div class="help-step-body">
+              <div class="help-step-title">Entry Time Filter</div>
+              <div class="help-step-desc">Filter ตามช่วงเวลา เช่น <b>06:00–08:59</b> (Pre-London) / <b>09:00–11:59</b> (London Open) ช่วยหาว่า Setup ทำกำไรดีในเวลาไหน</div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num" style="background:rgba(34,211,238,.12);color:var(--teal);">💡</div>
+            <div class="help-step-body">
+              <div class="help-step-title">Stats Bar อ่านยังไง</div>
+              <div class="help-step-desc">แถบด้านบนแสดง <b>Win Rate, Total, Avg RR, Max Drawdown, Profit Factor</b> และ <b>Avg Duration</b> — อัปเดต real-time ตาม Filter ที่เลือก</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="help-section-title" style="margin-top:16px;">📥 Import Data จากภายนอก</div>
+        <div class="help-info-box">
+          กดปุ่ม <span class="help-badge">📥 Import</span> ใน Data Mode → เลือก <b>Paste</b> (จาก Google Sheet / Excel) หรือ <b>CSV File</b> → กด Preview ตรวจสอบ → กด Import<br><br>
+          <b>Format ที่รองรับ:</b> CSV หรือ Tab-separated ที่มี Header: <code>Date, Day, Session, EntryTime, Code, Mode, TF, Result ...</code>
+        </div>
+      </div>
+
+      <!-- ══ TAB 4: AI Coach ══ -->
+      <div id="hpanel4" style="display:none;">
+        <div class="help-section-title">🤖 AI Coach คืออะไร?</div>
+        <div class="help-info-box" style="border-color:var(--green);background:var(--green-dim);">
+          AI Coach วิเคราะห์ข้อมูล Trade ของคุณและให้คำแนะนำเชิง <b>Psychology + Strategy</b> รองรับทั้ง <b>Gemini (Google)</b> และ <b>Groq (Llama 4)</b> — ใช้ฟรีด้วย API Key ของตัวเอง
+        </div>
+
+        <div class="help-section-title" style="margin-top:16px;">🔑 ขอ API Key</div>
+        <div class="help-steps">
+          <div class="help-step">
+            <div class="help-step-num" style="background:var(--accent-dim);color:var(--accent);">G</div>
+            <div class="help-step-body">
+              <div class="help-step-title">Gemini API Key (แนะนำ)</div>
+              <div class="help-step-desc">ไปที่ <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--teal);">aistudio.google.com/app/apikey</a> → กด <span class="help-badge">Create API Key</span> → Copy Key → ใส่ใน TradeLog Pro+ (เมนู ☰ → 🔑 Change AI Key)</div>
+            </div>
+          </div>
+          <div class="help-step">
+            <div class="help-step-num" style="background:rgba(245,166,35,.15);color:var(--amber);">Q</div>
+            <div class="help-step-body">
+              <div class="help-step-title">Groq API Key (สำรอง — เร็วมาก)</div>
+              <div class="help-step-desc">ไปที่ <a href="https://console.groq.com/keys" target="_blank" style="color:var(--teal);">console.groq.com/keys</a> → สร้าง API Key → ใส่ในช่อง Groq Key — ระบบจะ fallback มา Groq อัตโนมัติถ้า Gemini หมด quota</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="help-section-title" style="margin-top:16px;">💬 คำถามแนะนำสำหรับ AI Coach</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div class="help-ai-prompt" onclick="helpCopyPrompt(this)">📊 วิเคราะห์ Win Rate และ P&amp;L รายเดือนของฉัน</div>
+          <div class="help-ai-prompt" onclick="helpCopyPrompt(this)">📅 วันไหนในสัปดาห์ที่ฉันทำกำไรได้ดีที่สุด?</div>
+          <div class="help-ai-prompt" onclick="helpCopyPrompt(this)">🕐 Session ไหนเหมาะกับ Setup ของฉันมากที่สุด?</div>
+          <div class="help-ai-prompt" onclick="helpCopyPrompt(this)">🧠 วิเคราะห์ Emotion และ Discipline จากบันทึกของฉัน</div>
+          <div class="help-ai-prompt" onclick="helpCopyPrompt(this)">⚠️ จุดอ่อนที่ฉันควรแก้ไขเร่งด่วนที่สุดคืออะไร?</div>
+          <div class="help-ai-prompt" onclick="helpCopyPrompt(this)">✨ แนะนำ Best Setup จากข้อมูลทั้งหมดของฉัน</div>
+        </div>
+
+        <div class="help-section-title" style="margin-top:16px;">📍 วิธีใช้ AI ใน Data Mode</div>
+        <div class="help-info-box">
+          ใน Data Mode → กดปุ่ม <span class="help-badge" style="background:rgba(168,85,247,.15);color:var(--purple);">🤖 AI Analysis</span> → เลือก Quick Question หรือพิมพ์คำถามเอง → AI จะนำข้อมูล Data trades ทั้งหมดมาวิเคราะห์ให้
+        </div>
+      </div>
+
+      <!-- ══ TAB 5: FAQ ══ -->
+      <div id="hpanel5" style="display:none;">
+        <div class="help-section-title">❓ คำถามที่พบบ่อย</div>
+
+        <div class="help-faq-item">
+          <div class="help-faq-q" onclick="helpToggleFaq(this)">
+            <span>ข้อมูลหายหลัง refresh browser ทำยังไง?</span><span class="help-faq-arrow">▼</span>
+          </div>
+          <div class="help-faq-a">ข้อมูลถูกเก็บใน <b>localStorage</b> ของ Browser — ถ้าล้าง Cache / Incognito จะหาย วิธีแก้คือ (1) เชื่อม Google Sheet เพื่อ Sync อัตโนมัติ หรือ (2) กด <span class="help-badge">💾 Save to file</span> เมนู ☰ สม่ำเสมอเพื่อ backup ไฟล์ .json</div>
+        </div>
+
+        <div class="help-faq-item">
+          <div class="help-faq-q" onclick="helpToggleFaq(this)">
+            <span>เชื่อม Google Sheet แล้ว Status ยังเป็นสีแดง?</span><span class="help-faq-arrow">▼</span>
+          </div>
+          <div class="help-faq-a">ตรวจสอบ 3 จุด: (1) URL ถูกต้อง ขึ้นต้นด้วย <code>https://script.google.com/macros/s/</code> (2) Deploy settings ตั้งค่า <b>Execute as: Me</b> + <b>Anyone</b> (3) ถ้าแก้ Code ใหม่ต้อง Deploy ใหม่เสมอ — ไม่ใช่ Save แค่ใน Editor</div>
+        </div>
+
+        <div class="help-faq-item">
+          <div class="help-faq-q" onclick="helpToggleFaq(this)">
+            <span>มีหลาย Portfolio ได้ไหม? ข้อมูลแยกกันไหม?</span><span class="help-faq-arrow">▼</span>
+          </div>
+          <div class="help-faq-a">ได้ครับ — กด <span class="help-badge">+ พอร์ต</span> สร้างได้ไม่จำกัด แต่ละ Portfolio มี Balance / Trades / Sessions แยกกันอิสระ ใน Google Sheet จะแยกด้วย Column "Portfolio"</div>
+        </div>
+
+        <div class="help-faq-item">
+          <div class="help-faq-q" onclick="helpToggleFaq(this)">
+            <span>AI Coach ใช้ข้อมูลของฉันไปเก็บไหม?</span><span class="help-faq-arrow">▼</span>
+          </div>
+          <div class="help-faq-a">ไม่ — AI Coach ส่งข้อมูลตรงไปยัง Gemini / Groq API โดยใช้ Key ของคุณเอง TradeLog Pro+ ไม่มี Server กลาง ไม่เก็บข้อมูลใดๆ ทั้งสิ้น</div>
+        </div>
+
+        <div class="help-faq-item">
+          <div class="help-faq-q" onclick="helpToggleFaq(this)">
+            <span>Export ข้อมูลออกมาในรูปแบบอะไรได้บ้าง?</span><span class="help-faq-arrow">▼</span>
+          </div>
+          <div class="help-faq-a">รองรับ 3 รูปแบบ: (1) <b>JSON</b> — เมนู ☰ → 💾 Save to file (2) <b>CSV</b> — เมนู ☰ → 📊 Export CSV (3) <b>Google Sheet</b> — เชื่อมต่อแล้วข้อมูลจะ Sync ขึ้น Sheet อัตโนมัติ</div>
+        </div>
+
+        <div class="help-faq-item">
+          <div class="help-faq-q" onclick="helpToggleFaq(this)">
+            <span>ใช้บนมือถือได้ไหม?</span><span class="help-faq-arrow">▼</span>
+          </div>
+          <div class="help-faq-a">ได้ครับ — Responsive Design รองรับทุกหน้าจอ เปิดไฟล์ index.html บน Browser มือถือได้เลย แนะนำ Chrome หรือ Safari — บาง Feature เช่น File Import อาจมีข้อจำกัดบน iOS</div>
+        </div>
+
+        <div class="help-faq-item">
+          <div class="help-faq-q" onclick="helpToggleFaq(this)">
+            <span>Journal Mode กับ Data Mode ต่างกันยังไง?</span><span class="help-faq-arrow">▼</span>
+          </div>
+          <div class="help-faq-a"><b>Journal Mode</b>: บันทึก trade จริงที่เทรดแล้ว ผูกกับ Portfolio, Balance, Equity Curve — เน้น Track Record<br><b>Data Mode</b>: บันทึก Setup/Signal เพื่อวิเคราะห์เชิงสถิติ ไม่ผูกกับทุน — เน้น Strategy Research และหา Edge</div>
+        </div>
+
+        <div class="help-faq-item">
+          <div class="help-faq-q" onclick="helpToggleFaq(this)">
+            <span>Session Tag คืออะไร ตั้งค่าได้ไหม?</span><span class="help-faq-arrow">▼</span>
+          </div>
+          <div class="help-faq-a">Session Tag คือป้ายกำกับ เช่น Sydney, Tokyo, London, New York — กำหนดได้ใน Sidebar ซ้าย (กดแท็บ Session Tags) + กด <span class="help-badge">+ Add</span> เพิ่ม custom session ได้ ระบบจะ Auto-detect จากเวลา Entry ให้อัตโนมัติ</div>
+        </div>
+      </div>
+
+    </div><!-- end modal-body -->
+
+    <div style="padding:10px 17px;border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;background:var(--bg-secondary);border-radius:0 0 13px 13px;">
+      <span style="font-size:10px;color:var(--text-muted);">TradeLog Pro+ · ข้อมูลอยู่ใน Browser ของคุณ 100%</span>
+      <button class="btn-primary" onclick="closeM('mHelp')" style="padding:5px 18px;font-size:12px;">ปิด</button>
+    </div>
+  </div>
+</div>
+<!-- ═══ END HELP MODAL ═══ -->
+
 <!-- ═══ DATA AI ANALYSIS MODAL ═══ -->
 <!-- Hidden compat element for dtIncludePort references -->
 <input type="checkbox" id="dtIncludePort" style="display:none;">
@@ -9877,7 +10594,42 @@ if(document.readyState==='loading'){
 
 
 <script>
-// ── Main Equity Curve resize (Daily & Weekly) ──
+// ── Help Modal ──
+function openHelp(){ openM('mHelp'); helpTab(0); }
+function helpTab(n){
+  for(var i=0;i<6;i++){
+    var t=document.getElementById('htab'+i);
+    var p=document.getElementById('hpanel'+i);
+    if(t) t.classList.toggle('active',i===n);
+    if(p) p.style.display=i===n?'block':'none';
+  }
+}
+function helpCopyCode(){
+  var el=document.getElementById('helpCodeBlock');
+  var text=el.innerText||el.textContent;
+  navigator.clipboard.writeText(text).then(function(){
+    showToast('📋 Copy Code สำเร็จ! ไปวางใน Apps Script ได้เลย','success');
+  }).catch(function(){
+    var tmp=document.createElement('textarea');
+    tmp.value=text; document.body.appendChild(tmp); tmp.select();
+    document.execCommand('copy'); document.body.removeChild(tmp);
+    showToast('📋 Copy Code สำเร็จ!','success');
+  });
+}
+function helpCopyPrompt(el){
+  var text=el.innerText||el.textContent;
+  navigator.clipboard.writeText(text).then(function(){
+    showToast('📋 Copy คำถามแล้ว — ไปวางใน AI Coach ได้เลย','success');
+  }).catch(function(){});
+}
+function helpToggleFaq(el){
+  var ans=el.nextElementSibling;
+  var arrow=el.querySelector('.help-faq-arrow');
+  var isOpen=ans.style.display==='block';
+  ans.style.display=isOpen?'none':'block';
+  if(arrow) arrow.style.transform=isOpen?'':'rotate(180deg)';
+}
+
 (function(){
   var eqH = 120;
   var eqHW = 120;
@@ -9950,4 +10702,481 @@ document.addEventListener('mouseup', function(){
 });
 </script>
 </body>
+
+<!-- ═══ HELP & TUTORIALS MODAL ═══ -->
+<div id="mHelp" class="modal-backdrop">
+  <div class="modal modal-xl" style="max-height:92vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="flex-shrink:0;">
+      <div>
+        <div class="modal-title">❓ Help & Tutorials</div>
+        <div class="modal-subtitle">คู่มือการตั้งค่า Google Apps Script และการใช้งาน TradeLog Pro+</div>
+      </div>
+      <button class="modal-close" onclick="closeM('mHelp')">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:0;padding:0 17px;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;">
+      <button class="help-tab active" onclick="helpTab(this,'hOverview')" style="background:none;border:none;border-bottom:2px solid var(--accent);color:var(--text-primary);padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);white-space:nowrap;">🏠 ภาพรวม</button>
+      <button class="help-tab" onclick="helpTab(this,'hStep1')" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);white-space:nowrap;">① สร้าง Sheet</button>
+      <button class="help-tab" onclick="helpTab(this,'hStep2')" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);white-space:nowrap;">② Apps Script</button>
+      <button class="help-tab" onclick="helpTab(this,'hStep3')" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);white-space:nowrap;">③ Deploy</button>
+      <button class="help-tab" onclick="helpTab(this,'hStep4')" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);white-space:nowrap;">④ เชื่อมต่อ App</button>
+      <button class="help-tab" onclick="helpTab(this,'hTrouble')" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);white-space:nowrap;">🔧 แก้ปัญหา</button>
+      <button class="help-tab" onclick="helpTab(this,'hFaq')" style="background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);white-space:nowrap;">💬 FAQ</button>
+    </div>
+
+    <div class="modal-body" style="flex:1;overflow-y:auto;padding:20px;">
+
+      <!-- ─── TAB: ภาพรวม ─── -->
+      <div id="hOverview">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
+          <div style="background:var(--accent-dim);border:1px solid var(--accent);border-radius:10px;padding:14px 16px;">
+            <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:6px;">🎯 TradeLog Pro+ คืออะไร?</div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.7;">แอปบันทึกการเทรดแบบ Offline-first ที่เชื่อมต่อกับ Google Sheet ผ่าน Apps Script เพื่อ Backup ข้อมูลและ Sync ข้ามอุปกรณ์ได้</div>
+          </div>
+          <div style="background:var(--green-dim);border:1px solid var(--green);border-radius:10px;padding:14px 16px;">
+            <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:6px;">✅ ใช้งานได้ทันที</div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.7;">บันทึก Trade, Journal, Data Mode ได้เลยโดยไม่ต้องเชื่อม Sheet — ข้อมูลเก็บใน Browser localStorage อัตโนมัติ</div>
+          </div>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;">⚡ ขั้นตอนสั้นๆ ในการเชื่อม Google Sheet</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
+          <div onclick="helpGoto('hStep1')" style="display:flex;align-items:center;gap:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:11px 14px;cursor:pointer;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
+            <div><div style="font-size:12px;font-weight:600;color:var(--text-primary);">สร้าง Google Sheet ใหม่</div><div style="font-size:11px;color:var(--text-muted);">เปิด Google Drive → สร้าง Spreadsheet เปล่า → ตั้งชื่อ</div></div>
+            <div style="margin-left:auto;color:var(--text-muted);font-size:14px;">›</div>
+          </div>
+          <div onclick="helpGoto('hStep2')" style="display:flex;align-items:center;gap:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:11px 14px;cursor:pointer;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
+            <div><div style="font-size:12px;font-weight:600;color:var(--text-primary);">เปิด Apps Script และวางโค้ด</div><div style="font-size:11px;color:var(--text-muted);">Extensions → Apps Script → วางโค้ดจากแอป → รัน setupSheets()</div></div>
+            <div style="margin-left:auto;color:var(--text-muted);font-size:14px;">›</div>
+          </div>
+          <div onclick="helpGoto('hStep3')" style="display:flex;align-items:center;gap:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:11px 14px;cursor:pointer;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
+            <div><div style="font-size:12px;font-weight:600;color:var(--text-primary);">Deploy เป็น Web App</div><div style="font-size:11px;color:var(--text-muted);">Deploy → New Deployment → Web App → Execute as Me → Anyone</div></div>
+            <div style="margin-left:auto;color:var(--text-muted);font-size:14px;">›</div>
+          </div>
+          <div onclick="helpGoto('hStep4')" style="display:flex;align-items:center;gap:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:11px 14px;cursor:pointer;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">4</div>
+            <div><div style="font-size:12px;font-weight:600;color:var(--text-primary);">Copy URL → วางใน App</div><div style="font-size:11px;color:var(--text-muted);">Copy Web App URL → ⚙ → Google Sheet URL → Paste → Save & Test</div></div>
+            <div style="margin-left:auto;color:var(--text-muted);font-size:14px;">›</div>
+          </div>
+        </div>
+
+        <div style="background:var(--amber-dim);border:1px solid var(--amber);border-radius:8px;padding:12px 14px;">
+          <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:5px;">⚠️ ข้อควรรู้</div>
+          <ul style="font-size:11px;color:var(--text-secondary);line-height:2;padding-left:16px;margin:0;">
+            <li>ต้องใช้ Google Account — แนะนำ Chrome Browser</li>
+            <li>Apps Script ฟรีทั้งหมด ไม่มีค่าใช้จ่าย</li>
+            <li>Quota: 6 นาที/run, 90 นาที/วัน (เพียงพอสำหรับการใช้งานปกติ)</li>
+            <li>ข้อมูลเก็บใน Google Sheet ของคุณเอง — ผู้พัฒนาไม่มีสิทธิ์เข้าถึง</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ─── TAB: Step 1 สร้าง Sheet ─── -->
+      <div id="hStep1" style="display:none;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</div>
+          <div><div style="font-size:14px;font-weight:700;">สร้าง Google Sheet ใหม่</div><div style="font-size:11px;color:var(--text-muted);">ใช้เวลาประมาณ 1 นาที</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:13px 15px;">
+            <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px;">🌐 วิธีที่ 1 — เร็วที่สุด ผ่าน URL</div>
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><span style="font-size:12px;color:var(--text-secondary);">เปิด <code style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:var(--font-mono);font-size:11px;">sheets.new</code> ในแท็บใหม่ — Google Sheet เปล่าจะสร้างทันที</span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><span style="font-size:12px;color:var(--text-secondary);">คลิกชื่อ <strong>"Untitled spreadsheet"</strong> มุมบนซ้าย → พิมพ์ชื่อ เช่น <strong>TradeLog</strong> → กด Enter</span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><span style="font-size:12px;color:var(--text-secondary);">ไม่ต้องสร้าง Sheet หรือตั้งค่าเพิ่มเติม — Apps Script จะสร้าง Tab ทั้งหมดให้อัตโนมัติ</span></div>
+            </div>
+          </div>
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:13px 15px;">
+            <div style="font-size:11px;font-weight:700;color:var(--purple);letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px;">📂 วิธีที่ 2 — ผ่าน Google Drive</div>
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:rgba(168,85,247,.15);border:1px solid var(--purple);color:var(--purple);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><span style="font-size:12px;color:var(--text-secondary);">ไปที่ <code style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:var(--font-mono);font-size:11px;">drive.google.com</code> → ล็อกอิน Google Account</span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:rgba(168,85,247,.15);border:1px solid var(--purple);color:var(--purple);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><span style="font-size:12px;color:var(--text-secondary);">คลิก <strong>+ New</strong> (มุมบนซ้าย) → <strong>Google Sheets</strong> → <strong>Blank spreadsheet</strong></span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:rgba(168,85,247,.15);border:1px solid var(--purple);color:var(--purple);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><span style="font-size:12px;color:var(--text-secondary);">ตั้งชื่อ Spreadsheet ที่ต้องการ → พร้อมสำหรับขั้นตอนถัดไป</span></div>
+            </div>
+          </div>
+          <div style="background:var(--green-dim);border:1px solid var(--green);border-radius:8px;padding:11px 14px;display:flex;gap:10px;align-items:center;">
+            <span style="font-size:20px;">✅</span>
+            <div style="font-size:12px;color:var(--text-secondary);">เมื่อสร้าง Sheet แล้ว ไม่ต้องทำอะไรเพิ่มใน Sheet — ไปทำขั้นตอนต่อไปใน Apps Script ได้เลย</div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;">
+            <button onclick="helpGoto('hStep2')" style="background:var(--accent);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);">ถัดไป: Apps Script →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── TAB: Step 2 Apps Script ─── -->
+      <div id="hStep2" style="display:none;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</div>
+          <div><div style="font-size:14px;font-weight:700;">เปิด Apps Script และวางโค้ด</div><div style="font-size:11px;color:var(--text-muted);">ใช้เวลาประมาณ 2-3 นาที</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:13px 15px;">
+            <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px;">📂 เปิด Apps Script Editor</div>
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><span style="font-size:12px;color:var(--text-secondary);">ใน Google Sheet → คลิกเมนู <strong>Extensions</strong> ที่แถบเมนูบนสุด</span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><span style="font-size:12px;color:var(--text-secondary);">เลือก <strong>Apps Script</strong> → แท็บใหม่จะเปิดขึ้นมาพร้อม Code Editor</span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><span style="font-size:12px;color:var(--text-secondary);">จะเห็นโค้ดเริ่มต้น <code style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:var(--font-mono);font-size:11px;">function myFunction() {}</code> อยู่แล้ว</span></div>
+            </div>
+          </div>
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:13px 15px;">
+            <div style="font-size:11px;font-weight:700;color:var(--purple);letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px;">📋 วางโค้ดจากแอป</div>
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:rgba(168,85,247,.15);border:1px solid var(--purple);color:var(--purple);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><span style="font-size:12px;color:var(--text-secondary);">กลับมาที่ TradeLog App → คลิก <strong>⚙</strong> → <strong>Google Sheet URL</strong></span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:rgba(168,85,247,.15);border:1px solid var(--purple);color:var(--purple);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><span style="font-size:12px;color:var(--text-secondary);">คลิกปุ่ม <strong>"📋 Copy Script"</strong> เพื่อคัดลอกโค้ด Apps Script ทั้งหมด</span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:rgba(168,85,247,.15);border:1px solid var(--purple);color:var(--purple);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><span style="font-size:12px;color:var(--text-secondary);">กลับไป Apps Script Editor → กด <strong>Ctrl+A</strong> (เลือกทั้งหมด) → <strong>Ctrl+V</strong> วางทับ</span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:rgba(168,85,247,.15);border:1px solid var(--purple);color:var(--purple);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</span><span style="font-size:12px;color:var(--text-secondary);"><strong>บันทึก</strong> โดยกด <strong>Ctrl+S</strong> หรือคลิกไอคอน 💾 ในแถบ Toolbar</span></div>
+            </div>
+          </div>
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:13px 15px;">
+            <div style="font-size:11px;font-weight:700;color:var(--green);letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px;">▶️ รัน setupSheets() — ทำเพียงครั้งเดียว</div>
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:var(--green-dim);border:1px solid var(--green);color:var(--green);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><span style="font-size:12px;color:var(--text-secondary);">ที่แถบ Toolbar — คลิก Dropdown <strong>"Select function"</strong> → เลือก <strong>setupSheets</strong></span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:var(--green-dim);border:1px solid var(--green);color:var(--green);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><span style="font-size:12px;color:var(--text-secondary);">คลิกปุ่ม <strong>▶ Run</strong> → จะมี popup ขอสิทธิ์ → คลิก <strong>"Review permissions"</strong></span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:20px;height:20px;border-radius:50%;background:var(--green-dim);border:1px solid var(--green);color:var(--green);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><span style="font-size:12px;color:var(--text-secondary);">เลือก Google Account → กด <strong>"Allow"</strong> → รอจนเห็น <strong style="color:var(--green);">"Execution completed"</strong> ด้านล่าง</span></div>
+            </div>
+            <div style="background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.4);border-radius:6px;padding:9px 12px;margin-top:10px;">
+              <div style="font-size:11px;color:var(--text-secondary);line-height:1.8;">
+                <strong style="color:var(--purple);">⚠️ หากเห็น "This app isn't verified"</strong><br>
+                คลิก <strong>"Advanced"</strong> (มุมล่างซ้าย) → <strong>"Go to [ชื่อโปรเจกต์] (unsafe)"</strong> → กด <strong>Allow</strong><br>
+                <span style="color:var(--text-muted);">เป็นเรื่องปกติสำหรับ Script ส่วนตัวที่ยังไม่ได้ Publish ใน Google Marketplace</span>
+              </div>
+            </div>
+            <div style="background:var(--green-dim);border:1px solid var(--green);border-radius:6px;padding:9px 12px;margin-top:8px;">
+              <div style="font-size:11px;color:var(--text-secondary);">✅ หลัง setupSheets สำเร็จ — กลับไป Google Sheet จะเห็น Tab ใหม่:<br>
+              <span style="color:var(--green);font-family:var(--font-mono);font-weight:700;">Trades | DataTrades | Sessions | Summary | Assets | Journal | Log | DeletedPorts</span></div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <button onclick="helpGoto('hStep1')" style="background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);">← ย้อนกลับ</button>
+            <button onclick="helpGoto('hStep3')" style="background:var(--accent);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);">ถัดไป: Deploy →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── TAB: Step 3 Deploy ─── -->
+      <div id="hStep3" style="display:none;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</div>
+          <div><div style="font-size:14px;font-weight:700;">Deploy เป็น Web App</div><div style="font-size:11px;color:var(--text-muted);">ใช้เวลาประมาณ 1-2 นาที — ทำแค่ครั้งเดียว</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:13px 15px;">
+            <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.4px;text-transform:uppercase;margin-bottom:10px;">🚀 ขั้นตอน Deploy ทีละขั้น</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:22px;height:22px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><span style="font-size:12px;color:var(--text-secondary);">ใน Apps Script Editor → คลิกปุ่ม <strong style="color:var(--accent);">"Deploy"</strong> มุมบนขวา</span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:22px;height:22px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><span style="font-size:12px;color:var(--text-secondary);">เลือก <strong>"New deployment"</strong> จาก Dropdown</span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:22px;height:22px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><span style="font-size:12px;color:var(--text-secondary);">คลิกไอคอน <strong>⚙</strong> ข้าง "Select type" → เลือก <strong>"Web app"</strong></span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;">
+                <span style="min-width:22px;height:22px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">4</span>
+                <div style="font-size:12px;color:var(--text-secondary);">ตั้งค่าดังนี้:
+                  <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-top:6px;font-size:11px;line-height:2.2;">
+                    <div><span style="color:var(--text-muted);font-family:var(--font-mono);">Description:</span> <span style="color:var(--text-primary);">TradeLog Pro+ (หรืออะไรก็ได้)</span></div>
+                    <div><span style="color:var(--text-muted);font-family:var(--font-mono);">Execute as:</span> <span style="color:var(--green);font-weight:700;">Me (your.email@gmail.com)</span></div>
+                    <div><span style="color:var(--text-muted);font-family:var(--font-mono);">Who has access:</span> <span style="color:var(--green);font-weight:700;">Anyone</span> <span style="color:var(--amber);">← ⚠️ สำคัญมาก!</span></div>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:22px;height:22px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">5</span><span style="font-size:12px;color:var(--text-secondary);">คลิก <strong>"Deploy"</strong> → รอสักครู่ → จะเห็นหน้าต่าง <strong>Web app URL</strong></span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:22px;height:22px;border-radius:50%;background:var(--green-dim);border:1px solid var(--green);color:var(--green);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">6</span><span style="font-size:12px;color:var(--text-secondary);">คลิก <strong>"Copy"</strong> เพื่อคัดลอก URL ไปใช้ในขั้นตอนถัดไป</span></div>
+            </div>
+          </div>
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:13px 15px;">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px;">🔗 URL ที่ถูกต้องจะมีหน้าตาแบบนี้</div>
+            <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-family:var(--font-mono);font-size:10px;color:var(--teal);word-break:break-all;line-height:1.7;">
+              https://script.google.com/macros/s/<span style="color:var(--accent);">AKfycb...xxxxxxxx</span>/exec
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">⚠️ ต้องลงท้ายด้วย <code style="background:var(--bg-input);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-family:var(--font-mono);">/exec</code> เท่านั้น — ห้ามใช้ <code style="background:var(--bg-input);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-family:var(--font-mono);">/dev</code></div>
+          </div>
+          <div style="background:var(--amber-dim);border:1px solid var(--amber);border-radius:8px;padding:12px 14px;">
+            <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:6px;">🔄 เมื่อต้องการอัปเดตโค้ดในภายหลัง</div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.8;">
+              <strong>Deploy → Manage deployments → แก้รายการ → Version: New version → Deploy</strong><br>
+              <span style="color:var(--text-muted);font-size:11px;">URL เดิมยังใช้ได้เหมือนเดิม — ไม่ต้องเปลี่ยนใน App</span>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <button onclick="helpGoto('hStep2')" style="background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);">← ย้อนกลับ</button>
+            <button onclick="helpGoto('hStep4')" style="background:var(--accent);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);">ถัดไป: เชื่อมต่อ →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── TAB: Step 4 เชื่อมต่อ ─── -->
+      <div id="hStep4" style="display:none;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--green);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</div>
+          <div><div style="font-size:14px;font-weight:700;">เชื่อมต่อ App กับ Google Sheet</div><div style="font-size:11px;color:var(--text-muted);">ขั้นตอนสุดท้าย — ใช้เวลาไม่ถึง 1 นาที</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:13px 15px;">
+            <div style="font-size:11px;font-weight:700;color:var(--green);letter-spacing:.4px;text-transform:uppercase;margin-bottom:10px;">🔗 วาง URL ใน App</div>
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:22px;height:22px;border-radius:50%;background:var(--green-dim);border:1px solid var(--green);color:var(--green);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><span style="font-size:12px;color:var(--text-secondary);">ใน TradeLog App → คลิก <strong>⚙</strong> มุมบนขวา → <strong>"🔗 Google Sheet URL"</strong></span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:22px;height:22px;border-radius:50%;background:var(--green-dim);border:1px solid var(--green);color:var(--green);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><span style="font-size:12px;color:var(--text-secondary);">วาง <strong>Web App URL</strong> ที่ copy มาจาก Apps Script ลงในช่องกรอก URL</span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:22px;height:22px;border-radius:50%;background:var(--green-dim);border:1px solid var(--green);color:var(--green);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><span style="font-size:12px;color:var(--text-secondary);">คลิกปุ่ม <strong>"💾 Save & Test"</strong> — แอปจะทดสอบการเชื่อมต่อทันที</span></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="min-width:22px;height:22px;border-radius:50%;background:var(--green-dim);border:1px solid var(--green);color:var(--green);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</span><span style="font-size:12px;color:var(--text-secondary);">เชื่อมสำเร็จ → จะเห็น <span style="color:var(--green);font-weight:700;">● Connected</span> มุมบนขวาของ App</span></div>
+            </div>
+          </div>
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:13px 15px;">
+            <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px;">☁️ การ Sync ข้อมูล</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px 12px;">
+                <div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:5px;">🔼 Auto Push (App → Sheet)</div>
+                <div style="font-size:11px;color:var(--text-secondary);line-height:1.7;">บันทึก Trade / Journal ทุกครั้งจะ Push ขึ้น Google Sheet อัตโนมัติ</div>
+              </div>
+              <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px 12px;">
+                <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:5px;">🔽 Manual Pull (Sheet → App)</div>
+                <div style="font-size:11px;color:var(--text-secondary);line-height:1.7;">คลิก <strong>Sync</strong> หรือ Refresh หน้าเพื่อดึงข้อมูลจาก Sheet มาแสดง</div>
+              </div>
+            </div>
+          </div>
+          <div style="background:var(--green-dim);border:1px solid var(--green);border-radius:10px;padding:16px;text-align:center;">
+            <div style="font-size:24px;margin-bottom:6px;">🎉</div>
+            <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:4px;">เชื่อมต่อเสร็จสมบูรณ์!</div>
+            <div style="font-size:11px;color:var(--text-secondary);line-height:1.7;">ตอนนี้ข้อมูลทุกอย่างจะ Sync กับ Google Sheet โดยอัตโนมัติ<br>สามารถเปิด Sheet ดูข้อมูลได้ทุกเมื่อ หรือแชร์ให้คนอื่น View ได้</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <button onclick="helpGoto('hStep3')" style="background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);">← ย้อนกลับ</button>
+            <button onclick="helpGoto('hTrouble')" style="background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border);padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-main);">🔧 แก้ปัญหา →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── TAB: Troubleshoot ─── -->
+      <div id="hTrouble" style="display:none;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:14px;">🔧 การแก้ปัญหาที่พบบ่อย</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div onclick="helpToggle(this)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer;font-size:12px;font-weight:600;user-select:none;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='transparent'">
+              <span>❌ เชื่อมต่อแล้วขึ้น Error / "Failed to fetch"</span><span style="color:var(--text-muted);font-size:11px;">▼</span>
+            </div>
+            <div style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+              <ul style="font-size:11px;color:var(--text-secondary);line-height:2;padding-left:16px;margin-top:8px;">
+                <li>ตรวจสอบว่า URL ลงท้ายด้วย <code style="background:var(--bg-input);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-family:var(--font-mono);">/exec</code> ไม่ใช่ <code style="background:var(--bg-input);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-family:var(--font-mono);">/dev</code></li>
+                <li>ตรวจสอบว่าตั้ง <strong>"Who has access: Anyone"</strong> ตอน Deploy</li>
+                <li>ลอง Deploy ใหม่อีกครั้ง → <strong>New deployment</strong></li>
+                <li>ตรวจสอบว่า Google Account ยังล็อกอินอยู่และสิทธิ์ยังไม่หมด</li>
+              </ul>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div onclick="helpToggle(this)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer;font-size:12px;font-weight:600;user-select:none;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='transparent'">
+              <span>⚠️ หน้าต่าง "This app isn't verified" ปรากฏ</span><span style="color:var(--text-muted);font-size:11px;">▼</span>
+            </div>
+            <div style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+              <div style="font-size:11px;color:var(--text-secondary);line-height:1.9;margin-top:8px;">
+                เป็นเรื่องปกติสำหรับ Script ส่วนตัวที่ไม่ได้ Submit ให้ Google ตรวจสอบ<br>
+                <strong>วิธีแก้:</strong> คลิก <strong>"Advanced"</strong> → <strong>"Go to [Project Name] (unsafe)"</strong> → กด <strong>Allow</strong><br>
+                <span style="color:var(--text-muted);">Script ทำงานบน Google Account ของคุณเอง — ปลอดภัย 100%</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div onclick="helpToggle(this)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer;font-size:12px;font-weight:600;user-select:none;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='transparent'">
+              <span>🔄 ข้อมูลไม่ Sync หรือ Sync ช้ามาก</span><span style="color:var(--text-muted);font-size:11px;">▼</span>
+            </div>
+            <div style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+              <ul style="font-size:11px;color:var(--text-secondary);line-height:2;padding-left:16px;margin-top:8px;">
+                <li>Apps Script มี <strong>Cold Start</strong> — request แรกหลัง idle อาจช้า 3-10 วินาที ปกติ</li>
+                <li>ตรวจสอบ Internet Connection</li>
+                <li>ลอง Refresh หน้าแล้วกด Sync ใหม่</li>
+                <li>ตรวจ Quota: ใน Apps Script → <strong>View → Executions</strong></li>
+              </ul>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div onclick="helpToggle(this)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer;font-size:12px;font-weight:600;user-select:none;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='transparent'">
+              <span>📱 เปิดในมือถือแล้วเชื่อม Sheet ไม่ได้</span><span style="color:var(--text-muted);font-size:11px;">▼</span>
+            </div>
+            <div style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+              <div style="font-size:11px;color:var(--text-secondary);line-height:1.9;margin-top:8px;">
+                <strong>วิธีแก้:</strong> เปิด Chrome บนมือถือ → ล็อกอิน Google Account เดียวกันกับที่สร้าง Script → เปิด App ใหม่<br>
+                App ทำงาน Offline ได้เสมอ — ข้อมูลเก็บใน localStorage แม้ไม่มี Net
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div onclick="helpToggle(this)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer;font-size:12px;font-weight:600;user-select:none;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='transparent'">
+              <span>🗑️ มี Duplicate rows ใน Sheet</span><span style="color:var(--text-muted);font-size:11px;">▼</span>
+            </div>
+            <div style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+              <div style="font-size:11px;color:var(--text-secondary);line-height:1.9;margin-top:8px;">
+                ใน App → ⚙ → มีปุ่ม <strong>"🧹 Clean Duplicates"</strong><br>
+                หรือใน Apps Script Editor → รัน Function <code style="background:var(--bg-input);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-family:var(--font-mono);">cleanDuplicates()</code> โดยตรง
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div onclick="helpToggle(this)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer;font-size:12px;font-weight:600;user-select:none;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='transparent'">
+              <span>💾 ข้อมูลหายหลัง Clear Browser</span><span style="color:var(--text-muted);font-size:11px;">▼</span>
+            </div>
+            <div style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+              <div style="font-size:11px;color:var(--text-secondary);line-height:1.9;margin-top:8px;">
+                ข้อมูลใน Browser localStorage จะหายถ้า Clear Site Data<br>
+                <strong>ป้องกัน:</strong> เชื่อม Google Sheet ไว้เสมอ และใช้ <strong>💾 Save to file</strong> เป็น Backup เพิ่มเติม<br>
+                <strong>กู้คืน:</strong> กด <strong>📂 Load from file</strong> หรือ Sync จาก Sheet ที่เชื่อมไว้
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ─── TAB: FAQ ─── -->
+      <div id="hFaq" style="display:none;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:14px;">💬 คำถามที่พบบ่อย (FAQ)</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div onclick="helpToggle(this)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer;font-size:12px;font-weight:600;user-select:none;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='transparent'">
+              <span>🔐 ข้อมูลปลอดภัยไหม? ใครเห็นได้บ้าง?</span><span style="color:var(--text-muted);font-size:11px;">▼</span>
+            </div>
+            <div style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+              <div style="font-size:11px;color:var(--text-secondary);line-height:1.9;margin-top:8px;">
+                ข้อมูลทั้งหมดเก็บใน <strong>Browser ของคุณ</strong> และ <strong>Google Sheet ของคุณ</strong> เท่านั้น<br>
+                ผู้พัฒนาหรือบุคคลภายนอกไม่สามารถเข้าถึงข้อมูลได้<br>
+                Apps Script ทำงานบน Google Infrastructure ภายใต้ Google Account ของคุณ
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div onclick="helpToggle(this)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer;font-size:12px;font-weight:600;user-select:none;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='transparent'">
+              <span>💰 ใช้ Apps Script มีค่าใช้จ่ายไหม?</span><span style="color:var(--text-muted);font-size:11px;">▼</span>
+            </div>
+            <div style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+              <div style="font-size:11px;color:var(--text-secondary);line-height:1.9;margin-top:8px;">
+                <strong style="color:var(--green);">ฟรีทั้งหมด!</strong> Google Apps Script ฟรีพร้อม Google Account ทุก Account<br>
+                Quota ฟรี: Script runtime 6 นาที/ครั้ง · 90 นาที/วัน · URL Fetch 20,000 ครั้ง/วัน<br>
+                สำหรับการใช้งาน Trading Journal ปกติ Quota เหล่านี้เกินพอ
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div onclick="helpToggle(this)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer;font-size:12px;font-weight:600;user-select:none;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='transparent'">
+              <span>📊 Sheet มีกี่ Tab? แต่ละ Tab เก็บอะไร?</span><span style="color:var(--text-muted);font-size:11px;">▼</span>
+            </div>
+            <div style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+              <div style="margin-top:8px;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+                <div style="display:grid;grid-template-columns:auto 1fr;background:var(--bg-input);">
+                  <div style="padding:6px 12px;font-weight:700;font-size:10px;font-family:var(--font-mono);color:var(--accent);border-bottom:1px solid var(--border);border-right:1px solid var(--border);">Sheet Tab</div>
+                  <div style="padding:6px 12px;font-weight:700;font-size:10px;color:var(--text-muted);border-bottom:1px solid var(--border);">เก็บข้อมูล</div>
+                </div>
+                <div style="display:grid;grid-template-columns:auto 1fr;font-size:11px;">
+                  <div style="padding:6px 12px;font-family:var(--font-mono);color:var(--teal);border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;">Trades</div><div style="padding:6px 12px;color:var(--text-secondary);border-bottom:1px solid var(--border);">ออเดอร์ทั้งหมดจาก Journal Mode</div>
+                  <div style="padding:6px 12px;font-family:var(--font-mono);color:var(--teal);border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;">DataTrades</div><div style="padding:6px 12px;color:var(--text-secondary);border-bottom:1px solid var(--border);">ออเดอร์จาก Data Mode</div>
+                  <div style="padding:6px 12px;font-family:var(--font-mono);color:var(--teal);border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;">Sessions</div><div style="padding:6px 12px;color:var(--text-secondary);border-bottom:1px solid var(--border);">สรุปรายวัน (P&L, Win Rate, Comment)</div>
+                  <div style="padding:6px 12px;font-family:var(--font-mono);color:var(--teal);border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;">Summary</div><div style="padding:6px 12px;color:var(--text-secondary);border-bottom:1px solid var(--border);">สถิติภาพรวมของแต่ละ Portfolio</div>
+                  <div style="padding:6px 12px;font-family:var(--font-mono);color:var(--teal);border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;">Assets</div><div style="padding:6px 12px;color:var(--text-secondary);border-bottom:1px solid var(--border);">รายการ Asset ที่กำหนดเอง</div>
+                  <div style="padding:6px 12px;font-family:var(--font-mono);color:var(--teal);border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;">Journal</div><div style="padding:6px 12px;color:var(--text-secondary);border-bottom:1px solid var(--border);">Note of Day รายวัน</div>
+                  <div style="padding:6px 12px;font-family:var(--font-mono);color:var(--teal);border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;">Log</div><div style="padding:6px 12px;color:var(--text-secondary);border-bottom:1px solid var(--border);">Activity log ทุก action (สูงสุด 2000 rows)</div>
+                  <div style="padding:6px 12px;font-family:var(--font-mono);color:var(--teal);border-right:1px solid var(--border);white-space:nowrap;">DeletedPorts</div><div style="padding:6px 12px;color:var(--text-secondary);">Tombstone ป้องกัน Portfolio ที่ลบแล้วเด้งกลับ</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div onclick="helpToggle(this)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer;font-size:12px;font-weight:600;user-select:none;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='transparent'">
+              <span>🤖 AI Coach ใช้ API Key ของใคร?</span><span style="color:var(--text-muted);font-size:11px;">▼</span>
+            </div>
+            <div style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+              <div style="font-size:11px;color:var(--text-secondary);line-height:1.9;margin-top:8px;">
+                AI Coach ใช้ API Key ของคุณเอง — กรอกที่ ⚙ → <strong>"🔑 AI API Keys"</strong><br>
+                รองรับ: <strong>Gemini</strong> (มี Free tier), <strong>Groq</strong> (ฟรี), <strong>OpenAI</strong>, <strong>Anthropic</strong>, <strong>Ollama</strong> (Local)<br>
+                <span style="color:var(--green);">แนะนำ: <strong>Gemini Flash</strong> — ฟรี, Limit สูง, เหมาะกับ Trading Journal</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div onclick="helpToggle(this)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer;font-size:12px;font-weight:600;user-select:none;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='transparent'">
+              <span>📤 Export / Import CSV ทำอย่างไร?</span><span style="color:var(--text-muted);font-size:11px;">▼</span>
+            </div>
+            <div style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+              <div style="font-size:11px;color:var(--text-secondary);line-height:1.9;margin-top:8px;">
+                <strong>Export CSV:</strong> ⚙ → <strong>"📊 Export CSV"</strong> → ดาวน์โหลด .csv ของ Trade ทั้งหมด<br>
+                <strong>Import Exness / MT5:</strong> ⚙ → <strong>"📥 Import CSV"</strong> → เลือกไฟล์ History จาก Broker<br>
+                <strong>Import Topstep:</strong> ⚙ → <strong>"📥 Import from Topstep"</strong> → วาง CSV จาก Topstep Dashboard
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div onclick="helpToggle(this)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer;font-size:12px;font-weight:600;user-select:none;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='transparent'">
+              <span>🌙 Dark Mode / Light Mode สลับยังไง?</span><span style="color:var(--text-muted);font-size:11px;">▼</span>
+            </div>
+            <div style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+              <div style="font-size:11px;color:var(--text-secondary);line-height:1.9;margin-top:8px;">
+                คลิกไอคอน <strong>☀️ / 🌙</strong> ที่ Topbar มุมบนขวา<br>
+                App จะจำการตั้งค่าไว้ใน localStorage และใช้ Theme เดิมทุกครั้งที่เปิด
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div onclick="helpToggle(this)" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;cursor:pointer;font-size:12px;font-weight:600;user-select:none;" onmouseover="this.style.background='var(--bg-input)'" onmouseout="this.style.background='transparent'">
+              <span>📁 Multi-Portfolio ใช้งานยังไง?</span><span style="color:var(--text-muted);font-size:11px;">▼</span>
+            </div>
+            <div style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+              <div style="font-size:11px;color:var(--text-secondary);line-height:1.9;margin-top:8px;">
+                คลิก <strong>"+ พอร์ต"</strong> ที่ Portfolio Bar ด้านล่าง → ตั้งชื่อ → กด Add<br>
+                แต่ละ Portfolio มีข้อมูล Trade, Journal, และ Balance แยกกันอิสระ<br>
+                สลับ Portfolio โดยคลิกที่ Tab ด้านล่าง — ข้อมูลจะโหลดของ Portfolio นั้นทันที
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /modal-body -->
+  </div><!-- /modal -->
+</div><!-- /mHelp -->
+
+<script>
+function helpTab(el, id){
+  document.querySelectorAll('.help-tab').forEach(function(t){
+    t.style.borderBottom='2px solid transparent';
+    t.style.color='var(--text-muted)';
+  });
+  el.style.borderBottom='2px solid var(--accent)';
+  el.style.color='var(--text-primary)';
+  ['hOverview','hStep1','hStep2','hStep3','hStep4','hTrouble','hFaq'].forEach(function(p){
+    var e=document.getElementById(p);
+    if(e) e.style.display=(p===id)?'block':'none';
+  });
+  var mb=document.querySelector('#mHelp .modal-body');
+  if(mb) mb.scrollTop=0;
+}
+function helpGoto(id){
+  var order=['hOverview','hStep1','hStep2','hStep3','hStep4','hTrouble','hFaq'];
+  var tabs=document.querySelectorAll('.help-tab');
+  var idx=order.indexOf(id);
+  if(idx>=0 && tabs[idx]) helpTab(tabs[idx],id);
+}
+function helpToggle(header){
+  var content=header.nextElementSibling;
+  var arrow=header.querySelector('span:last-child');
+  if(content.style.display==='none'||content.style.display===''){
+    content.style.display='block';
+    if(arrow) arrow.textContent='▲';
+  } else {
+    content.style.display='none';
+    if(arrow) arrow.textContent='▼';
+  }
+}
+
 </html>
