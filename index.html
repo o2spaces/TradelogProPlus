@@ -6597,12 +6597,12 @@ function parseTopstepCSV(text){
     var parts=lines[i].split(',');
     var contractName=col(parts,'ContractName');
     if(!contractName){skipped++;continue;}
-    // Parse dates — format: "04/06/2026 08:51:17 +07:00" (DD/MM/YYYY)
+    // Parse dates — format: "04/14/2026 08:51:17 +07:00" (MM/DD/YYYY — Topstep US format)
     function parseTopstepDate(ds){
       if(!ds) return '';
-      // DD/MM/YYYY HH:MM:SS ±HH:MM
+      // MM/DD/YYYY HH:MM:SS ±HH:MM
       var m=ds.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}:\d{2})/);
-      if(m) return m[3]+'-'+m[2]+'-'+m[1]+'T'+m[4]; // YYYY-MM-DDTHH:MM (m[1]=DD, m[2]=MM)
+      if(m) return m[3]+'-'+m[1]+'-'+m[2]+'T'+m[4]; // YYYY-MM-DDTHH:MM (m[1]=MM, m[2]=DD)
       return '';
     }
     var enteredAt=parseTopstepDate(col(parts,'EnteredAt'));
