@@ -7908,38 +7908,23 @@ function dtSyncImportToSheet(trades){
   sendChunk(0);
 }
 
-// ── Filter helper ──
-function dtFiltered(){
+// ── Build raw source array based on _dtViewMode only (no filter dropdowns applied) ──
+// ใช้สำหรับ populate dropdown options — ป้องกัน Journal trades ไหลเข้า Data Mode
+function dtFiltered_raw(){
   dtLoad();
-  function gv(id){ return (document.getElementById(id)||{}).value||''; }
-  var fAsset=gv('dtfAsset');
-  var fResult=gv('dtfResult');
-  var fDay=gv('dtfDay');
-  var fSession=gv('dtfSession');
-  var fCode=gv('dtfCode');
-  var fMode=gv('dtfMode');
-  var fClass=gv('dtfClass');
-  var fModel=gv('dtfModel');
-  var fDur=parseFloat(gv('dtfDur'))||0;
-  var fEntryTime=gv('dtfEntryTime'); // เช่น "06:01-09:00"
   var src=[];
-  // Data trades
   if(_dtViewMode!=='port_only'){
     DT.trades.forEach(function(t){ src.push(Object.assign({},t,{_src:'data'})); });
   }
-  // Portfolio trades — FIX: อ่านจาก localStorage ของทุก portfolio ที่ tick ไว้
   if(_dtViewMode==='port_only'||_dtViewMode==='combined'){
-    // กำหนดว่าจะดึง portfolio ไหนบ้าง
     var portsToLoad=_dtSelectedPorts.length>0?_dtSelectedPorts:Object.keys(S.portfolios||{'default':{}});
     portsToLoad.forEach(function(pid){
       var portTrades={};
       try{ portTrades=JSON.parse(localStorage.getItem('port_'+pid+'_t')||'{}'); }catch(e){}
       Object.keys(portTrades).forEach(function(dk){
         (portTrades[dk]||[]).forEach(function(t){
-          // Map entryDate (portfolio field) → entryTime (data table field) for display
           var _et=t.entryTime||'';
           if(!_et&&t.entryDate){
-            // entryDate may be "HH:mm" or "yyyy-MM-dd HH:mm"
             var _em=String(t.entryDate).match(/[T ]\s*(\d{1,2}:\d{2})/)||String(t.entryDate).match(/^(\d{1,2}:\d{2})/);
             if(_em) _et=_em[1];
           }
@@ -7952,6 +7937,24 @@ function dtFiltered(){
       });
     });
   }
+  return src;
+}
+
+// ── Filter helper ──
+function dtFiltered(){
+  // FIX: ใช้ dtFiltered_raw() เป็น single source ตาม _dtViewMode เพื่อป้องกัน Journal trades ปน
+  function gv(id){ return (document.getElementById(id)||{}).value||''; }
+  var fAsset=gv('dtfAsset');
+  var fResult=gv('dtfResult');
+  var fDay=gv('dtfDay');
+  var fSession=gv('dtfSession');
+  var fCode=gv('dtfCode');
+  var fMode=gv('dtfMode');
+  var fClass=gv('dtfClass');
+  var fModel=gv('dtfModel');
+  var fDur=parseFloat(gv('dtfDur'))||0;
+  var fEntryTime=gv('dtfEntryTime');
+  var src=dtFiltered_raw();
   return src.filter(function(t){
     if(fAsset&&(t.asset||'')!==fAsset) return false;
     if(fResult){
@@ -8064,10 +8067,9 @@ function dtRender(){
   // Guard: block recursive calls from programmatic dropdown changes
   if(window._dtUpdatingOpts) return;
   dtLoad();
-  // ── Populate dropdown options (blocks onchange during rebuild) ──
-  var _allSrc=[];
-  if(DT.trades) DT.trades.forEach(function(t){_allSrc.push(t);});
-  Object.keys(S.trades||{}).forEach(function(dk){(S.trades[dk]||[]).forEach(function(t){_allSrc.push(t);});});
+  // ── Populate dropdown options from the same source as dtFiltered() ──
+  // FIX: ใช้ dtFiltered() เป็น source เดียวกัน แทนการดึง S.trades มาปน
+  var _allSrc=dtFiltered_raw(); // raw = ไม่กรอง filter dropdowns แต่ใช้ viewMode เดียวกัน
   dtUpdateFilterOpts(_allSrc.length?_allSrc:[]);
   // ── Filter directly from DOM — dropdowns are now populated and have correct values ──
   var rows=dtSortRows(dtFiltered());
