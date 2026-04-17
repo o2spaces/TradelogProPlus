@@ -670,6 +670,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
       <div style="font-size:15px;font-weight:600;color:var(--purple);display:flex;align-items:center;gap:8px;">🗃 Data Mode <span style="font-size:11px;font-weight:400;color:var(--text-muted);">เก็บข้อมูลแยกจากพอร์ต — รวมดูพอร์ตได้</span></div>
       <div style="display:flex;gap:7px;align-items:center;">
         <button class="btn-sm" onclick="dtConfirmClearAll()" style="border-color:var(--red);color:var(--red);">🗑 ลบทั้งหมด</button>
+        <button class="btn-sm" onclick="dtDeduplicateAll()" title="ลบรายการซ้ำออกอัตโนมัติ" style="border-color:var(--amber);color:var(--amber);">🧹 ลบซ้ำ</button>
         <button class="btn-sm" onclick="dtExportCSV()" style="border-color:var(--green);color:var(--green);">&#x1F4E4; Export CSV</button>
         <button class="btn-sm" onclick="dtOpenImport()" style="border-color:var(--teal);color:var(--teal);">&#x1F4E5; Import Sheet</button>
         <button class="btn-primary" onclick="dtOpenAdd()" style="background:var(--purple);gap:5px;">&#xFF0B; เพิ่ม Trade</button>
@@ -1386,6 +1387,7 @@ function doGet(e){
   if(p&amp;&amp;p.action==='loadAll')           return _json(loadAll());
   if(p&amp;&amp;p.action==='cleanDuplicates')   return _json(cleanDuplicates());
   if(p&amp;&amp;p.action==='clearAllDataTrades')  return _json(clearAllDataTrades(p));
+  if(p&amp;&amp;p.action==='deduplicateDataTrades') return _json(deduplicateDataTrades(p));
   return _json({status:'ready',version:'5.0',time:new Date().toISOString()});
 }
 function loadAll(){
@@ -1610,6 +1612,7 @@ function doPost(e){
     else if(d.action==='deleteDataTrade')    res=deleteDataTrade(d);
     else if(d.action==='batchSaveDataTrades')res=batchSaveDataTrades(d);
     else if(d.action==='clearAllDataTrades')   res=clearAllDataTrades(d);
+    else if(d.action==='deduplicateDataTrades') res=deduplicateDataTrades(d);
     else if(d.action==='saveNoteDay')         res=saveNoteDay(d);
     else res={status:'error',msg:'unknown action: '+d.action};
     return _json(res);
@@ -1708,6 +1711,32 @@ function batchSaveDataTrades(d){
   });
   _log('batchSaveDataTrades','count='+trades.length,d.portfolio||'data','data','ok');
   return {status:'ok',count:trades.length};
+}
+
+function deduplicateDataTrades(d){
+  // ── ล้าง duplicate rows ใน DataTrades sheet โดยใช้ key = date|entryTime|entry|asset ──
+  var sh=_sheet(SHEET.DATA_TRADES,HDR.DATA_TRADES);
+  var last=sh.getLastRow();
+  if(last&lt;=2) return {status:'ok',removed:0};
+  var data=sh.getRange(2,1,last-1,sh.getLastColumn()).getValues();
+  // col index (0-based): 0=ID, 1=Date, 6=Side, 7=EntryTime, 18=Entry, 5=Asset
+  var seenIds={};
+  var seenKeys={};
+  var rowsToDelete=[];
+  data.forEach(function(row,i){
+    var id=String(row[0]||'').trim();
+    var key=(row[1]||'')+'|'+(row[7]||'')+'|'+(row[18]||'')+'|'+(row[5]||'');
+    if((id&amp;&amp;seenIds[id])||seenKeys[key]){
+      rowsToDelete.push(i+2); // +2: 1-based + header row
+    } else {
+      if(id) seenIds[id]=true;
+      seenKeys[key]=true;
+    }
+  });
+  // ลบจากบนลงล่าง → ต้อง reverse เพื่อไม่ให้ index เลื่อน
+  rowsToDelete.reverse().forEach(function(r){ sh.deleteRow(r); });
+  _log('deduplicateDataTrades','removed='+rowsToDelete.length,d&amp;&amp;d.portfolio?d.portfolio:'data','data','ok');
+  return {status:'ok',removed:rowsToDelete.length};
 }
 
 function deleteDataTrade(d){
@@ -7165,6 +7194,38 @@ function dtLoad(){
 }
 function dtSave(){ localStorage.setItem('dt_trades',JSON.stringify(DT.trades)); }
 
+// ── ล้าง duplicate ที่อาจสะสมอยู่ใน dt_trades (localStorage + Google Sheet) ──
+function dtDeduplicateAll(){
+  dtLoad();
+  var seen={};var seenKeys={};var cleaned=[];var removed=0;
+  DT.trades.forEach(function(t){
+    var k=(t.date||'')+'|'+(t.entryTime||'')+'|'+(t.entry||'')+'|'+(t.asset||'');
+    var idKey=String(t._id||'');
+    if((idKey&&seen[idKey])||seenKeys[k]){ removed++; return; }
+    if(idKey) seen[idKey]=true;
+    seenKeys[k]=true;
+    cleaned.push(t);
+  });
+  DT.trades=cleaned;
+  dtSave();
+  dtRender();
+  // ── Sync ล้างซ้ำใน Google Sheet ด้วย (ถ้าเชื่อมต่อ) ──
+  if(S.scriptUrl){
+    fetch(S.scriptUrl,{
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'deduplicateDataTrades',portfolio:S.currentPortfolio})
+    }).then(function(){
+      showToast('🧹 ลบ '+removed+' ซ้ำ + Sync Sheet แล้ว','success');
+    }).catch(function(){
+      showToast('🧹 ลบ '+removed+' ซ้ำ (local) — Sheet sync ไม่ได้','error');
+    });
+  } else {
+    if(removed>0) showToast('🧹 ลบ '+removed+' รายการซ้ำออกแล้ว','success');
+    else showToast('✅ ไม่มีรายการซ้ำ','success');
+  }
+}
+
 // ── Contract point values for auto-calc ──
 var DT_CONTRACT={
   'MNQ1':{pts:2},'NQ1':{pts:20},'MGC1':{pts:10},'GC1':{pts:100},
@@ -7815,8 +7876,10 @@ function dtParseSheetData(raw){
       pnlVal=rawPnl?parseFloat(rawPnl)||0:0;
     }
 
+    // ── Deterministic _id: ป้องกัน import ซ้ำสร้าง ID ใหม่ทุกครั้ง ──
+    var _detId='imp_'+dateOnly+'_'+(entryTime||'')+'_'+(entry||'')+'_'+(g(row,'asset')||'')+'_'+i;
     trades.push({
-      _id:Date.now()+'_'+Math.random()+'_'+i,
+      _id:_detId,
       date:dateOnly,
       day:day||DT_DAYS[new Date(dateOnly).getDay()],
       session:g(row,'session'),
@@ -7862,13 +7925,29 @@ function dtConfirmImport(){
   var trades=dtParseSheetData(raw);
   if(!trades||!trades.length){showToast('ไม่พบข้อมูล — ตรวจสอบ Header และ Separator (Tab หรือ comma)','error');return;}
   dtLoad();
-  trades.forEach(function(t){DT.trades.push(t);});
+  // ── Dedup: ตรวจทั้ง _id และ key (date|entryTime|entry|asset) ป้องกัน import ซ้ำ ──
+  var existingIds={};
+  var existingKeys={};
+  DT.trades.forEach(function(t){
+    if(t._id) existingIds[String(t._id)]=true;
+    var k=(t.date||'')+'|'+(t.entryTime||'')+'|'+(t.entry||'')+'|'+(t.asset||'');
+    existingKeys[k]=true;
+  });
+  var added=0, skipped=0;
+  trades.forEach(function(t){
+    var k=(t.date||'')+'|'+(t.entryTime||'')+'|'+(t.entry||'')+'|'+(t.asset||'');
+    if(existingIds[String(t._id)]||existingKeys[k]){ skipped++; return; }
+    existingIds[String(t._id)]=true;
+    existingKeys[k]=true;
+    DT.trades.push(t);
+    added++;
+  });
   DT.trades.sort(function(a,b){return (a.date+(a.entryTime||''))<(b.date+(b.entryTime||''))?-1:1;});
   dtSave();
   closeM('mImportSheet');
   if(!_dtPanelOpen) dtToggleDataPanel();
   dtRender();
-  showToast('✅ Import '+trades.length+' trades สำเร็จ (บันทึก local แล้ว)','success');
+  showToast('✅ Import '+added+' trades'+(skipped?' (ข้าม '+skipped+' ซ้ำ)':'')+' สำเร็จ','success');
   // ── Sync imported trades to Google Sheet ──
   dtSyncImportToSheet(trades);
 }
