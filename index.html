@@ -2400,7 +2400,7 @@ var COMM={NQ1:1.00,GC1:1.00,MNQ1:0.50,MGC1:0.50,'XAU/USD':0,EURUSD:0,GBPUSD:0,US
 var TICK_SIZE={MNQ1:0.25,NQ1:0.25,MGC1:0.1,GC1:0.1,'XAU/USD':0.01,EURUSD:0.00001,GBPUSD:0.00001,USDJPY:0.001,BTCUSD:1};
 var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 var MABBR=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-var S={sessions:{},trades:{},scriptUrl:'',keys:{mGem:'gemini-2.5-flash-preview-05-20',mGroq:'llama-4-scout-17b-16e-instruct'},prov:'gemini',provBackup:'groq',viewMonth:new Date(),viewYear:new Date().getFullYear(),emo:'😡',side:'Long',mKey:'',mTrades:[],upB64:null,eqChart:null,eqChartW:null,currentPortfolio:'default',portfolios:{}};
+var S={sessions:{},trades:{},scriptUrl:'',keys:{mGem:'gemini-2.5-flash-preview-05-20',mGroq:'llama-4-scout-17b-16e-instruct'},prov:'gemini',provBackup:'groq',viewMonth:new Date(),viewYear:new Date().getFullYear(),emo:'😡',side:'Long',mKey:'',mTrades:[],upB64:null,eqChart:null,eqChartW:null,currentPortfolio:'default',portfolios:{},journal:{}};
 
 // ── สั่ง GAS ล้าง duplicate rows ใน Sheet ──
 function cleanSheetDuplicates(){
@@ -2893,9 +2893,9 @@ function syncFromSheet(onDone){
       if(d.journal && d.journal.length){
         d.journal.forEach(function(j){
           if(j.date && j.noteHTML){
-            var key='tj_noteday_'+(j.portfolio||'default')+'_'+j.date;
-            // ใช้ข้อมูลจาก Sheet ถ้า localStorage ว่างอยู่ หรือ Sheet ใหม่กว่า (overwrite เสมอ)
-            localStorage.setItem(key, j.noteHTML);
+            var jKey=(j.portfolio||'default')+'_'+j.date;
+            // เก็บใน memory (S.journal) เท่านั้น — ไม่แตะ localStorage เพื่อประหยัดพื้นที่
+            S.journal[jKey]=j.noteHTML;
           }
         });
       }
@@ -6981,19 +6981,18 @@ var ND_EMOJI_KEYS=Object.keys(ND_EMOJI);
 
 function ndStorageKey(){ return 'tj_noteday_'+S.currentPortfolio+'_'+S.mKey; }
 
+function ndJournalKey(){ return S.currentPortfolio+'_'+S.mKey; }
+
 function ndLoadContent(){
   var editor=document.getElementById('noteDayEditor');
   if(!editor) return;
   if(_isReadOnly){
-    // Read-only: load from shared session data instead of localStorage
-    var key=ndStorageKey();
-    var dayData=S.sessions&&S.sessions[key];
-    var html=(dayData&&dayData.noteDay)||'';
+    var dayData=S.sessions&&S.sessions[ndStorageKey()];
+    var html=(dayData&&dayData.noteDay)||S.journal[ndJournalKey()]||'';
     editor.innerHTML=html||'<div style="color:var(--text-muted);font-style:italic;font-size:12px;padding:8px 0;">ไม่มี Note of Day สำหรับวันนี้</div>';
     editor.contentEditable='false';
     editor.style.cursor='default';
     editor.style.opacity='0.85';
-    // Hide toolbar and action buttons
     var toolbar=document.getElementById('ndToolbar');
     if(toolbar) toolbar.style.display='none';
     var footer=document.getElementById('ndFooter');
@@ -7001,50 +7000,110 @@ function ndLoadContent(){
     ndBindImgZoom(editor);
     return;
   }
-  var saved=localStorage.getItem(ndStorageKey());
-  editor.innerHTML = saved || '';
+
+  var html='';
+  if(S.scriptUrl){
+    // Sheet connected → ใช้ S.journal (memory จาก loadAll) เป็นหลัก
+    html=S.journal[ndJournalKey()]||'';
+  } else {
+    // ไม่มี Sheet → fallback localStorage
+    html=localStorage.getItem(ndStorageKey())||'';
+  }
+  editor.innerHTML=html;
   editor.contentEditable='true';
   ndBindImgZoom(editor);
   ndCloseEmoji();
   var lbl=document.getElementById('ndAutoSaveLabel');
-  if(lbl) lbl.textContent='';
+  if(lbl) lbl.textContent=S.scriptUrl?'📡 Sheet':'💾 Local';
   setTimeout(function(){
     editor.focus();
     try{var r=document.createRange();r.selectNodeContents(editor);r.collapse(false);var s=window.getSelection();s.removeAllRanges();s.addRange(r);}catch(e){}
   },50);
 }
 
+// ── บีบรูปใน editor ด้วย canvas (async, callback เมื่อเสร็จ) ──
+function _ndRecompressInPlace(editor, maxDim, quality, cb){
+  var imgs=Array.from(editor.querySelectorAll('img[src^="data:image/"]'));
+  if(!imgs.length){ cb(); return; }
+  var i=0;
+  (function next(){
+    if(i>=imgs.length){ cb(); return; }
+    var img=imgs[i++];
+    var tmp=new Image();
+    tmp.onload=function(){
+      var w=tmp.width,h=tmp.height;
+      var r=Math.min(maxDim/w,maxDim/h);
+      if(r<1){w=Math.round(w*r);h=Math.round(h*r);}
+      var cv=document.createElement('canvas');
+      cv.width=w;cv.height=h;
+      var ctx=cv.getContext('2d');
+      ctx.fillStyle='#1a1e2a';ctx.fillRect(0,0,w,h);
+      ctx.drawImage(tmp,0,0,w,h);
+      img.src=cv.toDataURL('image/jpeg',quality);
+      next();
+    };
+    tmp.onerror=function(){next();};
+    tmp.src=img.src;
+  })();
+}
+
+function _ndCommit(editor, label){
+  // อัปเดต memory เสมอ
+  S.journal[ndJournalKey()]=editor.innerHTML;
+  // ถ้าไม่มี Sheet → fallback localStorage (ไม่มีรูป base64 ขนาดใหญ่เพราะบีบแล้ว)
+  if(!S.scriptUrl){
+    try{ localStorage.setItem(ndStorageKey(), editor.innerHTML); }catch(e){}
+  } else {
+    // มี Sheet → ส่งไป Sheet, ลบ localStorage key เก่าทิ้งเลย (ไม่ต้องเก็บ local)
+    localStorage.removeItem(ndStorageKey());
+    var plain=editor.innerText||editor.textContent||'';
+    sendSheet('saveNoteDay',{date:S.mKey,noteHTML:editor.innerHTML,notePlain:plain.substring(0,5000)});
+  }
+  var lbl=document.getElementById('ndAutoSaveLabel');
+  if(lbl){ var now=new Date(); lbl.textContent=(label||'บันทึกแล้ว')+' '+pad(now.getHours())+':'+pad(now.getMinutes()); }
+}
+
 function ndSave(){
   if(_isReadOnly){showToast('🔒 โหมดดูเท่านั้น — ไม่สามารถแก้ไขได้','error');return;}
   var editor=document.getElementById('noteDayEditor');
   if(!editor) return;
-  try {
-    localStorage.setItem(ndStorageKey(), editor.innerHTML);
-  } catch(storageErr) {
-    // QuotaExceededError — usually caused by large base64 images
-    showToast('⚠️ รูปภาพใหญ่เกินไป — localStorage เต็ม\nลองลดขนาดรูปหรือลบรูปที่ไม่ต้องการออกก่อนบันทึก','error');
-    return;
+
+  if(S.scriptUrl){
+    // ── Sheet mode: บันทึกใน memory + ส่งไป Sheet ทันที ──
+    _ndCommit(editor,'📡 Sheet');
+    showToast('📓 บันทึก Note of Day → Sheet แล้ว','success');
+  } else {
+    // ── Local mode: บีบรูปถ้าจำเป็นแล้วบันทึก localStorage ──
+    try{
+      localStorage.setItem(ndStorageKey(), editor.innerHTML);
+      S.journal[ndJournalKey()]=editor.innerHTML;
+      var lbl=document.getElementById('ndAutoSaveLabel');
+      if(lbl){ var now=new Date(); lbl.textContent='💾 Local '+pad(now.getHours())+':'+pad(now.getMinutes()); }
+      showToast('📓 บันทึก Note of Day แล้ว','success');
+    } catch(storageErr){
+      showToast('⏳ พื้นที่เต็ม กำลังบีบรูปอัตโนมัติ...','info');
+      _ndRecompressInPlace(editor,960,0.65,function(){
+        try{
+          localStorage.setItem(ndStorageKey(),editor.innerHTML);
+          S.journal[ndJournalKey()]=editor.innerHTML;
+          showToast('📓 บันทึกแล้ว (บีบรูปเพิ่ม)','success');
+        }catch(e){
+          showToast('❌ LocalStorage เต็ม — กรุณาเชื่อมต่อ Google Sheet เพื่อเก็บโน้ตในระยะยาว','error');
+        }
+      });
+    }
   }
-  var lbl=document.getElementById('ndAutoSaveLabel');
-  if(lbl){ var now=new Date(); lbl.textContent='บันทึกแล้ว '+pad(now.getHours())+':'+pad(now.getMinutes()); }
-  // sync to Google Sheet Journal
-  if(S.scriptUrl && S.mKey){
-    var plain=editor.innerText||editor.textContent||'';
-    sendSheet('saveNoteDay',{date:S.mKey,noteHTML:editor.innerHTML,notePlain:plain.substring(0,5000)});
-  }
-  showToast('📓 บันทึก Note of Day แล้ว'+(S.scriptUrl?' → Sheet':''),'success');
 }
 
 function ndAutoSave(){
   if(_isReadOnly) return;
   clearTimeout(_ndAutoSaveTimer);
+  // debounce 6 วิ — ไม่ส่ง Sheet ถี่เกินไป
   _ndAutoSaveTimer=setTimeout(function(){
     var editor=document.getElementById('noteDayEditor');
     if(!editor) return;
-    try { localStorage.setItem(ndStorageKey(), editor.innerHTML); } catch(e){ return; }
-    var lbl=document.getElementById('ndAutoSaveLabel');
-    if(lbl){ var now=new Date(); lbl.textContent='บันทึกอัตโนมัติ '+pad(now.getHours())+':'+pad(now.getMinutes()); }
-  },3000);
+    _ndCommit(editor, S.scriptUrl?'📡 Auto':'💾 Auto');
+  },6000);
 }
 
 function ndClear(){
