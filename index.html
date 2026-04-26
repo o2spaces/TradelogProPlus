@@ -1040,6 +1040,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
           <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor"><rect x="0" y="0" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="4" cy="4" r="1.5"/><path d="M0 9 L4 5.5 L7 8 L9.5 5.5 L13 9 L13 13 L0 13 Z"/></svg>
           รูป
         </button>
+        <button onmousedown="ndRecompressAll(event)" title="บีบรูปทุกรูปในโน้ตนี้ให้เล็กลง (max 1280px JPEG)" class="nd-btn" style="font-size:11px;gap:3px;color:var(--teal);border-color:rgba(34,211,238,.3);">&#x1F5DC; บีบรูป</button>
         <input type="file" id="ndImgFile" accept="image/*" style="display:none;" onchange="ndInsertImgFile(event)">
         <!-- Divider -->
         <div style="flex:1;"></div>
@@ -7165,6 +7166,46 @@ function ndOnKeyDown(e){
   if(e.key==='Tab'){ e.preventDefault(); document.execCommand('insertHTML',false,'&nbsp;&nbsp;&nbsp;&nbsp;'); }
 }
 
+// ── Image Compression ────────────────────────────────────────
+// ย่อรูปด้วย Canvas API ก่อนแทรก — รองรับทุก format
+// maxDim: ด้านยาวสูงสุด (px), quality: JPEG 0-1
+function ndCompressImg(file, callback, maxDim, quality){
+  maxDim  = maxDim  || 1280;
+  quality = quality || 0.82;
+  var origSize = file.size;
+  var r = new FileReader();
+  r.onload = function(ev){
+    var img = new Image();
+    img.onload = function(){
+      var w = img.width, h = img.height;
+      // Scale proportionally if larger than maxDim
+      if(w > maxDim || h > maxDim){
+        var ratio = Math.min(maxDim/w, maxDim/h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      // Fill dark bg (handles PNG transparency → JPEG)
+      ctx.fillStyle = '#1a1e2a';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      var dataUrl = canvas.toDataURL('image/jpeg', quality);
+      // Estimate compressed byte size from base64 length
+      var compSize = Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 0.75);
+      callback(dataUrl, {origSize:origSize, compSize:compSize, w:w, h:h});
+    };
+    img.onerror = function(){ // fallback: insert as-is if canvas fails
+      var fr2=new FileReader();
+      fr2.onload=function(e2){ callback(e2.target.result,{origSize:origSize,compSize:origSize,w:0,h:0}); };
+      fr2.readAsDataURL(file);
+    };
+    img.src = ev.target.result;
+  };
+  r.readAsDataURL(file);
+}
+
 // Image insert
 function ndInsertImgClick(e){ if(e)e.preventDefault(); document.getElementById('ndImgFile').click(); }
 function ndInsertImgFile(e){
@@ -7173,9 +7214,17 @@ function ndInsertImgFile(e){
   e.target.value='';
 }
 function ndInsertImgFromFile(file){
-  var r=new FileReader();
-  r.onload=function(ev){ ndInsertImgSrc(ev.target.result); };
-  r.readAsDataURL(file);
+  ndCompressImg(file, function(src, info){
+    ndInsertImgSrc(src);
+    if(info.w > 0){
+      var origKB  = Math.round(info.origSize / 1024);
+      var compKB  = Math.round(info.compSize  / 1024);
+      var saved   = Math.max(0, Math.round((1 - info.compSize/info.origSize)*100));
+      var msg = '🖼 '+info.w+'×'+info.h+'px';
+      if(saved > 5) msg += '  '+origKB+'KB → '+compKB+'KB  (ย่อ '+saved+'%)';
+      showToast(msg,'success');
+    }
+  });
 }
 function ndInsertImgSrc(src){
   var editor=document.getElementById('noteDayEditor');
@@ -7201,6 +7250,56 @@ function ndBindImgZoom(editor){
     img.onclick=function(){ ndOpenOverlay(this.src); };
   });
 }
+// Re-compress all existing images in the current note
+function ndRecompressAll(e){
+  if(e) e.preventDefault();
+  var editor=document.getElementById('noteDayEditor');
+  if(!editor) return;
+  var imgs=editor.querySelectorAll('img');
+  if(!imgs.length){ showToast('ไม่มีรูปในโน้ตนี้','info'); return; }
+  showToast('⏳ กำลังบีบ '+imgs.length+' รูป...','info');
+  var idx=0;
+  var totalBefore=0, totalAfter=0;
+  function next(){
+    if(idx>=imgs.length){
+      var savedKB=Math.round((totalBefore-totalAfter)/1024);
+      showToast('✅ บีบ '+imgs.length+' รูปสำเร็จ  ประหยัด '+savedKB+' KB','success');
+      ndAutoSave();
+      return;
+    }
+    var img=imgs[idx++];
+    var src=img.src||'';
+    if(!src.startsWith('data:image/')){ next(); return; }
+    // Estimate before size
+    var beforeBytes=Math.round((src.length - src.indexOf(',')-1)*0.75);
+    totalBefore+=beforeBytes;
+    // Draw to canvas at 1280px max
+    var tempImg=new Image();
+    tempImg.onload=function(){
+      var w=tempImg.width, h=tempImg.height;
+      var maxDim=1280;
+      if(w>maxDim||h>maxDim){
+        var ratio=Math.min(maxDim/w,maxDim/h);
+        w=Math.round(w*ratio); h=Math.round(h*ratio);
+      }
+      var canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      var ctx=canvas.getContext('2d');
+      ctx.fillStyle='#1a1e2a';
+      ctx.fillRect(0,0,w,h);
+      ctx.drawImage(tempImg,0,0,w,h);
+      var newSrc=canvas.toDataURL('image/jpeg',0.82);
+      var afterBytes=Math.round((newSrc.length-newSrc.indexOf(',')-1)*0.75);
+      totalAfter+=afterBytes;
+      img.src=newSrc;
+      next();
+    };
+    tempImg.onerror=function(){ totalAfter+=beforeBytes; next(); };
+    tempImg.src=src;
+  }
+  next();
+}
+
 function ndOnDrop(e){
   e.preventDefault();
   var file=e.dataTransfer.files&&e.dataTransfer.files[0];
