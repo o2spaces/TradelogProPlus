@@ -1024,11 +1024,11 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator{filter:invert(0.
         <button onmousedown="ndCmd(event,'insertOrderedList')" title="Numbered list" class="nd-btn" style="font-size:10px;padding:0 5px;">1.</button>
         <div style="width:1px;height:20px;background:var(--border);flex-shrink:0;"></div>
         <!-- Color pickers -->
-        <label title="สีตัวอักษร" style="display:flex;align-items:center;gap:3px;cursor:pointer;height:26px;padding:0 5px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;transition:border-color .12s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <label title="สีตัวอักษร" onmousedown="ndSaveRange(event)" style="display:flex;align-items:center;gap:3px;cursor:pointer;height:26px;padding:0 5px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;transition:border-color .12s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
           <span style="font-size:11px;font-weight:700;color:var(--text-secondary);">A</span>
           <input type="color" id="ndTextColor" value="#e8eaf0" onchange="ndExec('foreColor',this.value)" style="width:16px;height:16px;padding:0;border:none;background:none;cursor:pointer;border-radius:2px;">
         </label>
-        <label title="ไฮไลท์พื้นหลัง" style="display:flex;align-items:center;gap:3px;cursor:pointer;height:26px;padding:0 5px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;transition:border-color .12s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <label title="ไฮไลท์พื้นหลัง" onmousedown="ndSaveRange(event)" style="display:flex;align-items:center;gap:3px;cursor:pointer;height:26px;padding:0 5px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;transition:border-color .12s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
           <span style="font-size:11px;color:var(--text-secondary);">bg</span>
           <input type="color" id="ndBgColor" value="#f5a623" onchange="ndExec('hiliteColor',this.value)" style="width:16px;height:16px;padding:0;border:none;background:none;cursor:pointer;border-radius:2px;">
         </label>
@@ -7017,7 +7017,13 @@ function ndSave(){
   if(_isReadOnly){showToast('🔒 โหมดดูเท่านั้น — ไม่สามารถแก้ไขได้','error');return;}
   var editor=document.getElementById('noteDayEditor');
   if(!editor) return;
-  localStorage.setItem(ndStorageKey(), editor.innerHTML);
+  try {
+    localStorage.setItem(ndStorageKey(), editor.innerHTML);
+  } catch(storageErr) {
+    // QuotaExceededError — usually caused by large base64 images
+    showToast('⚠️ รูปภาพใหญ่เกินไป — localStorage เต็ม\nลองลดขนาดรูปหรือลบรูปที่ไม่ต้องการออกก่อนบันทึก','error');
+    return;
+  }
   var lbl=document.getElementById('ndAutoSaveLabel');
   if(lbl){ var now=new Date(); lbl.textContent='บันทึกแล้ว '+pad(now.getHours())+':'+pad(now.getMinutes()); }
   // sync to Google Sheet Journal
@@ -7034,7 +7040,7 @@ function ndAutoSave(){
   _ndAutoSaveTimer=setTimeout(function(){
     var editor=document.getElementById('noteDayEditor');
     if(!editor) return;
-    localStorage.setItem(ndStorageKey(), editor.innerHTML);
+    try { localStorage.setItem(ndStorageKey(), editor.innerHTML); } catch(e){ return; }
     var lbl=document.getElementById('ndAutoSaveLabel');
     if(lbl){ var now=new Date(); lbl.textContent='บันทึกอัตโนมัติ '+pad(now.getHours())+':'+pad(now.getMinutes()); }
   },3000);
@@ -7060,9 +7066,21 @@ function ndCmd(e, cmd){
   document.execCommand(cmd, false, null);
 }
 
+function ndSaveRange(e){
+  // save current selection before color picker steals focus
+  var sel=window.getSelection();
+  if(sel&&sel.rangeCount) _ndSavedRange=sel.getRangeAt(0).cloneRange();
+}
 function ndExec(cmd, val){
   var editor=document.getElementById('noteDayEditor');
-  editor.focus();
+  // restore selection that was lost when color picker opened
+  if(_ndSavedRange){
+    editor.focus();
+    var sel=window.getSelection();sel.removeAllRanges();sel.addRange(_ndSavedRange);
+    _ndSavedRange=null;
+  } else {
+    editor.focus();
+  }
   document.execCommand(cmd, false, val||null);
 }
 
