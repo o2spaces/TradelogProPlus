@@ -9664,7 +9664,7 @@ function dtExportCSV(){
     return s.indexOf(',')>=0||s.indexOf('"')>=0||s.indexOf('\n')>=0?'"'+s.replace(/"/g,'""')+'"':s;
   }
   var h=['ID','Date','Day','Portfolio','Session','Asset','Side',
-         'Entry Time','Duration','Mode','Code','TF','Class','Candle',
+         'Entry Time','Duration','SetupDuration','Mode','Code','TF','Class','Candle',
          'Mitigated Zone','Zone','Confirm','Fibo Level',
          'Entry','TP','SL','Risk','Lots','P&L($)','Result','MaxRR',
          'Emotion','Discipline','Note','ImageLink','UpdatedAt'];
@@ -9674,7 +9674,7 @@ function dtExportCSV(){
       esc(t.id||t._id), esc(t.date), esc(t.day),
       esc(t.portfolio||'data'), esc(t.session),
       esc(t.asset), esc(t.side),
-      esc(t.entryTime), esc(t.duration),
+      esc(t.entryTime), esc(t.duration), esc(t.setupDuration||''),
       esc(t.mode), esc(t.code), esc(t.tf),
       esc(t.setupClass), esc(t.candle),
       esc(t.zoneMit), esc(t.zone), esc(t.confirm), esc(t.fiboLevel||''),
